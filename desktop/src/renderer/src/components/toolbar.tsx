@@ -2,6 +2,7 @@ import { Button, buttonVariants } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/utils'
 import { usePreviewCanvas } from '@renderer/context/preview-canvas-context'
 import type { Alignment } from '@renderer/context/preview-canvas-context'
+import { UrlBar } from '@renderer/components/url-bar'
 import { clampZoom } from '../../../shared/mockup-layout'
 import type { ThemePreference } from '../../../shared/types'
 import { AlignCenter, AlignLeft, AlignRight, Check, Link2, Link2Off, Monitor, Moon, Palette, Sun, ZoomIn } from 'lucide-react'
@@ -34,11 +35,25 @@ function readStoredThemePreference(): ThemePreference {
 }
 
 interface ToolbarProps {
+  url: string
+  pageTitle: string
+  faviconUrl: string | null
+  navigating: boolean
+  onUrlChange: (url: string) => void
+  onNavigate: (url: string) => void
+  onRefresh: () => void
   syncEnabled: boolean
   onSyncChange: (enabled: boolean) => void
 }
 
 export function Toolbar({
+  url,
+  pageTitle,
+  faviconUrl,
+  navigating,
+  onUrlChange,
+  onNavigate,
+  onRefresh,
   syncEnabled,
   onSyncChange
 }: ToolbarProps): React.JSX.Element {
@@ -76,114 +91,154 @@ export function Toolbar({
   }, [])
 
   return (
-    <div ref={toolbarRef} className="relative flex items-center gap-2">
-      {openPanel ? (
-        <div
-          className="absolute top-1/2 right-full z-50 mr-2 flex -translate-y-1/2 items-center gap-1 rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10"
-          data-testid="toolbar-custom-popover"
-        >
-          {openPanel === 'zoom' ? (
-            <div className="flex items-center gap-1">
-              <span className="px-1.5 text-xs font-medium text-muted-foreground">Zoom</span>
-              {ZOOM_OPTIONS.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  className={cn(
-                    buttonVariants({
-                      variant: option === zoomValue ? 'secondary' : 'ghost',
-                      size: 'xs'
-                    }),
-                    'min-w-10'
-                  )}
-                  onClick={() => {
-                    setZoom(clampZoom(Number.parseInt(option, 10) / 100))
-                    setOpenPanel(null)
-                  }}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center gap-1">
-              <span className="px-1.5 text-xs font-medium text-muted-foreground">Theme</span>
-              {THEME_OPTIONS.map((option) => {
-                const Icon = option.icon
-                const selected = option.value === themePreference
-
-                return (
+    <header
+      className="grid shrink-0 grid-cols-[1fr_minmax(0,42rem)_1fr] items-center gap-3 border-b border-white/10 bg-black/40 px-4 py-3 backdrop-blur-xl"
+      data-app-region="drag"
+    >
+      <div className="flex shrink-0 items-center gap-2 justify-self-start" data-app-region="no-drag">
+        <button
+          type="button"
+          className="size-3 rounded-full bg-[#ff5f57] transition hover:brightness-110 active:brightness-90"
+          aria-label="Close window"
+          onClick={() => void window.api.closeWindow()}
+        />
+        <button
+          type="button"
+          className="size-3 rounded-full bg-[#ffbd2e] transition hover:brightness-110 active:brightness-90"
+          aria-label="Minimize window"
+          onClick={() => void window.api.minimizeWindow()}
+        />
+        <button
+          type="button"
+          className="size-3 rounded-full bg-[#28c840] transition hover:brightness-110 active:brightness-90"
+          aria-label="Toggle fullscreen"
+          onClick={() => void window.api.toggleMaximizeWindow()}
+        />
+      </div>
+      <div className="min-w-0" data-app-region="no-drag">
+        <UrlBar
+          value={url}
+          pageTitle={pageTitle}
+          faviconUrl={faviconUrl}
+          onChange={onUrlChange}
+          onNavigate={onNavigate}
+          onRefresh={onRefresh}
+          disabled={navigating}
+        />
+      </div>
+      <div
+        ref={toolbarRef}
+        className="relative flex items-center gap-2 justify-self-end"
+        data-app-region="no-drag"
+      >
+        {openPanel ? (
+          <div
+            className="absolute top-1/2 right-full z-50 mr-2 flex -translate-y-1/2 items-center gap-1 rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10"
+            data-testid="toolbar-custom-popover"
+          >
+            {openPanel === 'zoom' ? (
+              <div className="flex items-center gap-1">
+                <span className="px-1.5 text-xs font-medium text-muted-foreground">Zoom</span>
+                {ZOOM_OPTIONS.map((option) => (
                   <button
-                    key={option.value}
+                    key={option}
                     type="button"
                     className={cn(
-                      buttonVariants({ variant: selected ? 'secondary' : 'ghost', size: 'xs' }),
-                      'min-w-20 justify-start'
+                      buttonVariants({
+                        variant: option === zoomValue ? 'secondary' : 'ghost',
+                        size: 'xs'
+                      }),
+                      'min-w-10'
                     )}
                     onClick={() => {
-                      setThemePreference(option.value)
+                      setZoom(clampZoom(Number.parseInt(option, 10) / 100))
                       setOpenPanel(null)
                     }}
                   >
-                    <Icon />
-                    {option.label}
-                    {selected ? <Check /> : null}
+                    {option}
                   </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      ) : null}
-      <Button
-        type="button"
-        variant="outline"
-        size="icon-sm"
-        aria-label={`Zoom level ${zoomPercent}%`}
-        data-testid="zoom-combobox-trigger"
-        aria-expanded={openPanel === 'zoom'}
-        onClick={() => setOpenPanel((current) => (current === 'zoom' ? null : 'zoom'))}
-      >
-        <ZoomIn />
-      </Button>
-      <div className="flex items-center gap-0.5" role="group" aria-label="Layout alignment">
-        {ALIGNMENT_OPTIONS.map(({ value, icon: Icon, label }) => (
-          <button
-            key={value}
-            type="button"
-            className={cn(
-              buttonVariants({ variant: alignment === value ? 'default' : 'outline', size: 'icon-sm' })
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center gap-1">
+                <span className="px-1.5 text-xs font-medium text-muted-foreground">Theme</span>
+                {THEME_OPTIONS.map((option) => {
+                  const Icon = option.icon
+                  const selected = option.value === themePreference
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={cn(
+                        buttonVariants({ variant: selected ? 'secondary' : 'ghost', size: 'xs' }),
+                        'min-w-20 justify-start'
+                      )}
+                      onClick={() => {
+                        setThemePreference(option.value)
+                        setOpenPanel(null)
+                      }}
+                    >
+                      <Icon />
+                      {option.label}
+                      {selected ? <Check /> : null}
+                    </button>
+                  )
+                })}
+              </div>
             )}
-            onClick={() => setAlignment(value)}
-            aria-label={label}
-            aria-pressed={alignment === value}
-          >
-            <Icon />
-          </button>
-        ))}
+          </div>
+        ) : null}
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          aria-label={`Zoom level ${zoomPercent}%`}
+          data-testid="zoom-combobox-trigger"
+          aria-expanded={openPanel === 'zoom'}
+          onClick={() => setOpenPanel((current) => (current === 'zoom' ? null : 'zoom'))}
+        >
+          <ZoomIn />
+        </Button>
+        <div className="flex items-center gap-0.5" role="group" aria-label="Layout alignment">
+          {ALIGNMENT_OPTIONS.map(({ value, icon: Icon, label }) => (
+            <button
+              key={value}
+              type="button"
+              className={cn(
+                buttonVariants({ variant: alignment === value ? 'default' : 'outline', size: 'icon-sm' })
+              )}
+              onClick={() => setAlignment(value)}
+              aria-label={label}
+              aria-pressed={alignment === value}
+            >
+              <Icon />
+            </button>
+          ))}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          data-testid="theme-preferences-trigger"
+          aria-label="Theme preferences"
+          aria-expanded={openPanel === 'theme'}
+          onClick={() => setOpenPanel((current) => (current === 'theme' ? null : 'theme'))}
+        >
+          <Palette />
+          <span className="sr-only">Theme preferences</span>
+        </Button>
+        <button
+          type="button"
+          data-testid="sync-toggle"
+          className={buttonVariants({ variant: syncEnabled ? 'default' : 'outline', size: 'icon-sm' })}
+          onClick={() => onSyncChange(!syncEnabled)}
+          aria-label={syncEnabled ? 'Disable interaction sync' : 'Enable interaction sync'}
+          aria-pressed={syncEnabled}
+        >
+          {syncEnabled ? <Link2 /> : <Link2Off />}
+        </button>
       </div>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon-sm"
-        data-testid="theme-preferences-trigger"
-        aria-label="Theme preferences"
-        aria-expanded={openPanel === 'theme'}
-        onClick={() => setOpenPanel((current) => (current === 'theme' ? null : 'theme'))}
-      >
-        <Palette />
-        <span className="sr-only">Theme preferences</span>
-      </Button>
-      <button
-        type="button"
-        data-testid="sync-toggle"
-        className={buttonVariants({ variant: syncEnabled ? 'default' : 'outline', size: 'icon-sm' })}
-        onClick={() => onSyncChange(!syncEnabled)}
-        aria-label={syncEnabled ? 'Disable interaction sync' : 'Enable interaction sync'}
-        aria-pressed={syncEnabled}
-      >
-        {syncEnabled ? <Link2 /> : <Link2Off />}
-      </button>
-    </div>
+    </header>
   )
 }

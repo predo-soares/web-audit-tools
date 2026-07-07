@@ -35,18 +35,10 @@ export function UrlBar({
   }
 
   return (
-    <form className="flex min-w-0 flex-1 items-center gap-2" onSubmit={handleSubmit}>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon-sm"
-        data-testid="url-refresh"
-        aria-label="Refresh"
-        onClick={() => void onRefresh()}
-        disabled={disabled}
-      >
-        <RefreshCw />
-      </Button>
+    <form
+      className="flex min-w-0 flex-1 items-center gap-2  bg-white/5 rounded-lg"
+      onSubmit={handleSubmit}
+    >
       <div className="relative min-w-0 flex-1">
         {faviconUrl && !faviconFailed ? (
           <img
@@ -69,17 +61,29 @@ export function UrlBar({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           disabled={disabled}
-          className="min-w-0 flex-1 pr-60 pl-9"
+          className="min-w-0 flex-1  pr-64 pl-9 focus-visible:bg-white/10"
         />
         {pageTitle ? (
-          <span className="pointer-events-none absolute top-1/2 right-4 z-10 max-w-56 -translate-y-1/2 truncate text-sm text-muted-foreground/70">
+          <span className="pointer-events-none absolute top-1/2 right-10 z-10 max-w-52 -translate-y-1/2 truncate text-sm text-muted-foreground/70">
             {pageTitle}
           </span>
         ) : null}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          data-testid="url-refresh"
+          aria-label="Refresh"
+          className="absolute top-1/2 right-1 z-10 -translate-y-1/2 text-muted-foreground"
+          onClick={() => void onRefresh()}
+          disabled={disabled}
+        >
+          <RefreshCw />
+        </Button>
       </div>
-      <Button type="submit" data-testid="url-submit" disabled={disabled}>
+      <button type="submit" data-testid="url-submit" className="sr-only" disabled={disabled}>
         Go
-      </Button>
+      </button>
     </form>
   )
 }
