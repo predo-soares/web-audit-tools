@@ -12,12 +12,35 @@ interface MockupChrome {
   bezelTop: number
   bezelBottom: number
   headerHeight: number
+  headerGap: number
+  screenHeightReduction: number
 }
 
 const MOCKUP_CHROME: Record<PaneId, MockupChrome> = {
-  iphone: { bezelX: 10, bezelTop: 10, bezelBottom: 10, headerHeight: 0 },
-  ipad: { bezelX: 12, bezelTop: 12, bezelBottom: 12, headerHeight: 0 },
-  desktop: { bezelX: 8, bezelTop: 8, bezelBottom: 8, headerHeight: 28 }
+  iphone: {
+    bezelX: 10,
+    bezelTop: 10,
+    bezelBottom: 10,
+    headerHeight: 0,
+    headerGap: 0,
+    screenHeightReduction: 0
+  },
+  ipad: {
+    bezelX: 12,
+    bezelTop: 12,
+    bezelBottom: 12,
+    headerHeight: 0,
+    headerGap: 0,
+    screenHeightReduction: 0
+  },
+  desktop: {
+    bezelX: 8,
+    bezelTop: 8,
+    bezelBottom: 8,
+    headerHeight: 28,
+    headerGap: 8,
+    screenHeightReduction: 4
+  }
 }
 
 export const SCREEN_CORNER_RADIUS: Record<PaneId, number> = {
@@ -38,12 +61,14 @@ export interface MockupDimensions {
 export function getMockupDimensions(paneId: PaneId): MockupDimensions {
   const profile = DEVICE_PRESETS[paneId]
   const chrome = MOCKUP_CHROME[paneId]
+  const screenHeight = profile.height - chrome.screenHeightReduction
 
   return {
     frameWidth: profile.width + chrome.bezelX * 2,
-    frameHeight: chrome.bezelTop + chrome.headerHeight + profile.height + chrome.bezelBottom,
+    frameHeight:
+      chrome.bezelTop + chrome.headerHeight + chrome.headerGap + screenHeight + chrome.bezelBottom,
     screenWidth: profile.width,
-    screenHeight: profile.height,
+    screenHeight,
     chrome,
     screenCornerRadius: SCREEN_CORNER_RADIUS[paneId]
   }
@@ -61,10 +86,3 @@ export function clampZoom(zoom: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom))
 }
 
-export function getCanvasSize(): { width: number; height: number } {
-  const panes = (['iphone', 'ipad', 'desktop'] as PaneId[]).map((paneId) => getMockupDimensions(paneId))
-  const width =
-    panes.reduce((total, pane) => total + pane.frameWidth, 0) + CANVAS_GAP * (panes.length - 1)
-  const height = Math.max(...panes.map((pane) => pane.frameHeight))
-  return { width, height: height + 40 }
-}

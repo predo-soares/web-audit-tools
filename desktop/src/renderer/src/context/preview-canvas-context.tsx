@@ -1,17 +1,13 @@
 import { createContext, useContext } from 'react'
 
-export interface CanvasPoint {
-  x: number
-  y: number
-}
+export type Alignment = 'left' | 'center' | 'right'
 
 export interface PreviewCanvasContextValue {
   zoom: number
-  webviewScale: number
-  pan: CanvasPoint
-  setZoomCentered: (zoom: number) => void
+  alignment: Alignment
+  setZoom: (zoom: number) => void
   adjustZoom: (delta: number) => void
-  setWebviewScale: (scale: number) => void
+  setAlignment: (alignment: Alignment) => void
 }
 
 export const PreviewCanvasContext = createContext<PreviewCanvasContextValue | null>(null)

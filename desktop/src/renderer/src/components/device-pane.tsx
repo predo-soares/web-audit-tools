@@ -3,12 +3,12 @@ import { getMockupDimensions, getScaledScreenCornerRadius } from '../../../share
 import type { PaneId } from '../../../shared/types'
 import { cn } from '@renderer/lib/utils'
 import { usePaneBounds } from '@renderer/hooks/use-pane-bounds'
+import { usePreviewCanvas } from '@renderer/context/preview-canvas-context'
 import { Loader2 } from 'lucide-react'
 
 interface DevicePaneProps {
   paneId: PaneId
   loading: boolean
-  zoom: number
 }
 
 const FRAME_STYLES: Record<PaneId, string> = {
@@ -17,7 +17,8 @@ const FRAME_STYLES: Record<PaneId, string> = {
   desktop: 'rounded-xl shadow-lg shadow-black/30'
 }
 
-export function DevicePane({ paneId, loading, zoom }: DevicePaneProps): React.JSX.Element {
+export function DevicePane({ paneId, loading }: DevicePaneProps): React.JSX.Element {
+  const { zoom } = usePreviewCanvas()
   const profile = DEVICE_PRESETS[paneId]
   const dimensions = getMockupDimensions(paneId)
   const { chrome } = dimensions
@@ -62,8 +63,8 @@ export function DevicePane({ paneId, loading, zoom }: DevicePaneProps): React.JS
       >
         {paneId === 'desktop' ? (
           <div
-            className="mb-2 flex shrink-0 items-center gap-1.5 px-2"
-            style={{ height: chrome.headerHeight }}
+            className="flex shrink-0 items-center gap-1.5 px-2"
+            style={{ height: chrome.headerHeight, marginBottom: chrome.headerGap }}
           >
             <span className="size-2.5 rounded-full bg-red-500/80" />
             <span className="size-2.5 rounded-full bg-yellow-500/80" />

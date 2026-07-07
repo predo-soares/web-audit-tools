@@ -1,6 +1,13 @@
 import { WebContentsView, type Session, type WebContents } from 'electron'
 import { join } from 'path'
-import type { Bounds, DeviceProfile, PaneId, PaneMount, Size } from '../shared/types'
+import type {
+  Bounds,
+  DeviceProfile,
+  PaneId,
+  PaneMount,
+  Size,
+  ThemePreference
+} from '../shared/types'
 import type { EngineView } from './engine-view'
 
 export class WebContentsViewEngine implements EngineView {
@@ -9,9 +16,9 @@ export class WebContentsViewEngine implements EngineView {
   private profile: DeviceProfile | null = null
   private debuggerAttached = false
   private zoom = 1
-  private webviewScale = 1
   private screenBounds: Bounds | null = null
   private logicalSize: Size | null = null
+  private themePreference: ThemePreference = 'system'
 
   constructor(
     readonly paneId: PaneId,
@@ -37,7 +44,7 @@ export class WebContentsViewEngine implements EngineView {
 
   mount(mount: PaneMount): void {
     const previousBounds = this.screenBounds
-    const { screenBounds, logicalSize, cornerRadius, zoom, webviewScale } = mount
+    const { screenBounds, logicalSize, cornerRadius, zoom, canvasTop } = mount
     const sizeChanged =
       !previousBounds ||
       Math.round(previousBounds.width) !== Math.round(screenBounds.width) ||
@@ -50,21 +57,25 @@ export class WebContentsViewEngine implements EngineView {
 
     this.screenBounds = screenBounds
     this.logicalSize = logicalSize
+
+    // Clip native view to the canvas area so it never overlaps the toolbar.
+    // WebContentsViews are OS-level surfaces that paint above the renderer
+    // regardless of CSS z-index, so clipping must happen here in native bounds.
+    const nativeY = Math.max(Math.round(screenBounds.y), canvasTop)
+    const nativeHeight = Math.max(
+      0,
+      Math.round(screenBounds.height) - (nativeY - Math.round(screenBounds.y))
+    )
+
     this.view.setBounds({
       x: Math.round(screenBounds.x),
-      y: Math.round(screenBounds.y),
+      y: nativeY,
       width: Math.round(screenBounds.width),
-      height: Math.round(screenBounds.height)
+      height: nativeHeight
     })
     this.view.setBorderRadius(Math.max(0, Math.round(cornerRadius)))
-    if (
-      zoom !== this.zoom ||
-      webviewScale !== this.webviewScale ||
-      sizeChanged ||
-      logicalSizeChanged
-    ) {
+    if (zoom !== this.zoom || sizeChanged || logicalSizeChanged) {
       this.zoom = zoom
-      this.webviewScale = webviewScale
       this.webContents.setZoomFactor(1)
       this.applyDeviceEmulation()
     }
@@ -75,6 +86,7 @@ export class WebContentsViewEngine implements EngineView {
       this.webContents.stop()
     }
     await this.webContents.loadURL(url)
+    await this.applyThemePreference()
   }
 
   async setDevice(profile: DeviceProfile): Promise<void> {
@@ -98,6 +110,12 @@ export class WebContentsViewEngine implements EngineView {
 
     this.webContents.setZoomFactor(1)
     this.applyDeviceEmulation()
+    await this.applyThemePreference()
+  }
+
+  async setThemePreference(preference: ThemePreference): Promise<void> {
+    this.themePreference = preference
+    await this.applyThemePreference()
   }
 
   async syncScroll(ratio: number): Promise<void> {
@@ -147,7 +165,7 @@ export class WebContentsViewEngine implements EngineView {
       viewPosition: { x: 0, y: 0 },
       deviceScaleFactor: this.profile.deviceScaleFactor,
       viewSize: { width: logicalSize.width, height: logicalSize.height },
-      scale: this.zoom * this.webviewScale
+      scale: this.zoom
     })
   }
 
@@ -157,6 +175,20 @@ export class WebContentsViewEngine implements EngineView {
       this.webContents.debugger.attach('1.3')
     }
     this.debuggerAttached = true
+  }
+
+  private async applyThemePreference(): Promise<void> {
+    try {
+      await this.ensureDebugger()
+      await this.webContents.debugger.sendCommand('Emulation.setEmulatedMedia', {
+        features:
+          this.themePreference === 'system'
+            ? []
+            : [{ name: 'prefers-color-scheme', value: this.themePreference }]
+      })
+    } catch (error) {
+      console.error(`[pane:${this.paneId}] CDP theme preference override failed:`, error)
+    }
   }
 }
 

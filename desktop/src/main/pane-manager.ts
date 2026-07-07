@@ -240,19 +240,19 @@ export class PaneManager {
     this.getSharedSession().webRequest.onBeforeSendHeaders(
       { urls: ['<all_urls>'] },
       (details, callback) => {
-      const paneId = details.webContentsId
-        ? this.webContentsToPane.get(details.webContentsId)
-        : undefined
+        const paneId = details.webContentsId
+          ? this.webContentsToPane.get(details.webContentsId)
+          : undefined
 
-      if (paneId) {
-        const headers = { ...details.requestHeaders }
-        headers['User-Agent'] = DEVICE_PRESETS[paneId].userAgent
-        callback({ requestHeaders: headers })
-        return
+        if (paneId) {
+          const headers = { ...details.requestHeaders }
+          headers['User-Agent'] = DEVICE_PRESETS[paneId].userAgent
+          callback({ requestHeaders: headers })
+          return
+        }
+
+        callback({ requestHeaders: details.requestHeaders })
       }
-
-      callback({ requestHeaders: details.requestHeaders })
-    }
     )
   }
 

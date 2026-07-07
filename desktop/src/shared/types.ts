@@ -28,7 +28,7 @@ export interface PaneMount {
   logicalSize: Size
   cornerRadius: number
   zoom: number
-  webviewScale: number
+  canvasTop: number
 }
 
 export interface PaneLoadingState {
