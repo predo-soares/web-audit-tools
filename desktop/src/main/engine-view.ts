@@ -5,5 +5,6 @@ export interface EngineView {
   navigate(url: string): Promise<void>
   setDevice(profile: DeviceProfile): Promise<void>
   syncScroll(ratio: number): Promise<void>
+  dispatchClick(x: number, y: number): void
   destroy(): void
 }

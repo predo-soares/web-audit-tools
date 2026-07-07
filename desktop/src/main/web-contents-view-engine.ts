@@ -124,6 +124,30 @@ export class WebContentsViewEngine implements EngineView {
     await this.applyThemePreference()
   }
 
+  dispatchClick(x: number, y: number): void {
+    // Native input injection: executeJavaScript is deferred while the page is
+    // loading (real sites can hold isLoading for seconds), sendInputEvent is
+    // not. Device emulation scales logical page coords by zoom into view
+    // coords, so the injection point must be pre-scaled the same way.
+    const viewX = Math.round(x * this.zoom)
+    const viewY = Math.round(y * this.zoom)
+    this.webContents.sendInputEvent({ type: 'mouseMove', x: viewX, y: viewY })
+    this.webContents.sendInputEvent({
+      type: 'mouseDown',
+      x: viewX,
+      y: viewY,
+      button: 'left',
+      clickCount: 1
+    })
+    this.webContents.sendInputEvent({
+      type: 'mouseUp',
+      x: viewX,
+      y: viewY,
+      button: 'left',
+      clickCount: 1
+    })
+  }
+
   async syncScroll(ratio: number): Promise<void> {
     const clamped = Math.min(1, Math.max(0, ratio))
     await this.webContents.executeJavaScript(`

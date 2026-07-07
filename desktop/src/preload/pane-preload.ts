@@ -33,4 +33,13 @@ window.addEventListener(
   { passive: true }
 )
 
+window.addEventListener(
+  'click',
+  (e: MouseEvent) => {
+    if (!window.innerWidth || !window.innerHeight) return
+    ipcRenderer.send('pane:click', paneId, e.clientX / window.innerWidth, e.clientY / window.innerHeight)
+  },
+  true
+)
+
 contextBridge.exposeInMainWorld('__paneId', paneId)

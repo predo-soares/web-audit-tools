@@ -13,7 +13,10 @@ import { getPanePreloadPath, WebContentsViewEngine } from './web-contents-view-e
 const SHARED_PARTITION = 'persist:audit-screens-preview'
 
 export class PaneManager {
+  private static readonly SYNTHETIC_CLICK_TTL_MS = 1000
+
   private readonly engines = new Map<PaneId, WebContentsViewEngine>()
+  private readonly syntheticClickExpiry = new Map<PaneId, number[]>()
   private readonly webContentsToPane = new Map<number, PaneId>()
   private readonly loadingState = new Map<PaneId, boolean>()
   private readonly paneUrls = new Map<PaneId, string>()
@@ -121,6 +124,37 @@ export class PaneManager {
         await this.createEngine(paneId, mainWindow, currentUrl)
       })
     )
+  }
+
+  syncClick(paneId: PaneId, relX: number, relY: number): void {
+    // Synthetic clicks are real input events, so the target pane's preload
+    // re-reports them. Consume that echo here instead of broadcasting it,
+    // otherwise panes ping-pong clicks forever.
+    if (this.consumeSyntheticClick(paneId)) return
+
+    for (const targetId of PANE_IDS) {
+      if (targetId === paneId) continue
+      const queue = this.syntheticClickExpiry.get(targetId) ?? []
+      queue.push(Date.now() + PaneManager.SYNTHETIC_CLICK_TTL_MS)
+      this.syntheticClickExpiry.set(targetId, queue)
+
+      const preset = DEVICE_PRESETS[targetId]
+      this.getEngine(targetId).dispatchClick(relX * preset.width, relY * preset.height)
+    }
+  }
+
+  private consumeSyntheticClick(paneId: PaneId): boolean {
+    const queue = this.syntheticClickExpiry.get(paneId)
+    if (!queue?.length) return false
+    const now = Date.now()
+    // Expired entries mean the synthetic click never produced a click event
+    // (e.g. mousedown/mouseup landed on different elements) — drop them so
+    // they can't swallow a later real click.
+    while (queue.length) {
+      const expiry = queue.shift()
+      if (expiry !== undefined && expiry >= now) return true
+    }
+    return false
   }
 
   async syncScroll(paneId: PaneId, ratio: number, programmatic: boolean): Promise<void> {

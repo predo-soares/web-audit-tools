@@ -63,6 +63,10 @@ export function registerIpcHandlers(paneManager: PaneManager): void {
     void paneManager.syncScroll(paneId, ratio, programmatic)
   })
 
+  ipcMain.on('pane:click', (_event, paneId: PaneId, relX: number, relY: number) => {
+    paneManager.syncClick(paneId, relX, relY)
+  })
+
   ipcMain.handle('pane:loading-states', () => {
     return paneManager.getLoadingStates()
   })
