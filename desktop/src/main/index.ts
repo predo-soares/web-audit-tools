@@ -23,6 +23,15 @@ function createWindow(): BrowserWindow {
     width: 1440,
     height: 900,
     show: process.env.E2E_TEST === '1',
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    ...(process.platform === 'darwin'
+      ? {
+          vibrancy: 'under-window' as const,
+          visualEffectState: 'active' as const
+        }
+      : {}),
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
@@ -30,6 +39,10 @@ function createWindow(): BrowserWindow {
       sandbox: false
     }
   })
+  mainWindow.setBackgroundColor('#00000000')
+  if (process.platform === 'darwin') {
+    mainWindow.setVibrancy('under-window')
+  }
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
