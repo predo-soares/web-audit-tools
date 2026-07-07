@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow, Menu } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -75,6 +75,7 @@ function createWindow(): BrowserWindow {
 // (the E2E harness does) or set it via `defaults write com.github.Electron`.
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.audit-screens')
+  Menu.setApplicationMenu(null)
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)

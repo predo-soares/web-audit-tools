@@ -11,6 +11,7 @@ import type { EngineView } from './engine-view'
 import { getPanePreloadPath, WebContentsViewEngine } from './web-contents-view-engine'
 
 const SHARED_PARTITION = 'persist:audit-screens-preview'
+const DEFAULT_PREVIEW_URL = 'http://localhost:3000'
 
 export class PaneManager {
   private static readonly SYNTHETIC_CLICK_TTL_MS = 1000
@@ -23,7 +24,7 @@ export class PaneManager {
   private readonly paneTitles = new Map<PaneId, string>()
   private readonly paneFavicons = new Map<PaneId, string>()
   private activePane: PaneId | null = null
-  private barUrl = ''
+  private barUrl = DEFAULT_PREVIEW_URL
   private pageTitle = ''
   private faviconUrl: string | null = null
   private readonly pendingProgrammaticNavigation = new Set<PaneId>()
@@ -46,7 +47,12 @@ export class PaneManager {
       PANE_IDS.map(async (paneId) => {
         await this.createEngine(paneId, mainWindow, null)
       })
-    ).then(() => {})
+    )
+      .then(() => this.doNavigateAll(DEFAULT_PREVIEW_URL))
+      .catch((error) => {
+        console.error('Failed to initialize preview panes:', error)
+      })
+      .then(() => {})
   }
 
   getPaneIdForWebContents(webContents: WebContents): PaneId | null {
@@ -60,6 +66,10 @@ export class PaneManager {
 
   async navigateAll(url: string): Promise<void> {
     await this.deviceReady
+    await this.doNavigateAll(url)
+  }
+
+  private async doNavigateAll(url: string): Promise<void> {
     for (const paneId of PANE_IDS) {
       this.pendingProgrammaticNavigation.add(paneId)
       this.setPaneLoading(paneId, true)
