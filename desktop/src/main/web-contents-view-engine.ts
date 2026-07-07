@@ -110,6 +110,14 @@ export class WebContentsViewEngine implements EngineView {
       await this.webContents.debugger.sendCommand('Emulation.setTouchEmulationEnabled', {
         enabled: profile.touch
       })
+
+      // Convert real mouse input into touch events on touch panes (same as
+      // DevTools device mode), so hovering the mouse never triggers :hover
+      // styles or mouseover handlers — a finger can't hover.
+      await this.webContents.debugger.sendCommand('Emulation.setEmitTouchEventsForMouse', {
+        enabled: profile.touch,
+        ...(profile.touch ? { configuration: 'mobile' } : {})
+      })
     } catch (error) {
       console.error(`[pane:${this.paneId}] CDP UA/touch override failed:`, error)
     }
