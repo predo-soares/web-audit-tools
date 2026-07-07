@@ -10,8 +10,8 @@ export interface PreviewApi {
   reload: () => Promise<void>
   getNavigationState: () => Promise<PaneNavigationState>
   recreatePanes: () => Promise<void>
-  setScrollSyncEnabled: (enabled: boolean) => Promise<boolean>
-  getScrollSyncEnabled: () => Promise<boolean>
+  setSyncEnabled: (enabled: boolean) => Promise<boolean>
+  getSyncEnabled: () => Promise<boolean>
   setPaneThemePreference: (preference: ThemePreference) => Promise<ThemePreference>
   getLoadingStates: () => Promise<Record<PaneId, boolean>>
   onPaneLoading: (callback: (state: { paneId: PaneId; loading: boolean }) => void) => () => void
@@ -28,8 +28,8 @@ const api: PreviewApi = {
   reload: () => ipcRenderer.invoke('preview:reload'),
   getNavigationState: () => ipcRenderer.invoke('preview:navigation-state'),
   recreatePanes: () => ipcRenderer.invoke('pane:recreate-all'),
-  setScrollSyncEnabled: (enabled) => ipcRenderer.invoke('scroll-sync:set-enabled', enabled),
-  getScrollSyncEnabled: () => ipcRenderer.invoke('scroll-sync:get-enabled'),
+  setSyncEnabled: (enabled) => ipcRenderer.invoke('sync:set-enabled', enabled),
+  getSyncEnabled: () => ipcRenderer.invoke('sync:get-enabled'),
   setPaneThemePreference: (preference) =>
     ipcRenderer.invoke('pane-theme:set-preference', preference),
   getLoadingStates: () => ipcRenderer.invoke('pane:loading-states'),

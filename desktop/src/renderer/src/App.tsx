@@ -10,14 +10,14 @@ export default function App(): React.JSX.Element {
     ipad: false,
     desktop: false
   })
-  const [scrollSyncEnabled, setScrollSyncEnabled] = useState(true)
+  const [syncEnabled, setSyncEnabled] = useState(true)
   const [navigating, setNavigating] = useState(false)
   const [url, setUrl] = useState('')
   const [pageTitle, setPageTitle] = useState('')
   const [faviconUrl, setFaviconUrl] = useState<string | null>(null)
 
   useEffect(() => {
-    void window.api.getScrollSyncEnabled().then(setScrollSyncEnabled)
+    void window.api.getSyncEnabled().then(setSyncEnabled)
     void window.api.getLoadingStates().then(setLoadingStates)
     void window.api.getNavigationState().then((state) => {
       setUrl(state.barUrl)
@@ -59,9 +59,9 @@ export default function App(): React.JSX.Element {
     }
   }, [])
 
-  const handleScrollSyncChange = useCallback(async (enabled: boolean) => {
-    const next = await window.api.setScrollSyncEnabled(enabled)
-    setScrollSyncEnabled(next)
+  const handleSyncChange = useCallback(async (enabled: boolean) => {
+    const next = await window.api.setSyncEnabled(enabled)
+    setSyncEnabled(next)
   }, [])
 
   return (
@@ -104,8 +104,8 @@ export default function App(): React.JSX.Element {
 
         <div data-app-region="no-drag">
           <Toolbar
-            scrollSyncEnabled={scrollSyncEnabled}
-            onScrollSyncChange={handleScrollSyncChange}
+            syncEnabled={syncEnabled}
+            onSyncChange={handleSyncChange}
           />
         </div>
       </header>

@@ -45,13 +45,13 @@ export function registerIpcHandlers(paneManager: PaneManager): void {
     await paneManager.recreateAll()
   })
 
-  ipcMain.handle('scroll-sync:set-enabled', (_event, enabled: boolean) => {
-    paneManager.setScrollSyncEnabled(enabled)
-    return paneManager.isScrollSyncEnabled()
+  ipcMain.handle('sync:set-enabled', (_event, enabled: boolean) => {
+    paneManager.setSyncEnabled(enabled)
+    return paneManager.isSyncEnabled()
   })
 
-  ipcMain.handle('scroll-sync:get-enabled', () => {
-    return paneManager.isScrollSyncEnabled()
+  ipcMain.handle('sync:get-enabled', () => {
+    return paneManager.isSyncEnabled()
   })
 
   ipcMain.handle('pane-theme:set-preference', async (_event, preference: ThemePreference) => {

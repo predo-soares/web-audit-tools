@@ -34,13 +34,13 @@ function readStoredThemePreference(): ThemePreference {
 }
 
 interface ToolbarProps {
-  scrollSyncEnabled: boolean
-  onScrollSyncChange: (enabled: boolean) => void
+  syncEnabled: boolean
+  onSyncChange: (enabled: boolean) => void
 }
 
 export function Toolbar({
-  scrollSyncEnabled,
-  onScrollSyncChange
+  syncEnabled,
+  onSyncChange
 }: ToolbarProps): React.JSX.Element {
   const toolbarRef = useRef<HTMLDivElement>(null)
   const { zoom, alignment, setZoom, setAlignment } = usePreviewCanvas()
@@ -176,13 +176,13 @@ export function Toolbar({
       </Button>
       <button
         type="button"
-        data-testid="scroll-sync-toggle"
-        className={buttonVariants({ variant: scrollSyncEnabled ? 'default' : 'outline', size: 'icon-sm' })}
-        onClick={() => onScrollSyncChange(!scrollSyncEnabled)}
-        aria-label={scrollSyncEnabled ? 'Disable scroll sync' : 'Enable scroll sync'}
-        aria-pressed={scrollSyncEnabled}
+        data-testid="sync-toggle"
+        className={buttonVariants({ variant: syncEnabled ? 'default' : 'outline', size: 'icon-sm' })}
+        onClick={() => onSyncChange(!syncEnabled)}
+        aria-label={syncEnabled ? 'Disable interaction sync' : 'Enable interaction sync'}
+        aria-pressed={syncEnabled}
       >
-        {scrollSyncEnabled ? <Link2 /> : <Link2Off />}
+        {syncEnabled ? <Link2 /> : <Link2Off />}
       </button>
     </div>
   )

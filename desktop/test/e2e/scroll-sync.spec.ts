@@ -46,7 +46,7 @@ test('toggling scroll sync off and on changes scroll coupling', async ({ fixture
     await navigateTo(window, fixtureUrl(fixturePort, '/long-scroll'))
     await waitForAllPanes(window)
 
-    await window.getByTestId('scroll-sync-toggle').click()
+    await window.getByTestId('sync-toggle').click()
 
     await evaluateInPane(
       window,
@@ -61,7 +61,7 @@ test('toggling scroll sync off and on changes scroll coupling', async ({ fixture
     const ipadRatioOff = await evaluateInPane<number>(window, 'ipad', `window.reportScrollRatio()`)
     expect(ipadRatioOff).toBeLessThan(0.05)
 
-    await window.getByTestId('scroll-sync-toggle').click()
+    await window.getByTestId('sync-toggle').click()
 
     await evaluateInPane(
       window,

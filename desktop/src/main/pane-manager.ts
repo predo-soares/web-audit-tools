@@ -27,6 +27,7 @@ export class PaneManager {
   private pageTitle = ''
   private faviconUrl: string | null = null
   private readonly pendingProgrammaticNavigation = new Set<PaneId>()
+  private syncEnabled = true
   private scrollSyncState: ScrollSyncState = createScrollSyncState(true)
   private mainWindow: BrowserWindow | null = null
   private sharedSession: Electron.Session | null = null
@@ -131,6 +132,7 @@ export class PaneManager {
     // re-reports them. Consume that echo here instead of broadcasting it,
     // otherwise panes ping-pong clicks forever.
     if (this.consumeSyntheticClick(paneId)) return
+    if (!this.syncEnabled) return
 
     for (const targetId of PANE_IDS) {
       if (targetId === paneId) continue
@@ -170,12 +172,13 @@ export class PaneManager {
     )
   }
 
-  setScrollSyncEnabled(enabled: boolean): void {
+  setSyncEnabled(enabled: boolean): void {
+    this.syncEnabled = enabled
     this.scrollSyncState = setScrollSyncEnabled(this.scrollSyncState, enabled)
   }
 
-  isScrollSyncEnabled(): boolean {
-    return this.scrollSyncState.enabled
+  isSyncEnabled(): boolean {
+    return this.syncEnabled
   }
 
   async setThemePreference(preference: ThemePreference): Promise<void> {
