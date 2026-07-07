@@ -1,4 +1,5 @@
 export type PaneId = 'iphone' | 'ipad' | 'desktop'
+export type ThemePreference = 'system' | 'light' | 'dark'
 
 export interface Bounds {
   x: number
@@ -33,6 +34,13 @@ export interface PaneMount {
 export interface PaneLoadingState {
   paneId: PaneId
   loading: boolean
+}
+
+export interface PaneNavigationState {
+  activePane: PaneId | null
+  barUrl: string
+  pageTitle: string
+  faviconUrl: string | null
 }
 
 export interface PaneScrollReport {

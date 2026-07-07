@@ -6,7 +6,7 @@ import {
   setScrollSyncEnabled,
   type ScrollSyncState
 } from '../shared/scroll-sync'
-import type { PaneId, PaneMount } from '../shared/types'
+import type { PaneId, PaneMount, PaneNavigationState, ThemePreference } from '../shared/types'
 import type { EngineView } from './engine-view'
 import { getPanePreloadPath, WebContentsViewEngine } from './web-contents-view-engine'
 
@@ -16,11 +16,20 @@ export class PaneManager {
   private readonly engines = new Map<PaneId, WebContentsViewEngine>()
   private readonly webContentsToPane = new Map<number, PaneId>()
   private readonly loadingState = new Map<PaneId, boolean>()
+  private readonly paneUrls = new Map<PaneId, string>()
+  private readonly paneTitles = new Map<PaneId, string>()
+  private readonly paneFavicons = new Map<PaneId, string>()
+  private activePane: PaneId | null = null
+  private barUrl = ''
+  private pageTitle = ''
+  private faviconUrl: string | null = null
+  private readonly pendingProgrammaticNavigation = new Set<PaneId>()
   private scrollSyncState: ScrollSyncState = createScrollSyncState(true)
   private mainWindow: BrowserWindow | null = null
   private sharedSession: Electron.Session | null = null
   private deviceReady: Promise<void> = Promise.resolve()
   private readonly lastMount = new Map<PaneId, PaneMount>()
+  private themePreference: ThemePreference = 'system'
   private destroyed = false
 
   initialize(mainWindow: BrowserWindow): void {
@@ -48,9 +57,47 @@ export class PaneManager {
   async navigateAll(url: string): Promise<void> {
     await this.deviceReady
     for (const paneId of PANE_IDS) {
+      this.pendingProgrammaticNavigation.add(paneId)
       this.setPaneLoading(paneId, true)
+      this.paneUrls.set(paneId, url)
+      this.paneTitles.set(paneId, '')
     }
+    this.barUrl = url
+    this.activePane = null
+    this.pageTitle = ''
+    this.faviconUrl = null
+    this.emitNavigationState()
     await Promise.all(PANE_IDS.map((paneId) => this.getEngine(paneId).navigate(url)))
+  }
+
+  async reloadAll(): Promise<void> {
+    await this.deviceReady
+    await Promise.all(
+      PANE_IDS.map(async (paneId) => {
+        const trackedUrl = this.paneUrls.get(paneId)
+        const liveUrl = this.getEngine(paneId).webContents.getURL()
+        const url =
+          trackedUrl && trackedUrl !== 'about:blank'
+            ? trackedUrl
+            : liveUrl !== 'about:blank'
+              ? liveUrl
+              : null
+        if (!url) return
+
+        this.pendingProgrammaticNavigation.add(paneId)
+        this.setPaneLoading(paneId, true)
+        await this.getEngine(paneId).navigate(url)
+      })
+    )
+  }
+
+  getNavigationState(): PaneNavigationState {
+    return {
+      activePane: this.activePane,
+      barUrl: this.barUrl,
+      pageTitle: this.pageTitle,
+      faviconUrl: this.faviconUrl
+    }
   }
 
   async recreateAll(): Promise<void> {
@@ -84,7 +131,9 @@ export class PaneManager {
     )
     this.scrollSyncState = state
 
-    await Promise.all(targets.map((target) => this.getEngine(target.paneId).syncScroll(target.ratio)))
+    await Promise.all(
+      targets.map((target) => this.getEngine(target.paneId).syncScroll(target.ratio))
+    )
   }
 
   setScrollSyncEnabled(enabled: boolean): void {
@@ -210,6 +259,62 @@ export class PaneManager {
       paneId,
       loading
     })
+  }
+
+  private attachNavigationListeners(webContents: WebContents, paneId: PaneId): void {
+    const handleNavigation = (url: string): void => {
+      if (url === 'about:blank') return
+
+      if (this.pendingProgrammaticNavigation.has(paneId)) {
+        this.pendingProgrammaticNavigation.delete(paneId)
+        this.paneUrls.set(paneId, url)
+        return
+      }
+
+      this.paneUrls.set(paneId, url)
+      this.activePane = paneId
+      this.barUrl = url
+      this.pageTitle = this.paneTitles.get(paneId) ?? ''
+      this.emitNavigationState()
+    }
+
+    webContents.on('did-navigate', (_event, url) => handleNavigation(url))
+    webContents.on('did-navigate-in-page', (_event, url) => handleNavigation(url))
+    webContents.on('page-title-updated', (_event, title) => {
+      this.paneTitles.set(paneId, title)
+      if (this.activePane === paneId || (this.activePane === null && this.barUrl === this.paneUrls.get(paneId))) {
+        this.pageTitle = title
+        this.emitNavigationState()
+      }
+    })
+    webContents.on('page-favicon-updated', (_event, favicons) => {
+      const favicon = favicons[0] ?? null
+      this.paneFavicons.set(paneId, favicon ?? '')
+      if (this.activePane === paneId || (this.activePane === null && this.barUrl === this.paneUrls.get(paneId))) {
+        this.faviconUrl = favicon
+        this.emitNavigationState()
+      }
+    })
+    webContents.on('did-fail-load', () => {
+      this.pendingProgrammaticNavigation.delete(paneId)
+    })
+    webContents.on('focus', () => {
+      this.activePane = paneId
+      const url = this.paneUrls.get(paneId)
+      if (url && url !== 'about:blank') {
+        this.barUrl = url
+        this.pageTitle = this.paneTitles.get(paneId) ?? ''
+        this.faviconUrl = this.paneFavicons.get(paneId) ?? null
+        this.emitNavigationState()
+      }
+    })
+  }
+
+  private emitNavigationState(): void {
+    const mainWindow = this.mainWindow
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
+
+    mainWindow.webContents.send('pane:navigation', this.getNavigationState())
   }
 
   private attachLoadingListeners(webContents: WebContents, paneId: PaneId): void {
