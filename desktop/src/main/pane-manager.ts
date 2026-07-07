@@ -144,6 +144,14 @@ export class PaneManager {
     return this.scrollSyncState.enabled
   }
 
+  async setThemePreference(preference: ThemePreference): Promise<void> {
+    this.themePreference = preference
+    await this.deviceReady
+    await Promise.all(
+      PANE_IDS.map((paneId) => this.getEngine(paneId).setThemePreference(preference))
+    )
+  }
+
   getLoadingStates(): Record<PaneId, boolean> {
     return {
       iphone: this.loadingState.get('iphone') ?? false,
@@ -203,19 +211,17 @@ export class PaneManager {
     mainWindow: BrowserWindow,
     restoreUrl: string | null
   ): Promise<WebContentsViewEngine> {
-    const engine = new WebContentsViewEngine(
-      paneId,
-      this.getSharedSession(),
-      getPanePreloadPath()
-    )
+    const engine = new WebContentsViewEngine(paneId, this.getSharedSession(), getPanePreloadPath())
     this.engines.set(paneId, engine)
     this.webContentsToPane.set(engine.webContents.id, paneId)
     this.loadingState.set(paneId, false)
     mainWindow.contentView.addChildView(engine.view)
     this.attachLoadingListeners(engine.webContents, paneId)
+    this.attachNavigationListeners(engine.webContents, paneId)
 
     try {
       await engine.setDevice(DEVICE_PRESETS[paneId])
+      await engine.setThemePreference(this.themePreference)
       const mount = this.lastMount.get(paneId)
       if (mount) {
         engine.mount(mount)

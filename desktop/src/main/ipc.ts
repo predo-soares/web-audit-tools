@@ -54,6 +54,11 @@ export function registerIpcHandlers(paneManager: PaneManager): void {
     return paneManager.isScrollSyncEnabled()
   })
 
+  ipcMain.handle('pane-theme:set-preference', async (_event, preference: ThemePreference) => {
+    await paneManager.setThemePreference(preference)
+    return preference
+  })
+
   ipcMain.on('pane:scroll', (_event, paneId: PaneId, ratio: number, programmatic: boolean) => {
     void paneManager.syncScroll(paneId, ratio, programmatic)
   })
