@@ -163,7 +163,10 @@ export class WebContentsViewEngine implements EngineView {
         window.__suppressScrollReport = true;
         const doc = document.documentElement;
         const max = doc.scrollHeight - doc.clientHeight;
-        window.scrollTo(0, max > 0 ? max * ${clamped} : 0);
+        // behavior: 'instant' bypasses CSS scroll-behavior: smooth. A smooth
+        // scroll animates over many frames and emits a scroll event per frame,
+        // overflowing the one-shot echo suppression into a feedback loop.
+        window.scrollTo({ top: max > 0 ? max * ${clamped} : 0, behavior: 'instant' });
         requestAnimationFrame(function () {
           window.__suppressScrollReport = false;
         });
