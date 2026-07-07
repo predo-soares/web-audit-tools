@@ -8,6 +8,7 @@ import type {
   Size,
   ThemePreference
 } from '../shared/types'
+import { normalizeUrl } from '../shared/url'
 import type { EngineView } from './engine-view'
 
 export class WebContentsViewEngine implements EngineView {
@@ -39,6 +40,11 @@ export class WebContentsViewEngine implements EngineView {
     this.webContents.debugger.on('detach', (_event, reason) => {
       this.debuggerAttached = false
       console.error(`[pane:${paneId}] debugger detached: ${reason}`)
+    })
+
+    this.webContents.setWindowOpenHandler(({ url }) => {
+      void this.webContents.loadURL(normalizeUrl(url))
+      return { action: 'deny' }
     })
   }
 

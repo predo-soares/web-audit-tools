@@ -193,3 +193,22 @@ export async function evaluateInPane<T>(
 export function fixtureUrl(port: number, path: string): string {
   return `http://127.0.0.1:${port}${path}`
 }
+
+export async function waitForPaneElement(
+  window: Page,
+  paneId: PaneId,
+  elementId: string,
+  timeoutMs = 10_000
+): Promise<void> {
+  const started = Date.now()
+  while (Date.now() - started < timeoutMs) {
+    try {
+      const found = await evaluateInPane<boolean>(window, paneId, `!!document.getElementById('${elementId}')`)
+      if (found) return
+    } catch {
+      // JS context may be transitioning between navigations.
+    }
+    await new Promise((r) => setTimeout(r, 150))
+  }
+  throw new Error(`#${elementId} not found in pane ${paneId} after ${timeoutMs}ms`)
+}
