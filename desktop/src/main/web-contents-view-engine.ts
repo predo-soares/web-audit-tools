@@ -28,6 +28,11 @@ export class WebContentsViewEngine implements EngineView {
       }
     })
     this.webContents = this.view.webContents
+
+    this.webContents.debugger.on('detach', (_event, reason) => {
+      this.debuggerAttached = false
+      console.error(`[pane:${paneId}] debugger detached: ${reason}`)
+    })
   }
 
   mount(mount: PaneMount): void {
@@ -61,7 +66,7 @@ export class WebContentsViewEngine implements EngineView {
       this.zoom = zoom
       this.webviewScale = webviewScale
       this.webContents.setZoomFactor(1)
-      void this.applyDeviceEmulation()
+      this.applyDeviceEmulation()
     }
   }
 
@@ -77,18 +82,22 @@ export class WebContentsViewEngine implements EngineView {
     if (this.webContents.getURL() === '') {
       await this.webContents.loadURL('about:blank')
     }
-    await this.ensureDebugger()
+    try {
+      await this.ensureDebugger()
 
-    await this.webContents.debugger.sendCommand('Emulation.setUserAgentOverride', {
-      userAgent: profile.userAgent
-    })
+      await this.webContents.debugger.sendCommand('Emulation.setUserAgentOverride', {
+        userAgent: profile.userAgent
+      })
 
-    await this.webContents.debugger.sendCommand('Emulation.setTouchEmulationEnabled', {
-      enabled: profile.touch
-    })
+      await this.webContents.debugger.sendCommand('Emulation.setTouchEmulationEnabled', {
+        enabled: profile.touch
+      })
+    } catch (error) {
+      console.error(`[pane:${this.paneId}] CDP UA/touch override failed:`, error)
+    }
 
     this.webContents.setZoomFactor(1)
-    await this.applyDeviceEmulation()
+    this.applyDeviceEmulation()
   }
 
   async syncScroll(ratio: number): Promise<void> {
@@ -119,24 +128,25 @@ export class WebContentsViewEngine implements EngineView {
     this.webContents.close()
   }
 
-  private async applyDeviceEmulation(): Promise<void> {
+  private applyDeviceEmulation(): void {
     if (!this.profile) return
-    await this.ensureDebugger()
     const logicalSize = this.logicalSize ?? {
       width: this.profile.width,
       height: this.profile.height
     }
 
-    // Native bounds follow the transformed canvas screen rectangle. CDP keeps
-    // the page's logical device viewport stable and scales the resulting image
-    // so responsive breakpoints do not change while canvas zoom does.
-    await this.webContents.debugger.sendCommand('Emulation.setDeviceMetricsOverride', {
-      width: logicalSize.width,
-      height: logicalSize.height,
+    // Native bounds follow the transformed canvas screen rectangle. Electron's
+    // built-in device emulation keeps the page's logical viewport stable and
+    // scales the emulated view inside the native bounds, so responsive
+    // breakpoints do not change while canvas zoom does. This must not be mixed
+    // with CDP Emulation.setDeviceMetricsOverride: both write the same Blink
+    // emulation params and the last writer wins.
+    this.webContents.enableDeviceEmulation({
+      screenPosition: this.profile.touch ? 'mobile' : 'desktop',
+      screenSize: { width: logicalSize.width, height: logicalSize.height },
+      viewPosition: { x: 0, y: 0 },
       deviceScaleFactor: this.profile.deviceScaleFactor,
-      mobile: this.profile.touch,
-      screenWidth: logicalSize.width,
-      screenHeight: logicalSize.height,
+      viewSize: { width: logicalSize.width, height: logicalSize.height },
       scale: this.zoom * this.webviewScale
     })
   }
