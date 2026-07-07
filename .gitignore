@@ -1,0 +1,14 @@
+node_modules/
+dist/
+out/
+.firecrawl/
+.DS_Store
+.eslintcache
+*.log*
+.scratch/
+desktop/node_modules/
+desktop/dist/
+desktop/out/
+desktop/.eslintcache
+desktop/test-results/
+desktop/playwright-report/
