@@ -15,4 +15,13 @@ describe('normalizeUrl', () => {
     expect(normalizeUrl('https://example.com')).toBe('https://example.com')
     expect(normalizeUrl('http://localhost:8080')).toBe('http://localhost:8080')
   })
+
+  it('canonicalizes bare youtube nocookie links to the cert-valid host', () => {
+    expect(normalizeUrl('https://youtube-nocookie.com/watch?v=abc123')).toBe(
+      'https://www.youtube-nocookie.com/watch?v=abc123'
+    )
+    expect(normalizeUrl('youtube-nocookie.com/embed/abc123')).toBe(
+      'https://www.youtube-nocookie.com/embed/abc123'
+    )
+  })
 })
