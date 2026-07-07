@@ -67,12 +67,21 @@ export function usePaneBounds(
     window.addEventListener('resize', handleLayoutChange)
     return () => {
       window.removeEventListener('resize', handleLayoutChange)
+    }
+  }, [scheduleReport])
+
+  // Unmount-only: this cleanup must not run when scheduleReport changes
+  // identity (e.g. on zoom changes), or it cancels the pending frame while
+  // frameRef still holds the stale id, permanently blocking future reports.
+  useEffect(() => {
+    return () => {
       observerRef.current?.disconnect()
       if (frameRef.current !== null) {
         window.cancelAnimationFrame(frameRef.current)
+        frameRef.current = null
       }
     }
-  }, [scheduleReport])
+  }, [])
 
   return setRef
 }
