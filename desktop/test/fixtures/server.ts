@@ -192,6 +192,84 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     return
   }
 
+  if (pathname === '/flow-a') {
+    sendHtml(
+      res,
+      `<!doctype html><html><body>
+        <h1 id="flow-a">Flow page A</h1>
+        <a id="flow-link" href="/flow-b">Continue to page B</a>
+      </body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/flow-b') {
+    sendHtml(
+      res,
+      `<!doctype html><html><body>
+        <h1 id="flow-b">Flow page B</h1>
+        <button id="flow-back" type="button" onclick="history.back()">Back</button>
+      </body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/ua-form' && req.method === 'GET') {
+    sendHtml(
+      res,
+      `<!doctype html><html><body>
+        <h1>UA form</h1>
+        <form method="POST" action="/ua-form">
+          <input id="name-input" name="name" type="text" placeholder="Name" />
+          <button id="ua-submit" type="submit">Submit</button>
+        </form>
+      </body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/ua-form' && req.method === 'POST') {
+    sendHtml(
+      res,
+      `<!doctype html><html><body>
+        <div id="ua-result" data-user-agent="${ua.replace(/"/g, '&quot;')}">${ua}</div>
+      </body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/touch-probe') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head><style>
+        #touch-target {
+          display: block;
+          width: 12rem;
+          height: 3rem;
+          margin: 2rem;
+          font: 16px system-ui;
+        }
+      </style></head><body>
+        <button id="touch-target" type="button">Tap me</button>
+        <div id="touch-result" data-events=""></div>
+        <script>
+          (function () {
+            const target = document.getElementById('touch-target');
+            const result = document.getElementById('touch-result');
+            const events = [];
+            function record(type) {
+              events.push(type);
+              result.dataset.events = events.join(',');
+            }
+            target.addEventListener('touchstart', function () { record('touchstart'); }, { passive: true });
+            target.addEventListener('click', function () { record('click'); });
+          })();
+        </script>
+      </body></html>`
+    )
+    return
+  }
+
   res.writeHead(404)
   res.end('Not found')
 }
