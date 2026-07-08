@@ -2,6 +2,7 @@ node_modules/
 dist/
 out/
 .firecrawl/
+.gstack/
 .DS_Store
 .eslintcache
 *.log*
