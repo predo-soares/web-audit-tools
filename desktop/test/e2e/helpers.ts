@@ -9,7 +9,7 @@ import type { PaneId } from '../../src/shared/types'
 interface LaunchedApp {
   window: Page
   userDataDir: string
-  close: () => Promise<void>
+  close: (options?: { deleteUserData?: boolean }) => Promise<void>
 }
 
 // On macOS, if a previous instance crashed (or was SIGKILLed by a test run),
@@ -136,7 +136,7 @@ export async function launchApp(existingUserDataDir?: string): Promise<LaunchedA
 
   let browser: Browser | null = null
 
-  const close = async (): Promise<void> => {
+  const close = async (options?: { deleteUserData?: boolean }): Promise<void> => {
     electronProcess.removeAllListeners('exit')
     await browser?.close().catch(() => {})
     browser = null
@@ -149,7 +149,7 @@ export async function launchApp(existingUserDataDir?: string): Promise<LaunchedA
         await waitForExit(electronProcess, 5_000)
       }
     }
-    if (ownsUserDataDir) {
+    if (ownsUserDataDir && options?.deleteUserData !== false) {
       rmSync(userDataDir, { recursive: true, force: true })
     }
   }

@@ -3,8 +3,10 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import {
   type HistoryEntry,
+  clearHistory,
   recordVisit,
-  refreshHistoryMetadata
+  refreshHistoryMetadata,
+  removeHistoryEntry
 } from '../shared/history'
 
 const WRITE_DEBOUNCE_MS = 250
@@ -45,6 +47,24 @@ export class HistoryStore {
 
   refreshMetadata(url: string, title: string, faviconUrl: string | null): void {
     const next = refreshHistoryMetadata(this.entries, url, title, faviconUrl)
+    if (next === this.entries) return
+
+    this.entries = next
+    this.scheduleWrite()
+    this.onChange?.(this.list())
+  }
+
+  remove(url: string): void {
+    const next = removeHistoryEntry(this.entries, url)
+    if (next === this.entries) return
+
+    this.entries = next
+    this.scheduleWrite()
+    this.onChange?.(this.list())
+  }
+
+  clear(): void {
+    const next = clearHistory(this.entries)
     if (next === this.entries) return
 
     this.entries = next

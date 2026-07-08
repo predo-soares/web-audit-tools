@@ -19,6 +19,8 @@ export interface PreviewApi {
   getLoadingStates: () => Promise<Record<PaneId, boolean>>
   setPanesVisible: (visible: boolean) => Promise<void>
   listHistory: () => Promise<HistoryEntry[]>
+  deleteHistoryEntry: (url: string) => Promise<void>
+  clearHistory: () => Promise<void>
   openNativePopover: (options: PopoverOpenOptions) => Promise<void>
   closeNativePopover: () => Promise<void>
   getOpenNativePopoverPanel: () => Promise<PopoverOpenOptions['panelId'] | null>
@@ -50,6 +52,8 @@ const api: PreviewApi = {
   getLoadingStates: () => ipcRenderer.invoke('pane:loading-states'),
   setPanesVisible: (visible) => ipcRenderer.invoke('pane:set-visible', visible),
   listHistory: () => ipcRenderer.invoke('history:list'),
+  deleteHistoryEntry: (url) => ipcRenderer.invoke('history:delete', url),
+  clearHistory: () => ipcRenderer.invoke('history:clear'),
   openNativePopover: (options) => ipcRenderer.invoke('popover:open', options),
   closeNativePopover: () => ipcRenderer.invoke('popover:close'),
   getOpenNativePopoverPanel: () => ipcRenderer.invoke('popover:get-open-panel'),

@@ -6,6 +6,8 @@ import { PreviewCanvas } from '@renderer/components/preview-canvas'
 import { Toolbar } from '@renderer/components/toolbar'
 import { SidebarProvider } from '@renderer/context/sidebar-context'
 import { useProjects } from '@renderer/hooks/use-projects'
+import { useHistory } from '@renderer/hooks/use-history'
+import type { HistoryEntry } from '../../shared/history'
 
 interface CommittedPage {
   url: string
@@ -26,6 +28,7 @@ export default function App(): React.JSX.Element {
   const [faviconUrl, setFaviconUrl] = useState<string | null>(null)
   const [committedPage, setCommittedPage] = useState<CommittedPage | null>(null)
   const { projects, addProject } = useProjects()
+  const { history, deleteHistoryEntry, clearHistory } = useHistory()
 
   const anyPaneLoading = useMemo(
     () => Object.values(loadingStates).some(Boolean),
@@ -112,6 +115,25 @@ export default function App(): React.JSX.Element {
     [committedPage?.url, handleNavigate]
   )
 
+  const handleHistoryActivate = useCallback(
+    async (entry: HistoryEntry) => {
+      if (entry.url === committedPage?.url) return
+      await handleNavigate(entry.url)
+    },
+    [committedPage?.url, handleNavigate]
+  )
+
+  const handleHistoryDelete = useCallback(
+    async (entry: HistoryEntry) => {
+      await deleteHistoryEntry(entry.url)
+    },
+    [deleteHistoryEntry]
+  )
+
+  const handleHistoryClear = useCallback(async () => {
+    await clearHistory()
+  }, [clearHistory])
+
   const saveSuggestedName = committedPage
     ? suggestProjectName(committedPage.pageTitle, committedPage.url)
     : ''
@@ -121,8 +143,12 @@ export default function App(): React.JSX.Element {
       <PreviewCanvas
         loadingStates={loadingStates}
         projects={projects}
+        history={history}
         committedUrl={committedPage?.url ?? ''}
         onProjectActivate={handleProjectActivate}
+        onHistoryActivate={handleHistoryActivate}
+        onHistoryDelete={handleHistoryDelete}
+        onHistoryClear={handleHistoryClear}
         toolbar={
           <Toolbar
             url={url}

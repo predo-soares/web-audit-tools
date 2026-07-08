@@ -89,6 +89,14 @@ export function registerIpcHandlers(
     return historyStore.list()
   })
 
+  ipcMain.handle('history:delete', (_event, url: string) => {
+    historyStore.remove(url)
+  })
+
+  ipcMain.handle('history:clear', () => {
+    historyStore.clear()
+  })
+
   ipcMain.handle('e2e:evaluate-in-pane', async (_event, paneId: PaneId, expression: string) => {
     return paneManager.evaluateInPane(paneId, expression)
   })

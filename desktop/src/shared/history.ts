@@ -58,3 +58,21 @@ export function refreshHistoryMetadata(
   }
   return next
 }
+
+export function removeHistoryEntry(entries: HistoryEntry[], url: string): HistoryEntry[] {
+  if (!entries.some((entry) => entry.url === url)) return entries
+  return entries.filter((entry) => entry.url !== url)
+}
+
+export function clearHistory(entries: HistoryEntry[]): HistoryEntry[] {
+  if (entries.length === 0) return entries
+  return []
+}
+
+export function resolveFocusIndexAfterRemoval(
+  removedIndex: number,
+  remainingCount: number
+): number | null {
+  if (remainingCount <= 0) return null
+  return Math.min(removedIndex, remainingCount - 1)
+}

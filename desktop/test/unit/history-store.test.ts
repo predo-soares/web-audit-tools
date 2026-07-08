@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
   HISTORY_CAP,
   type HistoryEntry,
+  clearHistory,
   recordVisit,
-  refreshHistoryMetadata
+  refreshHistoryMetadata,
+  removeHistoryEntry,
+  resolveFocusIndexAfterRemoval
 } from '../../src/shared/history'
 
 function entry(
@@ -120,5 +123,47 @@ describe('refreshHistoryMetadata', () => {
     const result = refreshHistoryMetadata(initial, 'https://missing.com', 'Missing', null)
 
     expect(result).toBe(initial)
+  })
+})
+
+describe('removeHistoryEntry', () => {
+  it('removes the matching entry and leaves others intact', () => {
+    const initial = [entry('https://a.com'), entry('https://b.com')]
+    const result = removeHistoryEntry(initial, 'https://a.com')
+
+    expect(result).toEqual([entry('https://b.com')])
+  })
+
+  it('returns the same array reference when the URL is missing', () => {
+    const initial = [entry('https://example.com')]
+    const result = removeHistoryEntry(initial, 'https://missing.com')
+
+    expect(result).toBe(initial)
+  })
+})
+
+describe('clearHistory', () => {
+  it('empties the list', () => {
+    const initial = [entry('https://a.com'), entry('https://b.com')]
+    expect(clearHistory(initial)).toEqual([])
+  })
+
+  it('returns the same array reference when already empty', () => {
+    const initial: HistoryEntry[] = []
+    expect(clearHistory(initial)).toBe(initial)
+  })
+})
+
+describe('resolveFocusIndexAfterRemoval', () => {
+  it('focuses the next row when deleting from the start', () => {
+    expect(resolveFocusIndexAfterRemoval(0, 2)).toBe(0)
+  })
+
+  it('focuses the previous row when deleting the last entry', () => {
+    expect(resolveFocusIndexAfterRemoval(2, 2)).toBe(1)
+  })
+
+  it('returns null when no rows remain', () => {
+    expect(resolveFocusIndexAfterRemoval(0, 0)).toBeNull()
   })
 })
