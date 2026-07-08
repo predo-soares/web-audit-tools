@@ -5,10 +5,11 @@ import { cn } from '@renderer/lib/utils'
 
 interface ProjectRowProps {
   project: Project
+  isActive?: boolean
   onActivate: (project: Project) => void
 }
 
-export function ProjectRow({ project, onActivate }: ProjectRowProps): React.JSX.Element {
+export function ProjectRow({ project, isActive = false, onActivate }: ProjectRowProps): React.JSX.Element {
   const [faviconFailed, setFaviconFailed] = useState(false)
 
   return (
@@ -16,7 +17,8 @@ export function ProjectRow({ project, onActivate }: ProjectRowProps): React.JSX.
       type="button"
       data-testid={`project-row-${project.id}`}
       className={cn(
-        'flex w-full min-w-0 items-start gap-2 rounded-md px-2 py-2 text-left transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none'
+        'flex w-full min-w-0 items-start gap-2 rounded-md px-2 py-2 text-left transition-colors hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none',
+        isActive && 'bg-white/10'
       )}
       onClick={() => onActivate(project)}
     >

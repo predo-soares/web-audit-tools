@@ -39,7 +39,7 @@ export function HistoryRow({
       className={cn(
         'group/history-row flex min-w-0 items-stretch rounded-md',
         isActive && 'bg-white/10',
-        !isActive && 'hover:bg-muted focus-within:bg-muted'
+        !isActive && 'hover:bg-white/10 focus-within:bg-white/10'
       )}
     >
       <Tooltip>
@@ -77,7 +77,6 @@ export function HistoryRow({
           }
         />
         <TooltipContent side="bottom" className="max-w-sm break-all">
-          <div className="font-medium">{title}</div>
           <div className="text-background/80">{entry.url}</div>
         </TooltipContent>
       </Tooltip>

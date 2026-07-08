@@ -79,7 +79,7 @@ export function Sidebar({
       data-sidebar-transitioning={isTransitioning ? 'true' : 'false'}
       aria-hidden={!isOpen}
       className={cn(
-        'flex h-full shrink-0 flex-col overflow-hidden border-r border-white/10 bg-white/12 backdrop-blur-2xl',
+        'flex h-full shrink-0 flex-col overflow-hidden border-r border-white/10 bg-black/20 backdrop-blur-2xl',
         isTransitioning && 'pointer-events-none',
         !isOpen && 'pointer-events-none'
       )}
@@ -106,6 +106,7 @@ export function Sidebar({
                     <li key={project.id}>
                       <ProjectRow
                         project={project}
+                        isActive={project.url === committedUrl}
                         onActivate={(entry) => {
                           if (entry.url === committedUrl) return
                           onProjectActivate(entry)
