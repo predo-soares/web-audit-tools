@@ -7,10 +7,10 @@ export function usePaneBounds(
   paneId: PaneId,
   cornerRadius: number
 ): (node: HTMLDivElement | null) => void {
-  const { zoom, alignment } = usePreviewCanvas()
+  const { zoom } = usePreviewCanvas()
   const elementRef = useRef<HTMLDivElement | null>(null)
   const observerRef = useRef<ResizeObserver | null>(null)
-  const frameRef = useRef<number | null>(null)
+  const frameRefs = useRef<number[]>([])
 
   const reportBounds = useCallback(() => {
     const element = elementRef.current
@@ -39,11 +39,22 @@ export function usePaneBounds(
   }, [cornerRadius, paneId, zoom])
 
   const scheduleReport = useCallback(() => {
-    if (frameRef.current !== null) return
-    frameRef.current = window.requestAnimationFrame(() => {
-      frameRef.current = null
-      reportBounds()
-    })
+    if (frameRefs.current.length > 0) return
+    const run = (remainingPasses: number): void => {
+      const frameId = window.requestAnimationFrame(() => {
+        frameRefs.current = frameRefs.current.filter((id) => id !== frameId)
+        reportBounds()
+        if (remainingPasses > 1) {
+          run(remainingPasses - 1)
+        }
+      })
+      frameRefs.current.push(frameId)
+    }
+
+    // CSS zoom can leave the first layout sample one frame behind. Take a
+    // second post-layout measurement so the native WebContentsView receives
+    // the settled placeholder width without waiting for another zoom gesture.
+    run(2)
   }, [reportBounds])
 
   const setRef = useCallback(
@@ -62,7 +73,7 @@ export function usePaneBounds(
 
   useLayoutEffect(() => {
     scheduleReport()
-  }, [scheduleReport, alignment])
+  }, [scheduleReport])
 
   useEffect(() => {
     const handleLayoutChange = (): void => scheduleReport()
@@ -83,10 +94,10 @@ export function usePaneBounds(
   useEffect(() => {
     return () => {
       observerRef.current?.disconnect()
-      if (frameRef.current !== null) {
-        window.cancelAnimationFrame(frameRef.current)
-        frameRef.current = null
+      for (const frameId of frameRefs.current) {
+        window.cancelAnimationFrame(frameId)
       }
+      frameRefs.current = []
     }
   }, [])
 

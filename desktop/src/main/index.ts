@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerIpcHandlers } from './ipc'
 import { PaneManager } from './pane-manager'
+import { PopoverManager } from './popover-manager'
 
 // E2E runs get an isolated profile so parallel/leftover instances never share
 // caches or locks with the dev profile (a crashed instance corrupts the disk
@@ -13,6 +14,7 @@ if (process.env.E2E_USER_DATA_DIR) {
 }
 
 const paneManager = new PaneManager()
+const popoverManager = new PopoverManager(paneManager)
 
 if (process.env.E2E_TEST) {
   ;(globalThis as { __paneManager?: PaneManager }).__paneManager = paneManager
@@ -36,7 +38,8 @@ function createWindow(): BrowserWindow {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      spellcheck: false
     }
   })
   mainWindow.setBackgroundColor('#00000000')
@@ -49,6 +52,7 @@ function createWindow(): BrowserWindow {
   })
 
   mainWindow.once('close', () => {
+    popoverManager.destroy()
     paneManager.destroy()
   })
 
@@ -58,7 +62,8 @@ function createWindow(): BrowserWindow {
   })
 
   paneManager.initialize(mainWindow)
-  registerIpcHandlers(paneManager)
+  popoverManager.initialize(mainWindow)
+  registerIpcHandlers(paneManager, popoverManager)
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])

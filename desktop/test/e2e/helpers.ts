@@ -68,6 +68,22 @@ function waitForExit(child: ChildProcess, timeoutMs: number): Promise<boolean> {
   })
 }
 
+export async function getOverlayPage(window: Page): Promise<Page> {
+  const context = window.context()
+  const started = Date.now()
+  while (Date.now() - started < 10_000) {
+    const overlay = context.pages().find((page) => page.url().includes('overlay.html'))
+    if (overlay) {
+      await overlay.waitForLoadState('domcontentloaded')
+      return overlay
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  throw new Error(
+    `Overlay page not found. Pages: ${context.pages().map((page) => page.url()).join(', ')}`
+  )
+}
+
 export async function launchApp(): Promise<LaunchedApp> {
   suppressMacRestorePrompt()
 

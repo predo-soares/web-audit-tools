@@ -3,16 +3,7 @@ import { PANE_IDS } from '../../../shared/device-presets'
 import { CANVAS_GAP, clampZoom, DEFAULT_ZOOM } from '../../../shared/mockup-layout'
 import type { PaneId } from '../../../shared/types'
 import { DevicePane } from '@renderer/components/device-pane'
-import {
-  PreviewCanvasContext,
-  type Alignment
-} from '@renderer/context/preview-canvas-context'
-
-const JUSTIFY: Record<Alignment, string> = {
-  left: 'justify-start',
-  center: 'justify-center',
-  right: 'justify-end'
-}
+import { PreviewCanvasContext } from '@renderer/context/preview-canvas-context'
 
 interface PreviewCanvasProps {
   loadingStates: Record<PaneId, boolean>
@@ -21,7 +12,6 @@ interface PreviewCanvasProps {
 
 export function PreviewCanvas({ loadingStates, children }: PreviewCanvasProps): React.JSX.Element {
   const [zoom, setZoomState] = useState(DEFAULT_ZOOM)
-  const [alignment, setAlignment] = useState<Alignment>('center')
 
   const setZoom = useCallback((nextZoom: number) => {
     setZoomState(clampZoom(nextZoom))
@@ -39,18 +29,18 @@ export function PreviewCanvas({ loadingStates, children }: PreviewCanvasProps): 
   }, [])
 
   return (
-    <PreviewCanvasContext.Provider value={{ zoom, alignment, setZoom, adjustZoom, setAlignment }}>
+    <PreviewCanvasContext.Provider value={{ zoom, setZoom, adjustZoom }}>
       <div className="flex h-screen flex-col bg-transparent text-foreground">
         {children}
         <div
           data-canvas-viewport
-          className="relative min-h-0 flex-1 overflow-x-auto overflow-y-hidden bg-black/20 [background-image:radial-gradient(circle_at_center,_rgba(255,255,255,0.08)_1px,_transparent_1px)] [background-size:20px_20px]"
+          className="relative min-h-0 flex-1 overflow-auto bg-black/20 [background-image:radial-gradient(circle_at_center,_rgba(255,255,255,0.08)_1px,_transparent_1px)] [background-size:20px_20px]"
           onWheel={handleWheel}
           data-testid="preview-canvas"
         >
-          <div className={`flex min-w-full items-start py-6 px-8 ${JUSTIFY[alignment]}`}>
+          <div className="flex w-max min-w-full items-start justify-center py-6">
             <div
-              className="flex items-start"
+              className="flex items-start px-8"
               style={{ gap: CANVAS_GAP, zoom }}
             >
               {PANE_IDS.map((paneId) => (

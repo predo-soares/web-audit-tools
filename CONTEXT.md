@@ -8,6 +8,8 @@ A macOS desktop tool for previewing a website across multiple device viewports s
 - **Device preset** — a named emulation profile (e.g. "iPhone 16 Pro" = 393×852 @3x, touch, mobile UA).
 - **Scroll sync** — mirroring vertical scroll position across panes, ratio-based (scrollTop / scrollable height), with echo suppression.
 - **EngineView** — the abstraction a pane renders through. First and only backend today: Electron `WebContentsView` (Chromium). Designed so future backends (native WKWebView overlay, streamed Playwright WebKit/Firefox) plug in without rearchitecting.
+- **Native popover** — floating UI that must paint above device panes. Rendered in a dedicated overlay view stacked above pane views inside the main window (not DOM/CSS in the shell renderer — device panes are OS-level surfaces that ignore z-index).
+- **Popover panel** — the typed content inside a native popover (e.g. zoom picker, theme picker), identified by `panelId`.
 
 ## Architecture (decided — see docs/adr/)
 

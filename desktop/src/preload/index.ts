@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { PopoverAction, PopoverOpenOptions } from '../shared/popover-types'
 import type { PaneMount, PaneId, PaneNavigationState, ThemePreference } from '../shared/types'
 
 export interface PreviewApi {
@@ -14,6 +15,12 @@ export interface PreviewApi {
   getSyncEnabled: () => Promise<boolean>
   setPaneThemePreference: (preference: ThemePreference) => Promise<ThemePreference>
   getLoadingStates: () => Promise<Record<PaneId, boolean>>
+  openNativePopover: (options: PopoverOpenOptions) => Promise<void>
+  closeNativePopover: () => Promise<void>
+  getOpenNativePopoverPanel: () => Promise<PopoverOpenOptions['panelId'] | null>
+  onPopoverAction: (callback: (action: PopoverAction) => void) => () => void
+  onPopoverClosed: (callback: () => void) => () => void
+  onPopoverThemeChanged: (callback: (preference: ThemePreference) => void) => () => void
   onPaneLoading: (callback: (state: { paneId: PaneId; loading: boolean }) => void) => () => void
   onPaneNavigation: (callback: (state: PaneNavigationState) => void) => () => void
   evaluateInPane: <T>(paneId: PaneId, expression: string) => Promise<T>
@@ -33,6 +40,26 @@ const api: PreviewApi = {
   setPaneThemePreference: (preference) =>
     ipcRenderer.invoke('pane-theme:set-preference', preference),
   getLoadingStates: () => ipcRenderer.invoke('pane:loading-states'),
+  openNativePopover: (options) => ipcRenderer.invoke('popover:open', options),
+  closeNativePopover: () => ipcRenderer.invoke('popover:close'),
+  getOpenNativePopoverPanel: () => ipcRenderer.invoke('popover:get-open-panel'),
+  onPopoverAction: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, action: PopoverAction): void =>
+      callback(action)
+    ipcRenderer.on('popover:action', listener)
+    return () => ipcRenderer.removeListener('popover:action', listener)
+  },
+  onPopoverClosed: (callback) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('popover:closed', listener)
+    return () => ipcRenderer.removeListener('popover:closed', listener)
+  },
+  onPopoverThemeChanged: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, preference: ThemePreference): void =>
+      callback(preference)
+    ipcRenderer.on('popover:theme-changed', listener)
+    return () => ipcRenderer.removeListener('popover:theme-changed', listener)
+  },
   onPaneLoading: (callback) => {
     const listener = (
       _event: Electron.IpcRendererEvent,

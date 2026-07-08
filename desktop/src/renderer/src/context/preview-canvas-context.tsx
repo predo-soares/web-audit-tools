@@ -1,13 +1,9 @@
 import { createContext, useContext } from 'react'
 
-export type Alignment = 'left' | 'center' | 'right'
-
 export interface PreviewCanvasContextValue {
   zoom: number
-  alignment: Alignment
   setZoom: (zoom: number) => void
   adjustZoom: (delta: number) => void
-  setAlignment: (alignment: Alignment) => void
 }
 
 export const PreviewCanvasContext = createContext<PreviewCanvasContextValue | null>(null)

@@ -36,6 +36,20 @@ export class PaneManager {
   private readonly lastMount = new Map<PaneId, PaneMount>()
   private themePreference: ThemePreference = 'system'
   private destroyed = false
+  private readonly childViewStackListeners = new Set<() => void>()
+
+  onChildViewStackChanged(listener: () => void): () => void {
+    this.childViewStackListeners.add(listener)
+    return () => {
+      this.childViewStackListeners.delete(listener)
+    }
+  }
+
+  private notifyChildViewStackChanged(): void {
+    for (const listener of this.childViewStackListeners) {
+      listener()
+    }
+  }
 
   initialize(mainWindow: BrowserWindow): void {
     this.destroyed = false
@@ -263,6 +277,7 @@ export class PaneManager {
     this.webContentsToPane.set(engine.webContents.id, paneId)
     this.loadingState.set(paneId, false)
     mainWindow.contentView.addChildView(engine.view)
+    this.notifyChildViewStackChanged()
     this.attachLoadingListeners(engine.webContents, paneId)
     this.attachNavigationListeners(engine.webContents, paneId)
 

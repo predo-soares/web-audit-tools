@@ -1,9 +1,14 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import { normalizeUrl } from '../shared/url'
-import type { PaneMount, PaneId, ThemePreference } from '../shared/types'
+import type { PopoverAction, PopoverOpenOptions } from '../shared/popover-types'
+import type { PaneMount, PaneId, Size, ThemePreference } from '../shared/types'
 import type { PaneManager } from './pane-manager'
+import type { PopoverManager } from './popover-manager'
 
-export function registerIpcHandlers(paneManager: PaneManager): void {
+export function registerIpcHandlers(
+  paneManager: PaneManager,
+  popoverManager: PopoverManager
+): void {
   ipcMain.handle('window:close', (event) => {
     BrowserWindow.fromWebContents(event.sender)?.close()
   })
@@ -73,5 +78,27 @@ export function registerIpcHandlers(paneManager: PaneManager): void {
 
   ipcMain.handle('e2e:evaluate-in-pane', async (_event, paneId: PaneId, expression: string) => {
     return paneManager.evaluateInPane(paneId, expression)
+  })
+
+  ipcMain.handle('popover:open', async (_event, options: PopoverOpenOptions) => {
+    await popoverManager.open(options)
+  })
+
+  ipcMain.handle('popover:close', () => {
+    popoverManager.close()
+  })
+
+  ipcMain.handle('popover:get-open-panel', () => {
+    return popoverManager.getOpenPanelId()
+  })
+
+  ipcMain.on('popover:size', (event, size: Size) => {
+    if (!popoverManager.isOverlayWebContents(event.sender)) return
+    popoverManager.handleSizeReport(size)
+  })
+
+  ipcMain.on('popover:action', (event, action: PopoverAction) => {
+    if (!popoverManager.isOverlayWebContents(event.sender)) return
+    void popoverManager.handleAction(action)
   })
 }
