@@ -178,8 +178,15 @@ export class PaneManager {
 
   private getNavigationCapabilities(): { canGoBack: boolean; canGoForward: boolean } {
     const webContents = this.getEngine(this.resolveNavigationPane()).webContents
+    // Electron counts the initial about:blank → real-page navigation as a
+    // history entry, so canGoBack() is true after the very first load.
+    // Only report canGoBack if there is a meaningful (non-blank) entry behind.
+    const history = webContents.navigationHistory
+    const activeIndex = history.getActiveIndex()
+    const prevEntry = activeIndex > 0 ? history.getEntryAtIndex(activeIndex - 1) : null
+    const canGoBack = webContents.canGoBack() && prevEntry?.url !== 'about:blank'
     return {
-      canGoBack: webContents.canGoBack(),
+      canGoBack,
       canGoForward: webContents.canGoForward()
     }
   }
