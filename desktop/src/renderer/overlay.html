@@ -7,6 +7,14 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
     />
+    <script>
+      if (
+        navigator.platform.toUpperCase().includes('MAC') ||
+        /Mac/i.test(navigator.userAgent)
+      ) {
+        document.documentElement.dataset.platform = 'mac'
+      }
+    </script>
     <style>
       html,
       body,
