@@ -76,8 +76,8 @@ export function HistoryRow({
             </button>
           }
         />
-        <TooltipContent side="bottom" className="max-w-sm break-all">
-          <div className="text-background/80">{entry.url}</div>
+        <TooltipContent side="bottom" align="start" sideOffset={8} className="max-w-sm break-all">
+          <div className="text-background/80  truncate">{entry.url}</div>
         </TooltipContent>
       </Tooltip>
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
