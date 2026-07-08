@@ -9,6 +9,7 @@ import {
 import type { ElementFingerprint } from '../shared/element-fingerprint'
 import type { PaneId, PaneMount, PaneNavigationState, ThemePreference } from '../shared/types'
 import type { EngineView, ValueSyncPayload } from './engine-view'
+import { summarizeFingerprint, syncTrace, getSyncTraceLogs } from './sync-trace'
 import { getPanePreloadPath, WebContentsViewEngine } from './web-contents-view-engine'
 
 const SHARED_PARTITION = 'persist:audit-screens-preview'
@@ -207,11 +208,19 @@ export class PaneManager {
   }
 
   async syncClick(paneId: PaneId, fingerprint: ElementFingerprint): Promise<void> {
+    syncTrace('click:received', { sourcePane: paneId, fingerprint: summarizeFingerprint(fingerprint) })
+
     // Synthetic clicks are real input events, so the target pane's preload
     // re-reports them. Consume that echo here instead of broadcasting it,
     // otherwise panes ping-pong clicks forever.
-    if (this.consumeSyntheticClick(paneId)) return
-    if (!this.syncEnabled) return
+    if (this.consumeSyntheticClick(paneId)) {
+      syncTrace('click:echo-suppressed', { paneId })
+      return
+    }
+    if (!this.syncEnabled) {
+      syncTrace('click:sync-disabled', { sourcePane: paneId })
+      return
+    }
 
     await Promise.all(
       PANE_IDS.map(async (targetId) => {
@@ -219,27 +228,60 @@ export class PaneManager {
 
         const engine = this.getEngine(targetId)
         const epochBeforeResolution = this.getPaneInteractionEpoch(targetId)
-        const point = await engine.resolveClickPoint(fingerprint)
-        if (!point) return
-        if (engine !== this.engines.get(targetId)) return
-        if (epochBeforeResolution !== this.getPaneInteractionEpoch(targetId)) return
+
+        // Prevent the scrollIntoView inside resolveClickPoint from
+        // being broadcast as a real scroll to other panes.
+        this.scrollSyncState = {
+          ...this.scrollSyncState,
+          echoFrom: { ...this.scrollSyncState.echoFrom, [targetId]: true }
+        }
+
+        const resolution = await engine.resolveClickPoint(fingerprint)
+        const epochAfterResolution = this.getPaneInteractionEpoch(targetId)
+        const engineStale = engine !== this.engines.get(targetId)
+        const epochStale = epochBeforeResolution !== epochAfterResolution
+
+        syncTrace('click:target-resolved', {
+          sourcePane: paneId,
+          targetPane: targetId,
+          epochBefore: epochBeforeResolution,
+          epochAfter: epochAfterResolution,
+          engineStale,
+          epochStale,
+          resolution: resolution
+            ? { matched: true, x: resolution.x, y: resolution.y }
+            : { matched: false }
+        })
+
+        if (!resolution) return
+        if (engineStale) {
+          syncTrace('click:skipped-stale-engine', { targetPane: targetId })
+          return
+        }
+        if (epochStale) {
+          syncTrace('click:skipped-stale-epoch', { targetPane: targetId, epochBefore: epochBeforeResolution, epochAfter: epochAfterResolution })
+          return
+        }
 
         const queue = this.syntheticClickExpiry.get(targetId) ?? []
         queue.push(Date.now() + PaneManager.SYNTHETIC_CLICK_TTL_MS)
         this.syntheticClickExpiry.set(targetId, queue)
 
-        engine.dispatchClick(point.x, point.y)
+        syncTrace('click:dispatching', { targetPane: targetId, x: resolution.x, y: resolution.y })
+        engine.dispatchClick(resolution.x, resolution.y)
       })
     )
   }
 
   async syncValue(sourcePaneId: PaneId, fingerprint: ElementFingerprint, value: string): Promise<void> {
+    syncTrace('value:received', { sourcePane: sourcePaneId, value, fingerprint: summarizeFingerprint(fingerprint) })
     if (!this.syncEnabled) return
     const payload: ValueSyncPayload = { value }
 
     await Promise.all(
       PANE_IDS.map(async (targetId) => {
         if (targetId === sourcePaneId) return
+        syncTrace('value:applying', { sourcePane: sourcePaneId, targetPane: targetId })
         await this.getEngine(targetId).applyValue(fingerprint, payload)
       })
     )
@@ -251,19 +293,30 @@ export class PaneManager {
     value: string,
     selectedIndex: number
   ): Promise<void> {
+    syncTrace('select:received', {
+      sourcePane: sourcePaneId,
+      value,
+      selectedIndex,
+      fingerprint: summarizeFingerprint(fingerprint)
+    })
     if (!this.syncEnabled) return
     const payload: ValueSyncPayload = { value, selectedIndex }
 
     await Promise.all(
       PANE_IDS.map(async (targetId) => {
         if (targetId === sourcePaneId) return
+        syncTrace('select:applying', { sourcePane: sourcePaneId, targetPane: targetId })
         await this.getEngine(targetId).applyValue(fingerprint, payload)
       })
     )
   }
 
   async syncSubmit(sourcePaneId: PaneId, fingerprint: ElementFingerprint): Promise<void> {
-    if (this.consumeSyntheticSubmit(sourcePaneId)) return
+    syncTrace('submit:received', { sourcePane: sourcePaneId, fingerprint: summarizeFingerprint(fingerprint) })
+    if (this.consumeSyntheticSubmit(sourcePaneId)) {
+      syncTrace('submit:echo-suppressed', { sourcePane: sourcePaneId })
+      return
+    }
     if (!this.syncEnabled) return
 
     await Promise.all(
@@ -274,6 +327,7 @@ export class PaneManager {
         queue.push(Date.now() + PaneManager.SYNTHETIC_SUBMIT_TTL_MS)
         this.syntheticSubmitExpiry.set(targetId, queue)
 
+        syncTrace('submit:applying', { sourcePane: sourcePaneId, targetPane: targetId })
         await this.getEngine(targetId).submitForm(fingerprint)
       })
     )
@@ -296,6 +350,10 @@ export class PaneManager {
       ipad: this.getEngine('ipad').getMirrorFailureLogs(),
       desktop: this.getEngine('desktop').getMirrorFailureLogs()
     }
+  }
+
+  getSyncTraceLogs(): ReturnType<typeof import('./sync-trace').getSyncTraceLogs> {
+    return getSyncTraceLogs()
   }
 
   private consumeSyntheticClick(paneId: PaneId): boolean {
