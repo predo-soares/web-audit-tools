@@ -407,6 +407,51 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     return
   }
 
+  if (pathname === '/below-fold-button') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head><style>
+        body { margin: 0; height: 3000px; }
+        #top-indicator { position: fixed; top: 10px; left: 10px; }
+        #below-fold-btn { position: absolute; top: 2000px; left: 50px; }
+        #result { position: fixed; bottom: 10px; left: 10px; }
+      </style></head><body>
+        <div id="top-indicator">top</div>
+        <button id="below-fold-btn">Below fold</button>
+        <div id="result" data-clicked="false">not clicked</div>
+        <script>
+          document.getElementById('below-fold-btn').addEventListener('click', function() {
+            document.getElementById('result').dataset.clicked = 'true';
+            document.getElementById('result').textContent = 'clicked';
+          });
+        </script>
+      </body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/occluded-button') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head><style>
+        body { margin: 0; }
+        #overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 100; }
+        #btn { position: relative; z-index: 1; margin: 20px; padding: 10px 20px; }
+        #result { margin: 20px; }
+      </style></head><body>
+        <button id="btn">Under overlay</button>
+        <div id="overlay"></div>
+        <div id="result" data-clicked="false"></div>
+        <script>
+          document.getElementById('btn').addEventListener('click', function() {
+            document.getElementById('result').dataset.clicked = 'true';
+          });
+        </script>
+      </body></html>`
+    )
+    return
+  }
+
   res.writeHead(404)
   res.end('Not found')
 }

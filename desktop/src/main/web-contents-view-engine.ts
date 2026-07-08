@@ -30,7 +30,7 @@ interface ResolvedClickPoint {
   matched: boolean
   x?: number
   y?: number
-  failureReason?: 'not-found' | 'ambiguous'
+  failureReason?: 'not-found' | 'ambiguous' | 'occluded'
 }
 
 export class WebContentsViewEngine implements EngineView {
@@ -178,7 +178,11 @@ export class WebContentsViewEngine implements EngineView {
           this.logMirrorFailure({
             fingerprint,
             paneId: this.paneId,
-            reason: value.failureReason === 'ambiguous' ? 'ambiguous' : 'not-found'
+            reason: value.failureReason === 'ambiguous'
+              ? 'ambiguous'
+              : value.failureReason === 'occluded'
+                ? 'occluded'
+                : 'not-found'
           })
         }
         return null
@@ -401,13 +405,34 @@ export class WebContentsViewEngine implements EngineView {
         }
 
         const element = elements[resolved.index];
+
+        // Scroll the element into view before measuring its position.
+        // Set the scroll-suppression flag so that the scroll events fired by
+        // scrollIntoView are not echoed to other panes via pane:scroll IPC.
+        // The flag is cleared asynchronously after this expression returns
+        // (scroll events from scrollIntoView fire asynchronously), so we use
+        // setTimeout(0) to queue the cleanup after the current microtask.
+        window.__suppressScrollReport = true;
+        element.scrollIntoView({ block: 'center', behavior: 'instant' });
+        setTimeout(function() { window.__suppressScrollReport = false; }, 0);
+
         const rect = element.getBoundingClientRect();
         if (rect.width <= 0 || rect.height <= 0) return { matched: false, failureReason: 'not-found' };
 
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+
+        // Hit-test: verify the element (or one of its descendants) is the
+        // topmost element at the center point. If an overlay covers the element,
+        // elementFromPoint returns the overlay instead and we reject the click.
+        const hit = document.elementFromPoint(centerX, centerY);
+        const isHit = hit === element || element.contains(hit);
+        if (!isHit) return { matched: false, failureReason: 'occluded' };
+
         return {
           matched: true,
-          x: rect.left + rect.width / 2,
-          y: rect.top + rect.height / 2
+          x: centerX,
+          y: centerY
         };
       })();
     `

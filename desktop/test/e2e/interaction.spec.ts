@@ -346,3 +346,65 @@ test('clicking Nth duplicate button mirrors the same Nth instance in other panes
   }
 })
 
+
+test('mirrored click scrolls off-screen element into view and clicks it', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/below-fold-button'))
+    await waitForAllPanes(window)
+
+    // Click the below-fold button directly in the iphone pane (it is below the
+    // viewport but the preload sends a fingerprint, so the mirror path in the
+    // other panes must scroll it into view before dispatching the click).
+    await evaluateInPane(window, 'iphone', `document.getElementById('below-fold-btn').click()`)
+
+    // Verify that ipad and desktop panes also registered the click via the
+    // scroll-into-view mirror path.
+    for (const paneId of ['ipad', 'desktop'] as const) {
+      await expect
+        .poll(
+          () =>
+            evaluateInPane<string>(
+              window,
+              paneId,
+              `document.getElementById('result')?.dataset.clicked ?? 'false'`
+            ),
+          { timeout: 5_000 }
+        )
+        .toBe('true')
+    }
+  } finally {
+    await close()
+  }
+})
+
+test('mirrored click does not click when element is occluded by overlay', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/occluded-button'))
+    await waitForAllPanes(window)
+
+    // Directly click the button in the iphone pane — the preload sends the
+    // fingerprint for #btn. In the target panes, elementFromPoint will return
+    // the overlay div rather than the button, so the mirror should be rejected.
+    await evaluateInPane(window, 'iphone', `document.getElementById('btn').click()`)
+
+    // Wait long enough for any mirror to have arrived, then confirm it did not.
+    await window.waitForTimeout(500)
+
+    for (const paneId of ['ipad', 'desktop'] as const) {
+      const clicked = await evaluateInPane<string>(
+        window,
+        paneId,
+        `document.getElementById('result')?.dataset.clicked ?? 'false'`
+      )
+      expect(clicked).toBe('false')
+    }
+  } finally {
+    await close()
+  }
+})
