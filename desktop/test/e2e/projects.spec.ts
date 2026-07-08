@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures'
+import { rmSync } from 'fs'
 import {
   evaluateInPane,
   fixtureUrl,
@@ -19,16 +20,13 @@ test('saving a project persists it and clicking navigates all panes', async ({ f
 
     await expect(window.getByTestId('save-project')).toBeEnabled()
     await window.getByTestId('save-project').click()
-    await expect(window.getByTestId('save-project-dialog')).toBeVisible()
-    await window.getByTestId('project-name-input').fill('Strict Headers')
-    await window.getByTestId('project-save-confirm').click()
 
-    await expect(window.getByText('Strict Headers')).toBeVisible()
+    await expect(window.locator('[data-testid^="project-row-"]').getByText(firstUrl)).toBeVisible()
 
     await navigateTo(window, secondUrl)
     await waitForAllPanes(window)
 
-    await window.getByText('Strict Headers').click()
+    await window.locator('[data-testid^="project-row-"]').getByText(firstUrl).click()
     await waitForAllPanes(window)
 
     for (const paneId of ['iphone', 'ipad', 'desktop'] as const) {
@@ -49,19 +47,18 @@ test('projects survive app restart', async ({ fixturePort }) => {
     await waitForAllPanes(firstLaunch.window)
 
     await firstLaunch.window.getByTestId('save-project').click()
-    await firstLaunch.window.getByTestId('project-name-input').fill('Restart Project')
-    await firstLaunch.window.getByTestId('project-save-confirm').click()
-    await expect(firstLaunch.window.getByText('Restart Project')).toBeVisible()
+    await expect(firstLaunch.window.locator('[data-testid^="project-row-"]').getByText(firstUrl)).toBeVisible()
 
-    await firstLaunch.close()
+    await firstLaunch.close({ deleteUserData: false })
 
     const secondLaunch = await launchApp(firstLaunch.userDataDir)
     try {
-      await expect(secondLaunch.window.getByText('Restart Project')).toBeVisible({
+      await expect(secondLaunch.window.locator('[data-testid^="project-row-"]').getByText(firstUrl)).toBeVisible({
         timeout: 15_000
       })
     } finally {
       await secondLaunch.close()
+      rmSync(firstLaunch.userDataDir, { recursive: true, force: true })
     }
   } catch (error) {
     await firstLaunch.close()
@@ -83,10 +80,8 @@ test('save uses last committed page while navigation is loading', async ({ fixtu
     await window.getByTestId('url-submit').click()
 
     await window.getByTestId('save-project').click()
-    await expect(window.getByTestId('project-name-input')).toHaveValue('Strict headers page')
-    await window.getByTestId('project-save-confirm').click()
 
-    await expect(window.getByText('Strict headers page')).toBeVisible()
+    await expect(window.locator('[data-testid^="project-row-"]').getByText(firstUrl)).toBeVisible()
     await waitForAllPanes(window)
   } finally {
     await close()
