@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bookmark } from 'lucide-react'
-import { Button } from '@renderer/components/ui/button'
+import { Star } from 'lucide-react'
+import { Button, buttonVariants } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { cn } from '@renderer/lib/utils'
 
@@ -90,12 +90,14 @@ interface SaveProjectButtonProps {
   disabled: boolean
   suggestedName: string
   onSave: (name: string) => void
+  className?: string
 }
 
 export function SaveProjectButton({
   disabled,
   suggestedName,
-  onSave
+  onSave,
+  className
 }: SaveProjectButtonProps): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -113,19 +115,17 @@ export function SaveProjectButton({
   }, [open])
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className={cn('relative', className)}>
       <button
         type="button"
         data-testid="save-project"
-        className={cn(
-          'inline-flex size-7 shrink-0 items-center justify-center rounded-[min(var(--radius-md),12px)] border border-border bg-background text-sm font-medium transition-all hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50 dark:border-input dark:bg-input/30 dark:hover:bg-input/50'
-        )}
+        className={buttonVariants({ variant: 'ghost', size: 'icon-sm' })}
         aria-label="Save current page as project"
         aria-expanded={open}
         disabled={disabled}
         onClick={() => setOpen((current) => !current)}
       >
-        <Bookmark aria-hidden="true" className="size-4" />
+        <Star aria-hidden="true" className="size-4" />
       </button>
       <SaveProjectDialog
         open={open}

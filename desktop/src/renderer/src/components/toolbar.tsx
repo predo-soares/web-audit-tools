@@ -10,7 +10,6 @@ import {
   TOOLBAR_HEIGHT_PX
 } from '../../../shared/sidebar'
 import { useSidebar, useSidebarInternals } from '@renderer/context/sidebar-context'
-import { SaveProjectButton } from '@renderer/components/save-project-button'
 import { Link2, Link2Off, Palette, PanelLeft, ZoomIn } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
@@ -177,6 +176,9 @@ export function Toolbar({
             onNavigate={onNavigate}
             onRefresh={onRefresh}
             disabled={navigating}
+            canSaveProject={canSaveProject}
+            saveSuggestedName={saveSuggestedName}
+            onSaveProject={onSaveProject}
           />
         </div>
       </div>
@@ -218,11 +220,6 @@ export function Toolbar({
         >
           {syncEnabled ? <Link2 /> : <Link2Off />}
         </button>
-        <SaveProjectButton
-          disabled={!canSaveProject}
-          suggestedName={saveSuggestedName}
-          onSave={onSaveProject}
-        />
       </div>
     </header>
   )

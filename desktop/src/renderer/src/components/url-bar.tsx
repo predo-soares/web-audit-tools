@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { Input } from '@renderer/components/ui/input'
 import { Button } from '@renderer/components/ui/button'
+import { SaveProjectButton } from '@renderer/components/save-project-button'
+import { cn } from '@renderer/lib/utils'
 import { Globe, RefreshCw } from 'lucide-react'
 
 interface UrlBarProps {
@@ -11,6 +13,9 @@ interface UrlBarProps {
   onNavigate: (url: string) => void
   onRefresh: () => void
   disabled?: boolean
+  canSaveProject: boolean
+  saveSuggestedName: string
+  onSaveProject: (name: string) => void
 }
 
 export function UrlBar({
@@ -20,7 +25,10 @@ export function UrlBar({
   onChange,
   onNavigate,
   onRefresh,
-  disabled
+  disabled,
+  canSaveProject,
+  saveSuggestedName,
+  onSaveProject
 }: UrlBarProps): React.JSX.Element {
   const [faviconFailed, setFaviconFailed] = useState(false)
 
@@ -61,13 +69,22 @@ export function UrlBar({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           disabled={disabled}
-          className="min-w-0 flex-1  pr-64 pl-9 focus-visible:bg-white/10"
+          className={cn(
+            'min-w-0 flex-1 pl-9 focus-visible:bg-white/10',
+            pageTitle ? 'pr-64' : 'pr-20'
+          )}
         />
         {pageTitle ? (
-          <span className="pointer-events-none absolute top-1/2 right-10 z-10 max-w-52 -translate-y-1/2 truncate text-sm text-muted-foreground/70">
+          <span className="pointer-events-none absolute top-1/2 right-16 z-10 max-w-52 -translate-y-1/2 truncate text-sm text-muted-foreground/70">
             {pageTitle}
           </span>
         ) : null}
+        <SaveProjectButton
+          disabled={!canSaveProject || disabled}
+          suggestedName={saveSuggestedName}
+          onSave={onSaveProject}
+          className="absolute top-1/2 right-8 z-10 -translate-y-1/2"
+        />
         <Button
           type="button"
           variant="ghost"
