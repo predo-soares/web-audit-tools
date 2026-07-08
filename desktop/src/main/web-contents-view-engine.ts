@@ -30,6 +30,7 @@ import { getDescribedElementsInPage, resolveFingerprintInPage } from '../shared/
 import { DEFAULT_ZOOM } from '../shared/mockup-layout'
 import { normalizeUrl } from '../shared/url'
 import type { EngineView, ValueSyncPayload } from './engine-view'
+import { syncTrace } from './sync-trace'
 
 interface RuntimeEvaluateResponse {
   result?: {
@@ -42,6 +43,7 @@ interface ResolvedClickPoint {
   matched: boolean
   x?: number
   y?: number
+  handled?: boolean
   failureReason?: 'not-found' | 'ambiguous' | 'occluded'
 }
 
@@ -180,7 +182,7 @@ export class WebContentsViewEngine implements EngineView {
 
   async resolveClickPoint(
     fingerprint: ElementFingerprint
-  ): Promise<{ x: number; y: number } | null> {
+  ): Promise<{ x: number; y: number } | { handled: true } | null> {
     try {
       await this.ensureDebugger()
       const response = (await this.webContents.debugger.sendCommand('Runtime.evaluate', {
@@ -189,12 +191,17 @@ export class WebContentsViewEngine implements EngineView {
       })) as RuntimeEvaluateResponse
 
       if (response.exceptionDetails) {
+        syncTrace('click:evaluate-exception', { paneId: this.paneId, exceptionDetails: response.exceptionDetails })
         console.error(`[pane:${this.paneId}] click resolution evaluate failed:`, response.exceptionDetails)
         return null
       }
       const value = response.result?.value as ResolvedClickPoint | undefined
-      if (!value?.matched || typeof value.x !== 'number' || typeof value.y !== 'number') {
+      if (!value?.matched) {
         if (value && !value.matched) {
+          syncTrace('click:resolution-failed', {
+            paneId: this.paneId,
+            failureReason: value.failureReason ?? 'not-found'
+          })
           this.logMirrorFailure({
             fingerprint,
             paneId: this.paneId,
@@ -207,9 +214,11 @@ export class WebContentsViewEngine implements EngineView {
         }
         return null
       }
-
+      if (value.handled) return { handled: true }
+      if (typeof value.x !== 'number' || typeof value.y !== 'number') return null
       return { x: value.x, y: value.y }
     } catch (error) {
+      syncTrace('click:resolution-error', { paneId: this.paneId, error: String(error) })
       console.error(`[pane:${this.paneId}] click resolution failed:`, error)
       return null
     }
@@ -235,6 +244,10 @@ export class WebContentsViewEngine implements EngineView {
       }
       const result = response.result?.value as ResolvedMirrorAction | undefined
       if (result && !result.matched) {
+        syncTrace('value:apply-failed', {
+          paneId: this.paneId,
+          failureReason: result.failureReason ?? 'not-found'
+        })
         this.logMirrorFailure({
           fingerprint,
           paneId: this.paneId,
@@ -260,6 +273,10 @@ export class WebContentsViewEngine implements EngineView {
       }
       const result = response.result?.value as ResolvedMirrorAction | undefined
       if (result && !result.matched) {
+        syncTrace('submit:apply-failed', {
+          paneId: this.paneId,
+          failureReason: result.failureReason ?? 'not-found'
+        })
         this.logMirrorFailure({
           fingerprint,
           paneId: this.paneId,
@@ -410,16 +427,21 @@ export class WebContentsViewEngine implements EngineView {
         const element = match.element;
 
         // Scroll the element into view before measuring its position.
-        // Set the scroll-suppression flag so that the scroll events fired by
-        // scrollIntoView are not echoed to other panes via pane:scroll IPC.
-        // The flag is cleared asynchronously after this expression returns
-        // (scroll events from scrollIntoView fire asynchronously), so we use
-        // setTimeout(0) to queue the cleanup after the current microtask.
         window.__suppressScrollReport = true;
         element.scrollIntoView({ block: 'center', behavior: 'instant' });
         requestAnimationFrame(function () {
           window.__suppressScrollReport = false;
         });
+
+        // Checkboxes and radios are not reliably toggled by native mouse/touch
+        // events in device-emulated panes. Use element.click() directly so that
+        // the browser applies its own toggle logic regardless of emulation mode.
+        const isToggle = element instanceof HTMLInputElement &&
+          (element.type === 'checkbox' || element.type === 'radio');
+        if (isToggle) {
+          element.click();
+          return { matched: true, handled: true };
+        }
 
         const rect = element.getBoundingClientRect();
         if (rect.width <= 0 || rect.height <= 0) return { matched: false, failureReason: 'not-found' };

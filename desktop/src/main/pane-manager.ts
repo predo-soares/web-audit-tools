@@ -248,6 +248,7 @@ export class PaneManager {
         const engineStale = engine !== this.engines.get(targetId)
         const epochStale = epochBeforeResolution !== epochAfterResolution
 
+        const isHandled = resolution !== null && 'handled' in resolution
         syncTrace('click:target-resolved', {
           sourcePane: paneId,
           targetPane: targetId,
@@ -256,7 +257,9 @@ export class PaneManager {
           engineStale,
           epochStale,
           resolution: resolution
-            ? { matched: true, x: resolution.x, y: resolution.y }
+            ? isHandled
+              ? { matched: true, handled: true }
+              : { matched: true, x: (resolution as { x: number; y: number }).x, y: (resolution as { x: number; y: number }).y }
             : { matched: false }
         })
 
@@ -274,8 +277,14 @@ export class PaneManager {
         queue.push(Date.now() + PaneManager.SYNTHETIC_CLICK_TTL_MS)
         this.syntheticClickExpiry.set(targetId, queue)
 
-        syncTrace('click:dispatching', { targetPane: targetId, x: resolution.x, y: resolution.y })
-        engine.dispatchClick(resolution.x, resolution.y)
+        if (isHandled) {
+          syncTrace('click:js-handled', { targetPane: targetId })
+          return
+        }
+
+        const coords = resolution as { x: number; y: number }
+        syncTrace('click:dispatching', { targetPane: targetId, x: coords.x, y: coords.y })
+        engine.dispatchClick(coords.x, coords.y)
       })
     )
   }
