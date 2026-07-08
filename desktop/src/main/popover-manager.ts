@@ -1,5 +1,6 @@
 import { WebContentsView, type BrowserWindow, type WebContents } from 'electron'
 import { join } from 'path'
+import { pathToFileURL } from 'url'
 import { is } from '@electron-toolkit/utils'
 import type {
   PopoverAction,
@@ -21,7 +22,7 @@ function getOverlayUrl(): string {
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     return `${process.env['ELECTRON_RENDERER_URL']}/overlay.html`
   }
-  return join(__dirname, '../renderer/overlay.html')
+  return pathToFileURL(join(__dirname, '../renderer/overlay.html')).href
 }
 
 export class PopoverManager {
