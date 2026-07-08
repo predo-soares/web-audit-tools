@@ -51,8 +51,25 @@ function createWindow(): BrowserWindow {
     mainWindow.setVibrancy('under-window')
   }
 
+  const sendWindowFocusState = (): void => {
+    if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
+    mainWindow.webContents.send('window:focus-changed', mainWindow.isFocused())
+  }
+
+  const sendWindowFullscreenState = (): void => {
+    if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
+    mainWindow.webContents.send('window:fullscreen-changed', mainWindow.isFullScreen())
+  }
+
+  mainWindow.on('focus', sendWindowFocusState)
+  mainWindow.on('blur', sendWindowFocusState)
+  mainWindow.on('enter-full-screen', sendWindowFullscreenState)
+  mainWindow.on('leave-full-screen', sendWindowFullscreenState)
+
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+    sendWindowFocusState()
+    sendWindowFullscreenState()
   })
 
   mainWindow.once('close', () => {

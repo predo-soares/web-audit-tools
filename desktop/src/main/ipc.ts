@@ -34,6 +34,14 @@ export function registerIpcHandlers(
     }
   })
 
+  ipcMain.handle('window:is-focused', (event) => {
+    return BrowserWindow.fromWebContents(event.sender)?.isFocused() ?? false
+  })
+
+  ipcMain.handle('window:is-fullscreen', (event) => {
+    return BrowserWindow.fromWebContents(event.sender)?.isFullScreen() ?? false
+  })
+
   ipcMain.handle('pane:mount', (_event, paneId: PaneId, mount: PaneMount) => {
     paneManager.mount(paneId, mount)
   })

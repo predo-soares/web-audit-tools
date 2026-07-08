@@ -10,6 +10,7 @@ import {
   TOOLBAR_HEIGHT_PX
 } from '../../../shared/sidebar'
 import { useSidebar, useSidebarInternals } from '@renderer/context/sidebar-context'
+import { WindowControls } from '@renderer/components/window-controls'
 import { Link2, Link2Off, Palette, PanelLeft, ZoomIn } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
@@ -129,24 +130,7 @@ export function Toolbar({
       data-app-region="drag"
     >
       <div className="relative z-10 flex shrink-0 items-center gap-2" data-app-region="no-drag">
-        <button
-          type="button"
-          className="size-3 rounded-full bg-[#ff5f57] transition hover:brightness-110 active:brightness-90"
-          aria-label="Close window"
-          onClick={() => void window.api.closeWindow()}
-        />
-        <button
-          type="button"
-          className="size-3 rounded-full bg-[#ffbd2e] transition hover:brightness-110 active:brightness-90"
-          aria-label="Minimize window"
-          onClick={() => void window.api.minimizeWindow()}
-        />
-        <button
-          type="button"
-          className="size-3 rounded-full bg-[#28c840] transition hover:brightness-110 active:brightness-90"
-          aria-label="Toggle fullscreen"
-          onClick={() => void window.api.toggleMaximizeWindow()}
-        />
+        <WindowControls />
         <button
           ref={toggleButtonRef}
           type="button"

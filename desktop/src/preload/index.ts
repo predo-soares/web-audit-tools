@@ -8,6 +8,10 @@ export interface PreviewApi {
   closeWindow: () => Promise<void>
   minimizeWindow: () => Promise<void>
   toggleMaximizeWindow: () => Promise<void>
+  isWindowFocused: () => Promise<boolean>
+  isWindowFullscreen: () => Promise<boolean>
+  onWindowFocusChanged: (callback: (focused: boolean) => void) => () => void
+  onWindowFullscreenChanged: (callback: (fullscreen: boolean) => void) => () => void
   mountPane: (paneId: PaneId, mount: PaneMount) => Promise<void>
   navigate: (url: string) => Promise<string>
   reload: () => Promise<void>
@@ -40,6 +44,20 @@ const api: PreviewApi = {
   closeWindow: () => ipcRenderer.invoke('window:close'),
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
   toggleMaximizeWindow: () => ipcRenderer.invoke('window:toggle-maximize'),
+  isWindowFocused: () => ipcRenderer.invoke('window:is-focused'),
+  isWindowFullscreen: () => ipcRenderer.invoke('window:is-fullscreen'),
+  onWindowFocusChanged: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, focused: boolean): void =>
+      callback(focused)
+    ipcRenderer.on('window:focus-changed', listener)
+    return () => ipcRenderer.removeListener('window:focus-changed', listener)
+  },
+  onWindowFullscreenChanged: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, fullscreen: boolean): void =>
+      callback(fullscreen)
+    ipcRenderer.on('window:fullscreen-changed', listener)
+    return () => ipcRenderer.removeListener('window:fullscreen-changed', listener)
+  },
   mountPane: (paneId, mount) => ipcRenderer.invoke('pane:mount', paneId, mount),
   navigate: (url) => ipcRenderer.invoke('preview:navigate', url),
   reload: () => ipcRenderer.invoke('preview:reload'),
