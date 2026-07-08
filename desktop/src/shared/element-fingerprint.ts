@@ -36,6 +36,7 @@ export type ElementFingerprintLayer =
 export interface ElementFingerprint {
   layers: ElementFingerprintLayer[]
   indexAmongMatches?: number
+  checkedState?: boolean
 }
 
 export interface ResolvedElementFingerprint {

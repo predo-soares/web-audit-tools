@@ -243,6 +243,7 @@ export class PaneManager {
           echoFrom: { ...this.scrollSyncState.echoFrom, [targetId]: true }
         }
 
+        const syntheticClickExpiry = this.reserveSyntheticClick(targetId)
         const resolution = await engine.resolveClickPoint(fingerprint)
         const epochAfterResolution = this.getPaneInteractionEpoch(targetId)
         const engineStale = engine !== this.engines.get(targetId)
@@ -266,12 +267,17 @@ export class PaneManager {
             : { matched: false }
         })
 
-        if (!resolution) return
+        if (!resolution) {
+          this.revokeSyntheticClick(targetId, syntheticClickExpiry)
+          return
+        }
         if (engineStale) {
+          this.revokeSyntheticClick(targetId, syntheticClickExpiry)
           syncTrace('click:skipped-stale-engine', { targetPane: targetId })
           return
         }
         if (epochStale) {
+          this.revokeSyntheticClick(targetId, syntheticClickExpiry)
           syncTrace('click:skipped-stale-epoch', { targetPane: targetId, epochBefore: epochBeforeResolution, epochAfter: epochAfterResolution })
           return
         }
@@ -282,6 +288,7 @@ export class PaneManager {
         if (isLinkNav) {
           const { navigateTo } = resolution as { skipDispatch: true; navigateTo: string }
           syncTrace('click:link-nav', { targetPane: targetId, navigateTo })
+          this.revokeSyntheticClick(targetId, syntheticClickExpiry)
           if (!this.pendingProgrammaticNavigation.has(targetId)) {
             this.pendingProgrammaticNavigation.add(targetId)
             this.paneUrls.set(targetId, navigateTo)
@@ -290,14 +297,9 @@ export class PaneManager {
           return
         }
 
-        // Push expiry so the preload's click echo (from element.click() or
-        // sendInputEvent) is suppressed rather than re-broadcast.
-        const queue = this.syntheticClickExpiry.get(targetId) ?? []
-        queue.push(Date.now() + PaneManager.SYNTHETIC_CLICK_TTL_MS)
-        this.syntheticClickExpiry.set(targetId, queue)
-
         if (isHandled) {
           syncTrace('click:js-handled', { targetPane: targetId })
+          this.revokeSyntheticClick(targetId, syntheticClickExpiry)
           return
         }
 
@@ -407,6 +409,22 @@ export class PaneManager {
       if (expiry !== undefined && expiry >= now) return true
     }
     return false
+  }
+
+  private reserveSyntheticClick(paneId: PaneId): number {
+    const expiry = Date.now() + PaneManager.SYNTHETIC_CLICK_TTL_MS
+    const queue = this.syntheticClickExpiry.get(paneId) ?? []
+    queue.push(expiry)
+    this.syntheticClickExpiry.set(paneId, queue)
+    return expiry
+  }
+
+  private revokeSyntheticClick(paneId: PaneId, expiry: number): void {
+    const queue = this.syntheticClickExpiry.get(paneId)
+    if (!queue?.length) return
+    const index = queue.indexOf(expiry)
+    if (index !== -1) queue.splice(index, 1)
+    if (!queue.length) this.syntheticClickExpiry.delete(paneId)
   }
 
   async syncScroll(paneId: PaneId, ratio: number, programmatic: boolean): Promise<void> {

@@ -437,12 +437,27 @@ export class WebContentsViewEngine implements EngineView {
         });
 
         // Checkboxes and radios are not reliably toggled by native mouse/touch
-        // events in device-emulated panes. Use element.click() directly so that
-        // the browser applies its own toggle logic regardless of emulation mode.
+        // events in device-emulated panes. Applying the browser-equivalent
+        // checked state here keeps this on the click-resolution path without
+        // emitting a second click event from the target pane preload.
         const isToggle = element instanceof HTMLInputElement &&
           (element.type === 'checkbox' || element.type === 'radio');
         if (isToggle) {
-          element.click();
+          const wasChecked = element.checked;
+          const desiredChecked = typeof fingerprint.checkedState === 'boolean'
+            ? fingerprint.checkedState
+            : element.type === 'checkbox'
+              ? !element.checked
+              : true;
+          if (element.type === 'checkbox') {
+            element.checked = desiredChecked;
+          } else if (desiredChecked) {
+            element.checked = true;
+          }
+          if (element.checked !== wasChecked) {
+            element.dispatchEvent(new Event('input', { bubbles: true }));
+            element.dispatchEvent(new Event('change', { bubbles: true }));
+          }
           return { matched: true, handled: true };
         }
 
@@ -456,7 +471,7 @@ export class WebContentsViewEngine implements EngineView {
           !rawHref.startsWith('#') &&
           !rawHref.startsWith('javascript:');
         if (isNavigationLink) {
-          return { matched: true, skipDispatch: true, navigateTo: (element as HTMLAnchorElement).href };
+          return { matched: true, skipDispatch: true, navigateTo: element.href };
         }
 
         const rect = element.getBoundingClientRect();

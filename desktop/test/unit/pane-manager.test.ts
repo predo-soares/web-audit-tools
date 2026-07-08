@@ -12,7 +12,14 @@ function createDeferred<T>() {
 
 function createMockEngine() {
   return {
-    resolveClickPoint: vi.fn<() => Promise<{ x: number; y: number } | null>>(),
+    resolveClickPoint: vi.fn<
+      () => Promise<
+        | { x: number; y: number }
+        | { handled: true }
+        | { skipDispatch: true; navigateTo: string }
+        | null
+      >
+    >(),
     dispatchClick: vi.fn<(x: number, y: number) => void>(),
     applyValue: vi.fn(),
     applyChecked: vi.fn(),
@@ -33,6 +40,10 @@ function createMockEngine() {
 
 function createFingerprint(): ElementFingerprint {
   return { layers: [{ type: 'id', id: 'semantic-primary' }] }
+}
+
+function createToggleFingerprint(checkedState: boolean): ElementFingerprint {
+  return { ...createFingerprint(), checkedState }
 }
 
 function createPaneManagerWithEngines() {
@@ -92,5 +103,58 @@ describe('PaneManager syncClick stale guards', () => {
     await paneManager.syncClick('iphone', createFingerprint())
 
     expect(ipad.dispatchClick).toHaveBeenCalledWith(10, 20)
+  })
+
+  it('suppresses a click echo that fires while the target click is being resolved', async () => {
+    const { paneManager, ipad, desktop } = createPaneManagerWithEngines()
+    desktop.resolveClickPoint.mockResolvedValue(null)
+    ipad.resolveClickPoint.mockImplementation(async () => {
+      await paneManager.syncClick('ipad', createFingerprint())
+      return { handled: true }
+    })
+
+    await paneManager.syncClick('iphone', createFingerprint())
+
+    expect(ipad.dispatchClick).not.toHaveBeenCalled()
+    expect(desktop.resolveClickPoint).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not leave a synthetic click reservation after an unresolved target', async () => {
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithEngines()
+    iphone.resolveClickPoint.mockResolvedValue(null)
+    ipad.resolveClickPoint.mockResolvedValue(null)
+    desktop.resolveClickPoint.mockResolvedValue(null)
+
+    await paneManager.syncClick('iphone', createFingerprint())
+    await paneManager.syncClick('ipad', createFingerprint())
+
+    expect(desktop.resolveClickPoint).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not suppress a later real click after a handled target click produces no echo', async () => {
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithEngines()
+    iphone.resolveClickPoint.mockResolvedValue(null)
+    ipad.resolveClickPoint.mockResolvedValue({ handled: true })
+    desktop.resolveClickPoint.mockResolvedValue(null)
+
+    await paneManager.syncClick('iphone', createFingerprint())
+    await paneManager.syncClick('ipad', createFingerprint())
+
+    expect(iphone.resolveClickPoint).toHaveBeenCalledTimes(1)
+    expect(desktop.resolveClickPoint).toHaveBeenCalledTimes(2)
+  })
+
+  it('preserves the source toggle state across mirrored checkbox clicks', async () => {
+    const { paneManager, ipad, desktop } = createPaneManagerWithEngines()
+    ipad.resolveClickPoint.mockResolvedValue({ handled: true })
+    desktop.resolveClickPoint.mockResolvedValue({ handled: true })
+
+    await paneManager.syncClick('iphone', createToggleFingerprint(true))
+    await paneManager.syncClick('iphone', createToggleFingerprint(false))
+
+    expect(ipad.resolveClickPoint).toHaveBeenNthCalledWith(1, createToggleFingerprint(true))
+    expect(ipad.resolveClickPoint).toHaveBeenNthCalledWith(2, createToggleFingerprint(false))
+    expect(desktop.resolveClickPoint).toHaveBeenNthCalledWith(1, createToggleFingerprint(true))
+    expect(desktop.resolveClickPoint).toHaveBeenNthCalledWith(2, createToggleFingerprint(false))
   })
 })

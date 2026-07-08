@@ -155,6 +155,13 @@ window.addEventListener(
       if (duplicateIndex !== null) {
         fingerprint.indexAmongMatches = duplicateIndex
       }
+      if (inputTarget.type === 'checkbox' || inputTarget.type === 'radio') {
+        setTimeout(() => {
+          fingerprint.checkedState = inputTarget.checked
+          ipcRenderer.send('pane:click', paneId, fingerprint)
+        }, 0)
+        return
+      }
     }
 
     ipcRenderer.send('pane:click', paneId, fingerprint)
