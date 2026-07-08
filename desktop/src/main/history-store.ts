@@ -35,6 +35,7 @@ export class HistoryStore {
   }
 
   logVisit(url: string, title: string, faviconUrl: string | null): void {
+    console.debug('[favicon]', JSON.stringify({ action: 'history:logVisit', url, faviconUrl }))
     this.entries = recordVisit(this.entries, {
       url,
       title,
@@ -49,6 +50,7 @@ export class HistoryStore {
     const next = refreshHistoryMetadata(this.entries, url, title, faviconUrl)
     if (next === this.entries) return
 
+    console.debug('[favicon]', JSON.stringify({ action: 'history:refreshMetadata', url, faviconUrl }))
     this.entries = next
     this.scheduleWrite()
     this.onChange?.(this.list())

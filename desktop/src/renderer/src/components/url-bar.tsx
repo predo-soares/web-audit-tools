@@ -38,6 +38,9 @@ export function UrlBar({
 
   useEffect(() => {
     setFaviconFailed(false)
+    if (faviconUrl) {
+      console.debug('[favicon]', JSON.stringify({ action: 'url-bar:render', faviconUrl }))
+    }
   }, [faviconUrl])
 
   const handleSubmit = (event: FormEvent): void => {
@@ -58,7 +61,16 @@ export function UrlBar({
             alt=""
             aria-hidden="true"
             className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-4 -translate-y-1/2 rounded-sm"
-            onError={() => setFaviconFailed(true)}
+            onLoad={() => {
+              console.debug('[favicon]', JSON.stringify({ action: 'url-bar:load', faviconUrl }))
+            }}
+            onError={() => {
+              console.debug(
+                '[favicon]',
+                JSON.stringify({ action: 'url-bar:error', faviconUrl, hint: 'img failed to load' })
+              )
+              setFaviconFailed(true)
+            }}
           />
         ) : (
           <Globe
