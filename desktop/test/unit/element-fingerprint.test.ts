@@ -198,6 +198,48 @@ describe('element fingerprint', () => {
     })
   })
 
+  it('includes structural-path as the last layer even when higher-priority layers exist', () => {
+    const fingerprint = buildElementFingerprint({
+      tagName: 'button',
+      visibleText: 'Add to cart',
+      structuralPath: 'div:nth-child(2) > button:nth-child(1)'
+    })
+
+    expect(fingerprint?.layers).toEqual([
+      { type: 'text-tag', tagName: 'button', text: 'Add to cart' },
+      { type: 'structural-path', path: 'div:nth-child(2) > button:nth-child(1)' }
+    ])
+  })
+
+  it('falls through an ambiguous text-tag layer and resolves by structural-path', () => {
+    const fingerprint = buildElementFingerprint({
+      tagName: 'button',
+      visibleText: 'Add to cart',
+      structuralPath: 'div:nth-child(2) > button:nth-child(1)'
+    })
+
+    const candidates: ElementDescriptor[] = [
+      {
+        tagName: 'button',
+        visibleText: 'Add to cart',
+        structuralPath: 'div:nth-child(1) > button:nth-child(1)'
+      },
+      {
+        tagName: 'button',
+        visibleText: 'Add to cart',
+        structuralPath: 'div:nth-child(2) > button:nth-child(1)'
+      }
+    ]
+
+    expect(resolveElementFingerprint(fingerprint!, candidates)).toEqual({
+      index: 1,
+      layer: {
+        type: 'structural-path',
+        path: 'div:nth-child(2) > button:nth-child(1)'
+      }
+    })
+  })
+
   // --- layer ordering ---
 
   it('layer order is: id > testid > accessible-name > text-tag > structural-path', () => {
@@ -357,7 +399,7 @@ describe('element fingerprint', () => {
 
   // --- buildElementFingerprintInContext uses structural path for truly duplicate elements ---
 
-  it('uses structural-path as tiebreaker for elements with all layers identical', () => {
+  it('keeps using indexAmongMatches before structural-path when a higher layer is already disambiguated', () => {
     const candidates: ElementDescriptor[] = [
       {
         tagName: 'button',
@@ -378,7 +420,9 @@ describe('element fingerprint', () => {
     expect(fp!.indexAmongMatches).toBe(0)
 
     const resolved = resolveElementFingerprint(fp!, candidates)
-    // text-tag matches 2 items, indexAmongMatches picks the right one
-    expect(resolved!.index).toBe(0)
+    expect(resolved).toEqual({
+      index: 0,
+      layer: { type: 'text-tag', tagName: 'button', text: 'Add to cart' }
+    })
   })
 })

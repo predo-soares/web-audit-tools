@@ -99,7 +99,7 @@ function buildLayers(descriptor: ElementDescriptor): ElementFingerprintLayer[] {
   }
 
   const structuralPath = descriptor.structuralPath?.trim()
-  if (structuralPath && layers.length === 0) {
+  if (structuralPath) {
     layers.push({ type: 'structural-path', path: structuralPath })
   }
 
@@ -236,7 +236,7 @@ export function resolveElementFingerprint(
       ) {
         return { index: matches[fingerprint.indexAmongMatches], layer }
       }
-      return null
+      continue
     }
   }
 
