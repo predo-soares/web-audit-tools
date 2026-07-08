@@ -1,9 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import {
   buildElementFingerprintInContext,
-  buildElementFingerprint,
   normalizeVisibleText,
-  type ElementDescriptor
+  type ElementDescriptor,
+  type ElementFingerprintLayer
 } from '../shared/element-fingerprint'
 import type { PaneId } from '../shared/types'
 
@@ -36,13 +36,6 @@ function findInteractiveAncestor(target: EventTarget | null): Element | null {
   return target.closest(INTERACTIVE_SELECTOR)
 }
 
-function isCheckboxOrRadioInput(element: Element): element is HTMLInputElement {
-  return (
-    element instanceof HTMLInputElement &&
-    (element.type === 'checkbox' || element.type === 'radio')
-  )
-}
-
 function getVisibleText(element: Element): string {
   if (element instanceof HTMLInputElement) {
     if (['button', 'submit', 'reset'].includes(element.type)) {
@@ -54,6 +47,69 @@ function getVisibleText(element: Element): string {
   return normalizeVisibleText(
     element instanceof HTMLElement ? element.innerText : element.textContent
   )
+}
+
+function getInputGroupMatchIndex(element: HTMLInputElement): number | null {
+  if (!['checkbox', 'radio'].includes(element.type)) return null
+  if (!element.name) return null
+
+  const matches = Array.from(document.querySelectorAll('input')).filter(
+    (candidate): candidate is HTMLInputElement =>
+      candidate instanceof HTMLInputElement &&
+      !candidate.disabled &&
+      candidate.type === element.type &&
+      candidate.name === element.name
+  )
+
+  if (matches.length <= 1) return null
+  const index = matches.indexOf(element)
+  return index >= 0 ? index : null
+}
+
+function getDescriptorTestId(element: Element, isFormField: boolean): string | null {
+  const explicitTestId = element.getAttribute('data-testid')
+  if (explicitTestId) return explicitTestId
+  if (!(element instanceof HTMLInputElement) && !isFormField) return null
+  if (!(element instanceof HTMLInputElement)) {
+    return isFormField ? (element as HTMLInputElement).name || null : null
+  }
+
+  if ((element.type === 'checkbox' || element.type === 'radio') && element.name) {
+    const groupIndex = getInputGroupMatchIndex(element)
+    if (groupIndex !== null) {
+      return `${element.type}:${element.name}:${groupIndex}`
+    }
+  }
+
+  return element.name || null
+}
+
+function getLayerMatchIndices(
+  layer: ElementFingerprintLayer,
+  candidates: readonly ElementDescriptor[]
+): number[] {
+  return candidates.flatMap((candidate, index) => {
+    if (layer.type === 'id') {
+      return candidate.id === layer.id ? [index] : []
+    }
+    if (layer.type === 'testid') {
+      return candidate.testId === layer.testId ? [index] : []
+    }
+    if (layer.type === 'accessible-name') {
+      return candidate.tagName.toLowerCase() === layer.tagName &&
+        (candidate.role?.trim() || candidate.tagName.toLowerCase()) === layer.role &&
+        normalizeVisibleText(candidate.ariaLabel) === layer.name
+        ? [index]
+        : []
+    }
+    if (layer.type === 'text-tag') {
+      return candidate.tagName.toLowerCase() === layer.tagName &&
+        normalizeVisibleText(candidate.visibleText) === layer.text
+        ? [index]
+        : []
+    }
+    return candidate.structuralPath === layer.path ? [index] : []
+  })
 }
 
 function getStructuralPath(el: Element): string {
@@ -79,13 +135,11 @@ function describeElement(element: Element): ElementDescriptor {
     element instanceof HTMLSelectElement ||
     element instanceof HTMLTextAreaElement
 
-  const testIdFromName = isFormField ? (element as HTMLInputElement).name || null : null
-
   return {
     tagName,
     id: element.id || null,
     visibleText: getVisibleText(element),
-    testId: element.getAttribute('data-testid') || testIdFromName || null,
+    testId: getDescriptorTestId(element, isFormField),
     ariaLabel: element.getAttribute('aria-label') || null,
     role: element.getAttribute('role') || null,
     structuralPath: getStructuralPath(element)
@@ -146,7 +200,7 @@ function buildFingerprintFromCandidates(target: Element, candidates: Element[]):
   const descriptors = candidates.map(describeElement)
   const targetIndex = candidates.indexOf(target)
   const descriptorForContext = targetIndex !== -1 ? descriptors[targetIndex] : describeElement(target)
-  return buildElementFingerprintInContext(descriptorForContext, descriptors)
+  return buildElementFingerprintInContext(descriptorForContext, descriptors, targetIndex)
 }
 
 function reportScroll(): void {
@@ -177,9 +231,9 @@ window.addEventListener(
   'click',
   (e: MouseEvent) => {
     if ((window as Window & { __suppressClickReport?: boolean }).__suppressClickReport) return
+    const rawTarget = e.target
     const interactive = findInteractiveAncestor(e.target)
     if (!interactive) return
-    if (isCheckboxOrRadioInput(interactive)) return
 
     const allInteractive = Array.from(document.querySelectorAll(INTERACTIVE_SELECTOR)).filter(
       (el) => el instanceof HTMLElement && !(el as HTMLInputElement).disabled
@@ -190,8 +244,35 @@ window.addEventListener(
     const descriptorForContext =
       interactiveIndex !== -1 ? allDescriptors[interactiveIndex] : describeElement(interactive)
 
-    const fingerprint = buildElementFingerprintInContext(descriptorForContext, allDescriptors)
+    const fingerprint = buildElementFingerprintInContext(
+      descriptorForContext,
+      allDescriptors,
+      interactiveIndex
+    )
     if (!fingerprint) return
+    if (fingerprint.indexAmongMatches === undefined && interactiveIndex !== -1) {
+      for (const layer of fingerprint.layers) {
+        const matchIndices = getLayerMatchIndices(layer, allDescriptors)
+        if (matchIndices.length <= 1) continue
+        const position = matchIndices.indexOf(interactiveIndex)
+        if (position !== -1) {
+          fingerprint.indexAmongMatches = position
+          break
+        }
+      }
+    }
+    const inputTarget =
+      rawTarget instanceof HTMLInputElement
+        ? rawTarget
+        : interactive instanceof HTMLInputElement
+          ? interactive
+          : null
+    if (inputTarget) {
+      const duplicateIndex = getInputGroupMatchIndex(inputTarget)
+      if (duplicateIndex !== null) {
+        fingerprint.indexAmongMatches = duplicateIndex
+      }
+    }
 
     ipcRenderer.send('pane:click', paneId, fingerprint)
   },
@@ -226,14 +307,6 @@ window.addEventListener(
   'change',
   (e: Event) => {
     const target = e.target
-    if (target instanceof HTMLInputElement && (target.type === 'checkbox' || target.type === 'radio')) {
-      if ((window as Window & { __suppressCheckedReport?: boolean }).__suppressCheckedReport) return
-
-      const fingerprint = buildElementFingerprint(describeElement(target))
-      if (!fingerprint) return
-      ipcRenderer.send('pane:checked', paneId, fingerprint, target.checked)
-      return
-    }
     if (!(target instanceof HTMLSelectElement)) return
     if ((window as Window & { __suppressValueReport?: boolean }).__suppressValueReport) return
 

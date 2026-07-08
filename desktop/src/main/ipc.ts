@@ -103,13 +103,6 @@ export function registerIpcHandlers(
     }
   )
 
-  ipcMain.on(
-    'pane:checked',
-    (_event, paneId: PaneId, fingerprint: ElementFingerprint, checked: boolean) => {
-      void paneManager.syncChecked(paneId, fingerprint, checked)
-    }
-  )
-
   ipcMain.on('pane:submit', (_event, paneId: PaneId, fingerprint: ElementFingerprint) => {
     void paneManager.syncSubmit(paneId, fingerprint)
   })

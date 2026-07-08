@@ -13,7 +13,6 @@ export interface EngineView {
   syncScroll(ratio: number): Promise<void>
   resolveClickPoint(fingerprint: ElementFingerprint): Promise<{ x: number; y: number } | null>
   applyValue(fingerprint: ElementFingerprint, payload: ValueSyncPayload): Promise<void>
-  applyChecked(fingerprint: ElementFingerprint, checked: boolean): Promise<void>
   submitForm(fingerprint: ElementFingerprint): Promise<void>
   getMirrorFailureLogs(): MirrorFailureLog[]
   dispatchClick(x: number, y: number): void

@@ -114,7 +114,8 @@ export function buildElementFingerprint(descriptor: ElementDescriptor): ElementF
 
 export function buildElementFingerprintInContext(
   descriptor: ElementDescriptor,
-  allCandidates: readonly ElementDescriptor[]
+  allCandidates: readonly ElementDescriptor[],
+  candidateIndex?: number
 ): ElementFingerprint | null {
   const layers = buildLayers(descriptor)
   if (!layers.length) return null
@@ -130,7 +131,7 @@ export function buildElementFingerprintInContext(
     }
 
     // Multiple matches — find this descriptor's position among them
-    const descriptorIdx = allCandidates.indexOf(descriptor as ElementDescriptor)
+    const descriptorIdx = candidateIndex ?? allCandidates.indexOf(descriptor as ElementDescriptor)
     const positionAmongMatches = matchIndices.indexOf(descriptorIdx)
     if (positionAmongMatches !== -1) {
       return { layers, indexAmongMatches: positionAmongMatches }

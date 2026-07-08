@@ -27,12 +27,10 @@ export interface NavigationHistoryHooks {
 
 export class PaneManager {
   private static readonly SYNTHETIC_CLICK_TTL_MS = 1000
-  private static readonly SYNTHETIC_CHECKED_TTL_MS = 1000
   private static readonly SYNTHETIC_SUBMIT_TTL_MS = 1000
 
   private readonly engines = new Map<PaneId, WebContentsViewEngine>()
   private readonly syntheticClickExpiry = new Map<PaneId, number[]>()
-  private readonly syntheticCheckedExpiry = new Map<PaneId, number[]>()
   private readonly syntheticSubmitExpiry = new Map<PaneId, number[]>()
   private readonly webContentsToPane = new Map<number, PaneId>()
   private readonly loadingState = new Map<PaneId, boolean>()
@@ -228,25 +226,6 @@ export class PaneManager {
     )
   }
 
-  async syncChecked(
-    sourcePaneId: PaneId,
-    fingerprint: ElementFingerprint,
-    checked: boolean
-  ): Promise<void> {
-    if (this.consumeSyntheticChecked(sourcePaneId)) return
-    if (!this.syncEnabled) return
-
-    await Promise.all(
-      PANE_IDS.map(async (targetId) => {
-        if (targetId === sourcePaneId) return
-        const queue = this.syntheticCheckedExpiry.get(targetId) ?? []
-        queue.push(Date.now() + PaneManager.SYNTHETIC_CHECKED_TTL_MS)
-        this.syntheticCheckedExpiry.set(targetId, queue)
-        await this.getEngine(targetId).applyChecked(fingerprint, checked)
-      })
-    )
-  }
-
   async syncSubmit(sourcePaneId: PaneId, fingerprint: ElementFingerprint): Promise<void> {
     if (this.consumeSyntheticSubmit(sourcePaneId)) return
     if (!this.syncEnabled) return
@@ -266,17 +245,6 @@ export class PaneManager {
 
   private consumeSyntheticSubmit(paneId: PaneId): boolean {
     const queue = this.syntheticSubmitExpiry.get(paneId)
-    if (!queue?.length) return false
-    const now = Date.now()
-    while (queue.length) {
-      const expiry = queue.shift()
-      if (expiry !== undefined && expiry >= now) return true
-    }
-    return false
-  }
-
-  private consumeSyntheticChecked(paneId: PaneId): boolean {
-    const queue = this.syntheticCheckedExpiry.get(paneId)
     if (!queue?.length) return false
     const now = Date.now()
     while (queue.length) {

@@ -564,11 +564,38 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
       </div>`
       }
     </div>
+    <div id="duplicate-toggles">
+      ${
+        mobile
+          ? `<div class="dup-row">
+        <label><input class="dup-toggle-checkbox" type="checkbox" name="shared-checkbox"> Shared checkbox</label>
+        <label><input class="dup-toggle-radio" type="radio" name="shared-radio" value="alpha"> Alpha</label>
+      </div>
+      <div class="dup-row">
+        <label><input class="dup-toggle-checkbox" type="checkbox" name="shared-checkbox"> Shared checkbox</label>
+        <label><input class="dup-toggle-radio" type="radio" name="shared-radio" value="beta"> Beta</label>
+      </div>`
+          : `<div class="dup-stack">
+        <div class="dup-row"><span>desktop</span>
+          <label><input class="dup-toggle-checkbox" type="checkbox" name="shared-checkbox"> Shared checkbox</label>
+          <label><input class="dup-toggle-radio" type="radio" name="shared-radio" value="alpha"> Alpha</label>
+        </div>
+      </div>
+      <div class="dup-stack">
+        <div class="dup-row"><span>desktop</span>
+          <label><input class="dup-toggle-checkbox" type="checkbox" name="shared-checkbox"> Shared checkbox</label>
+          <label><input class="dup-toggle-radio" type="radio" name="shared-radio" value="beta"> Beta</label>
+        </div>
+      </div>`
+      }
+    </div>
   </section>
   <div
     id="duplicate-result"
     data-second-text=""
     data-second-select="br"
+    data-second-checkbox="false"
+    data-second-radio=""
     data-submit-index="-1"
     data-submit-values=""></div>
   <script>
@@ -633,6 +660,22 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
       select.addEventListener('change', function(e) {
         if (index === 1) {
           duplicateResult.dataset.secondSelect = e.target.value;
+        }
+      });
+    });
+
+    document.querySelectorAll('.dup-toggle-checkbox').forEach(function(input, index) {
+      input.addEventListener('change', function(e) {
+        if (index === 1) {
+          duplicateResult.dataset.secondCheckbox = String(e.target.checked);
+        }
+      });
+    });
+
+    document.querySelectorAll('.dup-toggle-radio').forEach(function(input, index) {
+      input.addEventListener('change', function(e) {
+        if (index === 1 && e.target.checked) {
+          duplicateResult.dataset.secondRadio = e.target.value;
         }
       });
     });

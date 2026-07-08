@@ -227,28 +227,6 @@ export class WebContentsViewEngine implements EngineView {
     }
   }
 
-  async applyChecked(fingerprint: ElementFingerprint, checked: boolean): Promise<void> {
-    try {
-      await this.ensureDebugger()
-      const response = (await this.webContents.debugger.sendCommand('Runtime.evaluate', {
-        expression: this.getCheckedApplyExpression(fingerprint, checked),
-        returnByValue: true
-      })) as RuntimeEvaluateResponse
-
-      if (response.exceptionDetails) return
-      const result = response.result?.value as ResolvedMirrorAction | undefined
-      if (result && !result.matched) {
-        this.logMirrorFailure({
-          fingerprint,
-          paneId: this.paneId,
-          reason: result.failureReason === 'ambiguous' ? 'ambiguous' : 'not-found'
-        })
-      }
-    } catch {
-      // Ignore if page not ready
-    }
-  }
-
   async submitForm(fingerprint: ElementFingerprint): Promise<void> {
     try {
       await this.ensureDebugger()
@@ -431,12 +409,31 @@ export class WebContentsViewEngine implements EngineView {
           const isFormField = element instanceof HTMLInputElement ||
             element instanceof HTMLSelectElement ||
             element instanceof HTMLTextAreaElement;
-          const testIdFromName = isFormField ? (element.name || null) : null;
+          let testId = element.getAttribute('data-testid') || null;
+          if (!testId && isFormField) {
+            if ((element instanceof HTMLInputElement) &&
+                (element.type === 'checkbox' || element.type === 'radio') &&
+                element.name) {
+              const groupMatches = Array.from(document.querySelectorAll('input'))
+                .filter((candidate) =>
+                  candidate instanceof HTMLInputElement &&
+                  !candidate.disabled &&
+                  candidate.type === element.type &&
+                  candidate.name === element.name
+                );
+              const groupIndex = groupMatches.indexOf(element);
+              testId = groupMatches.length > 1 && groupIndex !== -1
+                ? element.type + ':' + element.name + ':' + groupIndex
+                : element.name || null;
+            } else {
+              testId = element.name || null;
+            }
+          }
           return {
             tagName,
             id: element.id || null,
             visibleText: getVisibleText(element),
-            testId: element.getAttribute('data-testid') || testIdFromName || null,
+            testId,
             ariaLabel: element.getAttribute('aria-label') || null,
             role: element.getAttribute('role') || null,
             structuralPath: getStructuralPath(element)
@@ -752,76 +749,6 @@ export class WebContentsViewEngine implements EngineView {
     `
   }
 
-  private getCheckedApplyExpression(fingerprint: ElementFingerprint, checked: boolean): string {
-    return `
-      (() => {
-        const fingerprint = ${JSON.stringify(fingerprint)};
-        const checked = ${JSON.stringify(checked)};
-        const normalizeVisibleText = ${normalizeVisibleText.toString()};
-        const resolveElementFingerprint = ${resolveElementFingerprint.toString()};
-
-        function getVisibleText(element) {
-          if (element instanceof HTMLInputElement) return '';
-          return normalizeVisibleText(element instanceof HTMLElement ? element.innerText : element.textContent);
-        }
-
-        function getStructuralPath(el) {
-          const parts = [];
-          let current = el;
-          while (current && current !== document.body) {
-            const parent = current.parentElement;
-            if (parent) {
-              const index = Array.from(parent.children).indexOf(current) + 1;
-              parts.unshift(current.tagName.toLowerCase() + ':nth-child(' + index + ')');
-            } else {
-              parts.unshift(current.tagName.toLowerCase());
-            }
-            current = parent;
-          }
-          return parts.join(' > ');
-        }
-
-        function describeElement(element) {
-          return {
-            tagName: element.tagName.toLowerCase(),
-            id: element.id || null,
-            visibleText: getVisibleText(element),
-            testId: element.getAttribute('data-testid') || element.name || null,
-            ariaLabel: element.getAttribute('aria-label') || null,
-            role: element.getAttribute('role') || null,
-            structuralPath: getStructuralPath(element)
-          };
-        }
-
-        const elements = Array.from(
-          document.querySelectorAll('input[type="checkbox"],input[type="radio"]')
-        ).filter((element) => element instanceof HTMLInputElement && !element.disabled);
-        const descriptors = elements.map(describeElement);
-        const resolved = resolveElementFingerprint(fingerprint, descriptors);
-        if (!resolved) return { matched: false, failureReason: 'not-found' };
-
-        const element = elements[resolved.index];
-        if (!(element instanceof HTMLInputElement)) return { matched: false, failureReason: 'not-found' };
-
-        window.__suppressCheckedReport = true;
-        const nativeCheckedSetter = Object.getOwnPropertyDescriptor(
-          HTMLInputElement.prototype,
-          'checked'
-        )?.set;
-
-        if (nativeCheckedSetter) {
-          nativeCheckedSetter.call(element, checked);
-        } else {
-          element.checked = checked;
-        }
-
-        element.dispatchEvent(new Event('input', { bubbles: true }));
-        element.dispatchEvent(new Event('change', { bubbles: true }));
-        setTimeout(function() { window.__suppressCheckedReport = false; }, 0);
-        return { matched: true };
-      })();
-    `
-  }
 }
 
 export function getPanePreloadPath(): string {

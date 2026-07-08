@@ -838,6 +838,58 @@ test('checkboxes and radios mirror exactly once through click sync without value
   }
 })
 
+test('duplicate checkboxes and radios mirror to the matching repeated control instance', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
+    await waitForAllPanes(window)
+
+    await evaluateInPane(window, 'iphone', `
+      document.querySelectorAll('.dup-toggle-checkbox')[1]?.click();
+      document.querySelectorAll('.dup-toggle-radio')[1]?.click();
+    `)
+
+    await expect
+      .poll(() =>
+        evaluateInPane<Record<string, string>>(window, 'ipad', `(() => {
+          const result = document.getElementById('duplicate-result');
+          return {
+            checkbox: result?.dataset.secondCheckbox ?? '',
+            radio: result?.dataset.secondRadio ?? ''
+          };
+        })()`)
+      )
+      .toEqual({ checkbox: 'true', radio: 'beta' })
+
+    for (const paneId of ['iphone', 'ipad', 'desktop'] as const) {
+      const state = await evaluateInPane<Record<string, string>>(window, paneId, `(() => {
+        const result = document.getElementById('duplicate-result');
+        const checkboxes = Array.from(document.querySelectorAll('.dup-toggle-checkbox'));
+        const radios = Array.from(document.querySelectorAll('.dup-toggle-radio'));
+        return {
+          checkbox: result?.dataset.secondCheckbox ?? '',
+          radio: result?.dataset.secondRadio ?? '',
+          firstCheckboxDom: String(checkboxes[0]?.checked ?? false),
+          secondCheckboxDom: String(checkboxes[1]?.checked ?? false),
+          firstRadioDom: String(radios[0]?.checked ?? false),
+          secondRadioDom: String(radios[1]?.checked ?? false)
+        };
+      })()`)
+
+      expect(state.checkbox).toBe('true')
+      expect(state.radio).toBe('beta')
+      expect(state.firstCheckboxDom).toBe('false')
+      expect(state.secondCheckboxDom).toBe('true')
+      expect(state.firstRadioDom).toBe('false')
+      expect(state.secondRadioDom).toBe('true')
+    }
+  } finally {
+    await close()
+  }
+})
+
 test('missing select or form targets no-op and emit structured mirror-failure logs', async ({
   fixturePort
 }) => {
