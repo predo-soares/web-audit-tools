@@ -150,7 +150,7 @@ export function Toolbar({
           ref={toggleButtonRef}
           type="button"
           data-testid="sidebar-toggle"
-          className={cn(buttonVariants({ variant: 'outline', size: 'icon-sm' }), 'ml-1')}
+          className={cn(buttonVariants({ variant: 'ghost', size: 'icon-sm' }), 'ml-1')}
           aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
           aria-expanded={sidebarOpen}
           aria-controls="sidebar"
@@ -188,7 +188,7 @@ export function Toolbar({
         <button
           ref={zoomTriggerRef}
           type="button"
-          className={cn(buttonVariants({ variant: 'outline', size: 'icon-sm' }))}
+          className={cn(buttonVariants({ variant: 'ghost', size: 'icon-sm' }))}
           aria-label={`Zoom level ${zoomPercent}%`}
           data-testid="zoom-combobox-trigger"
           aria-expanded={openPanelId === 'zoom'}
@@ -199,7 +199,7 @@ export function Toolbar({
         <button
           ref={themeTriggerRef}
           type="button"
-          className={cn(buttonVariants({ variant: 'outline', size: 'icon-sm' }))}
+          className={cn(buttonVariants({ variant: 'ghost', size: 'icon-sm' }))}
           data-testid="theme-preferences-trigger"
           aria-label="Theme preferences"
           aria-expanded={openPanelId === 'theme'}
@@ -211,7 +211,7 @@ export function Toolbar({
         <button
           type="button"
           data-testid="sync-toggle"
-          className={buttonVariants({ variant: syncEnabled ? 'default' : 'outline', size: 'icon-sm' })}
+          className={buttonVariants({ variant: 'ghost', size: 'icon-sm' })}
           onClick={() => onSyncChange(!syncEnabled)}
           aria-label={syncEnabled ? 'Disable interaction sync' : 'Enable interaction sync'}
           aria-pressed={syncEnabled}
