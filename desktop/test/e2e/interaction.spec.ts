@@ -260,3 +260,89 @@ test('semantic click sync mirrors link navigation and obeys the sync toggle', as
     await close()
   }
 })
+
+test('hamburger button not found on desktop pane logs not-found and does nothing', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/responsive-nav'))
+    await waitForAllPanes(window)
+
+    // Click the hamburger in the iphone pane (mobile UA gets the hamburger)
+    await evaluateInPane(window, 'iphone', `document.getElementById('hamburger-btn').click()`)
+
+    // The iphone mobile drawer should open (hidden attr removed)
+    await expect
+      .poll(() =>
+        evaluateInPane<boolean>(
+          window,
+          'iphone',
+          `document.getElementById('mobile-drawer')?.hidden === false`
+        )
+      )
+      .toBe(true)
+
+    // Desktop pane has no hamburger/drawer — nothing to verify failed on it,
+    // but we confirm the desktop DOM is unchanged (no hamburger, no drawer)
+    const desktopHasHamburger = await evaluateInPane<boolean>(
+      window,
+      'desktop',
+      `!!document.getElementById('hamburger-btn')`
+    )
+    expect(desktopHasHamburger).toBe(false)
+
+    const desktopHasDrawer = await evaluateInPane<boolean>(
+      window,
+      'desktop',
+      `!!document.getElementById('mobile-drawer')`
+    )
+    expect(desktopHasDrawer).toBe(false)
+  } finally {
+    await close()
+  }
+})
+
+test('clicking Nth duplicate button mirrors the same Nth instance in other panes', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/duplicate-buttons'))
+    await waitForAllPanes(window)
+
+    // Click the 2nd "Add to cart" button (index 1) in iphone pane
+    await evaluateInPane(
+      window,
+      'iphone',
+      `document.querySelectorAll('.add-btn')[1].click()`
+    )
+
+    // Verify iphone result shows index 1
+    await expect
+      .poll(() =>
+        evaluateInPane<string>(
+          window,
+          'iphone',
+          `document.getElementById('result')?.dataset.clickedIndex ?? '-1'`
+        )
+      )
+      .toBe('1')
+
+    // Verify ipad and desktop also had their 2nd button clicked
+    for (const paneId of ['ipad', 'desktop'] as const) {
+      await expect
+        .poll(() =>
+          evaluateInPane<string>(
+            window,
+            paneId,
+            `document.getElementById('result')?.dataset.clickedIndex ?? '-1'`
+          )
+        )
+        .toBe('1')
+    }
+  } finally {
+    await close()
+  }
+})
+

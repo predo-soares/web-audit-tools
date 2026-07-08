@@ -10,8 +10,10 @@ import type {
 } from '../shared/types'
 import {
   normalizeVisibleText,
+  isMachineGeneratedId,
   resolveElementFingerprint,
-  type ElementFingerprint
+  type ElementFingerprint,
+  type MirrorFailureLog
 } from '../shared/element-fingerprint'
 import { DEFAULT_ZOOM } from '../shared/mockup-layout'
 import { normalizeUrl } from '../shared/url'
@@ -28,6 +30,7 @@ interface ResolvedClickPoint {
   matched: boolean
   x?: number
   y?: number
+  failureReason?: 'not-found' | 'ambiguous'
 }
 
 export class WebContentsViewEngine implements EngineView {
@@ -41,6 +44,7 @@ export class WebContentsViewEngine implements EngineView {
   private screenBounds: Bounds | null = null
   private logicalSize: Size | null = null
   private themePreference: ThemePreference = 'system'
+  private mirrorFailureLogs: MirrorFailureLog[] = []
 
   constructor(
     readonly paneId: PaneId,
@@ -170,6 +174,13 @@ export class WebContentsViewEngine implements EngineView {
       if (response.exceptionDetails) return null
       const value = response.result?.value as ResolvedClickPoint | undefined
       if (!value?.matched || typeof value.x !== 'number' || typeof value.y !== 'number') {
+        if (value && !value.matched) {
+          this.logMirrorFailure({
+            fingerprint,
+            paneId: this.paneId,
+            reason: value.failureReason === 'ambiguous' ? 'ambiguous' : 'not-found'
+          })
+        }
         return null
       }
 
@@ -177,6 +188,12 @@ export class WebContentsViewEngine implements EngineView {
     } catch {
       return null
     }
+  }
+
+  logMirrorFailure(log: MirrorFailureLog): void {
+    this.mirrorFailureLogs.push(log)
+    // Console only in v1 — no UI surfacing
+    console.debug('[mirror-failure]', JSON.stringify(log))
   }
 
   dispatchClick(x: number, y: number): void {
@@ -284,6 +301,7 @@ export class WebContentsViewEngine implements EngineView {
       (() => {
         const fingerprint = ${JSON.stringify(fingerprint)};
         const normalizeVisibleText = ${normalizeVisibleText.toString()};
+        const isMachineGeneratedId = ${isMachineGeneratedId.toString()};
         const resolveElementFingerprint = ${resolveElementFingerprint.toString()};
         const interactiveSelector = [
           'a[href]',
@@ -313,11 +331,36 @@ export class WebContentsViewEngine implements EngineView {
           return normalizeVisibleText(element instanceof HTMLElement ? element.innerText : element.textContent);
         }
 
+        function getStructuralPath(el) {
+          const parts = [];
+          let current = el;
+          while (current && current !== document.body) {
+            const parent = current.parentElement;
+            if (parent) {
+              const index = Array.from(parent.children).indexOf(current) + 1;
+              parts.unshift(current.tagName.toLowerCase() + ':nth-child(' + index + ')');
+            } else {
+              parts.unshift(current.tagName.toLowerCase());
+            }
+            current = parent;
+          }
+          return parts.join(' > ');
+        }
+
         function describeElement(element) {
+          const tagName = element.tagName.toLowerCase();
+          const isFormField = element instanceof HTMLInputElement ||
+            element instanceof HTMLSelectElement ||
+            element instanceof HTMLTextAreaElement;
+          const testIdFromName = isFormField ? (element.name || null) : null;
           return {
-            tagName: element.tagName.toLowerCase(),
+            tagName,
             id: element.id || null,
-            visibleText: getVisibleText(element)
+            visibleText: getVisibleText(element),
+            testId: element.getAttribute('data-testid') || testIdFromName || null,
+            ariaLabel: element.getAttribute('aria-label') || null,
+            role: element.getAttribute('role') || null,
+            structuralPath: getStructuralPath(element)
           };
         }
 
@@ -325,11 +368,41 @@ export class WebContentsViewEngine implements EngineView {
           .filter((element) => element instanceof HTMLElement && !element.disabled);
         const descriptors = elements.map(describeElement);
         const resolved = resolveElementFingerprint(fingerprint, descriptors);
-        if (!resolved) return { matched: false };
+
+        if (!resolved) {
+          // Determine failure reason: check if any layer had multiple matches
+          let failureReason = 'not-found';
+          for (const layer of fingerprint.layers) {
+            let matchCount = 0;
+            for (const candidate of descriptors) {
+              let matched = false;
+              if (layer.type === 'id') {
+                matched = candidate.id === layer.id;
+              } else if (layer.type === 'testid') {
+                matched = candidate.testId === layer.testId;
+              } else if (layer.type === 'accessible-name') {
+                matched = candidate.tagName.toLowerCase() === layer.tagName &&
+                  (candidate.role || candidate.tagName.toLowerCase()) === layer.role &&
+                  normalizeVisibleText(candidate.ariaLabel) === layer.name;
+              } else if (layer.type === 'structural-path') {
+                matched = candidate.structuralPath === layer.path;
+              } else {
+                matched = candidate.tagName.toLowerCase() === layer.tagName &&
+                  normalizeVisibleText(candidate.visibleText) === layer.text;
+              }
+              if (matched) matchCount++;
+            }
+            if (matchCount > 1 && fingerprint.indexAmongMatches === undefined) {
+              failureReason = 'ambiguous';
+              break;
+            }
+          }
+          return { matched: false, failureReason };
+        }
 
         const element = elements[resolved.index];
         const rect = element.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0) return { matched: false };
+        if (rect.width <= 0 || rect.height <= 0) return { matched: false, failureReason: 'not-found' };
 
         return {
           matched: true,
@@ -339,6 +412,7 @@ export class WebContentsViewEngine implements EngineView {
       })();
     `
   }
+
 }
 
 export function getPanePreloadPath(): string {

@@ -334,6 +334,79 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     return
   }
 
+  if (pathname === '/responsive-nav') {
+    const mobile = isMobileUa(ua)
+    if (mobile) {
+      sendHtml(
+        res,
+        `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1" /></head><body>
+          <button id="hamburger-btn" aria-label="Open menu" type="button">&#9776;</button>
+          <nav id="mobile-drawer" hidden>
+            <a href="#">Home</a>
+            <a href="#">About</a>
+            <a href="#">Contact</a>
+          </nav>
+          <div id="nav-result" data-hamburger-count="0"></div>
+          <script>
+            (function () {
+              var btn = document.getElementById('hamburger-btn');
+              var drawer = document.getElementById('mobile-drawer');
+              var result = document.getElementById('nav-result');
+              btn.addEventListener('click', function () {
+                drawer.hidden = !drawer.hidden;
+                result.dataset.hamburgerCount = String(Number(result.dataset.hamburgerCount || '0') + 1);
+              });
+            })();
+          </script>
+        </body></html>`
+      )
+    } else {
+      sendHtml(
+        res,
+        `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1" /></head><body>
+          <nav id="desktop-nav">
+            <a href="#">Home</a>
+            <a href="#">About</a>
+            <a href="#">Contact</a>
+          </nav>
+          <div id="nav-result" data-hamburger-count="0"></div>
+        </body></html>`
+      )
+    }
+    return
+  }
+
+  if (pathname === '/duplicate-buttons') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1" />
+      <style>
+        body { margin: 0; font: 16px system-ui; }
+        #grid { display: flex; gap: 1rem; padding: 2rem; }
+        .add-btn { padding: 0.5rem 1rem; min-height: 2.5rem; cursor: pointer; }
+      </style></head><body>
+        <div id="grid">
+          <button class="add-btn" type="button">Add to cart</button>
+          <button class="add-btn" type="button">Add to cart</button>
+          <button class="add-btn" type="button">Add to cart</button>
+        </div>
+        <div id="result" data-clicked-index="-1"></div>
+        <script>
+          (function () {
+            var buttons = document.querySelectorAll('.add-btn');
+            var result = document.getElementById('result');
+            buttons.forEach(function (btn, index) {
+              btn.addEventListener('click', function () {
+                result.dataset.clickedIndex = String(index);
+              });
+            });
+          })();
+        </script>
+      </body></html>`
+    )
+    return
+  }
+
   res.writeHead(404)
   res.end('Not found')
 }

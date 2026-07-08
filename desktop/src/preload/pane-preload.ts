@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import {
-  buildElementFingerprint,
+  buildElementFingerprintInContext,
   normalizeVisibleText,
   type ElementDescriptor
 } from '../shared/element-fingerprint'
@@ -48,11 +48,39 @@ function getVisibleText(element: Element): string {
   )
 }
 
+function getStructuralPath(el: Element): string {
+  const parts: string[] = []
+  let current: Element | null = el
+  while (current && current !== document.body) {
+    const parent = current.parentElement
+    if (parent) {
+      const index = Array.from(parent.children).indexOf(current) + 1
+      parts.unshift(`${current.tagName.toLowerCase()}:nth-child(${index})`)
+    } else {
+      parts.unshift(current.tagName.toLowerCase())
+    }
+    current = parent
+  }
+  return parts.join(' > ')
+}
+
 function describeElement(element: Element): ElementDescriptor {
+  const tagName = element.tagName.toLowerCase()
+  const isFormField =
+    element instanceof HTMLInputElement ||
+    element instanceof HTMLSelectElement ||
+    element instanceof HTMLTextAreaElement
+
+  const testIdFromName = isFormField ? (element as HTMLInputElement).name || null : null
+
   return {
-    tagName: element.tagName.toLowerCase(),
+    tagName,
     id: element.id || null,
-    visibleText: getVisibleText(element)
+    visibleText: getVisibleText(element),
+    testId: element.getAttribute('data-testid') || testIdFromName || null,
+    ariaLabel: element.getAttribute('aria-label') || null,
+    role: element.getAttribute('role') || null,
+    structuralPath: getStructuralPath(element)
   }
 }
 
@@ -86,7 +114,16 @@ window.addEventListener(
     const interactive = findInteractiveAncestor(e.target)
     if (!interactive) return
 
-    const fingerprint = buildElementFingerprint(describeElement(interactive))
+    const allInteractive = Array.from(document.querySelectorAll(INTERACTIVE_SELECTOR)).filter(
+      (el) => el instanceof HTMLElement && !(el as HTMLInputElement).disabled
+    )
+    const allDescriptors = allInteractive.map(describeElement)
+
+    const interactiveIndex = allInteractive.indexOf(interactive)
+    const descriptorForContext =
+      interactiveIndex !== -1 ? allDescriptors[interactiveIndex] : describeElement(interactive)
+
+    const fingerprint = buildElementFingerprintInContext(descriptorForContext, allDescriptors)
     if (!fingerprint) return
 
     ipcRenderer.send('pane:click', paneId, fingerprint)
