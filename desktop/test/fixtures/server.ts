@@ -270,6 +270,70 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     return
   }
 
+  if (pathname === '/semantic-click') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1" />
+      <style>
+        body { margin: 0; font: 16px system-ui; }
+        main { position: relative; min-height: 520px; }
+        button, a { position: absolute; display: inline-flex; align-items: center; justify-content: center; min-width: 9rem; min-height: 3rem; padding: 0 1rem; }
+        #semantic-primary { left: 20px; top: 24px; }
+        #semantic-link { left: 20px; top: 104px; }
+        #coordinate-trap { left: 260px; top: 280px; }
+        @media (min-width: 700px) {
+          #semantic-primary { left: 720px; top: 310px; }
+          #semantic-link { left: 920px; top: 170px; }
+          #coordinate-trap { left: 72px; top: 32px; }
+        }
+      </style></head><body>
+        <main>
+          <button id="semantic-primary" type="button"><span>Open menu</span></button>
+          <a id="semantic-link" href="/semantic-destination">Continue</a>
+          <button id="coordinate-trap" type="button">Wrong target</button>
+          <div id="semantic-result"
+            data-primary-count="0"
+            data-trap-count="0"
+            data-touch-count="0"
+            data-last-trusted=""
+            data-active-element=""></div>
+        </main>
+        <script>
+          (function () {
+            const primary = document.getElementById('semantic-primary');
+            const trap = document.getElementById('coordinate-trap');
+            const result = document.getElementById('semantic-result');
+
+            primary.addEventListener('touchstart', function () {
+              result.dataset.touchCount = String(Number(result.dataset.touchCount || '0') + 1);
+            }, { passive: true });
+
+            primary.addEventListener('click', function (event) {
+              result.dataset.primaryCount = String(Number(result.dataset.primaryCount || '0') + 1);
+              result.dataset.lastTrusted = String(event.isTrusted);
+              requestAnimationFrame(function () {
+                result.dataset.activeElement = document.activeElement ? document.activeElement.id : '';
+              });
+            });
+
+            trap.addEventListener('click', function () {
+              result.dataset.trapCount = String(Number(result.dataset.trapCount || '0') + 1);
+            });
+          })();
+        </script>
+      </body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/semantic-destination') {
+    sendHtml(
+      res,
+      `<!doctype html><html><body><h1 id="semantic-destination">Semantic destination</h1></body></html>`
+    )
+    return
+  }
+
   res.writeHead(404)
   res.end('Not found')
 }

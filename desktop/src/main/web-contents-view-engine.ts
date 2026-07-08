@@ -8,9 +8,27 @@ import type {
   Size,
   ThemePreference
 } from '../shared/types'
+import {
+  normalizeVisibleText,
+  resolveElementFingerprint,
+  type ElementFingerprint
+} from '../shared/element-fingerprint'
 import { DEFAULT_ZOOM } from '../shared/mockup-layout'
 import { normalizeUrl } from '../shared/url'
 import type { EngineView } from './engine-view'
+
+interface RuntimeEvaluateResponse {
+  result?: {
+    value?: unknown
+  }
+  exceptionDetails?: unknown
+}
+
+interface ResolvedClickPoint {
+  matched: boolean
+  x?: number
+  y?: number
+}
 
 export class WebContentsViewEngine implements EngineView {
   readonly view: WebContentsView
@@ -139,6 +157,28 @@ export class WebContentsViewEngine implements EngineView {
     await this.applyThemePreference()
   }
 
+  async resolveClickPoint(
+    fingerprint: ElementFingerprint
+  ): Promise<{ x: number; y: number } | null> {
+    try {
+      await this.ensureDebugger()
+      const response = (await this.webContents.debugger.sendCommand('Runtime.evaluate', {
+        expression: this.getClickResolutionExpression(fingerprint),
+        returnByValue: true
+      })) as RuntimeEvaluateResponse
+
+      if (response.exceptionDetails) return null
+      const value = response.result?.value as ResolvedClickPoint | undefined
+      if (!value?.matched || typeof value.x !== 'number' || typeof value.y !== 'number') {
+        return null
+      }
+
+      return { x: value.x, y: value.y }
+    } catch {
+      return null
+    }
+  }
+
   dispatchClick(x: number, y: number): void {
     // Native input injection: executeJavaScript is deferred while the page is
     // loading (real sites can hold isLoading for seconds), sendInputEvent is
@@ -237,6 +277,67 @@ export class WebContentsViewEngine implements EngineView {
     } catch (error) {
       console.error(`[pane:${this.paneId}] CDP theme preference override failed:`, error)
     }
+  }
+
+  private getClickResolutionExpression(fingerprint: ElementFingerprint): string {
+    return `
+      (() => {
+        const fingerprint = ${JSON.stringify(fingerprint)};
+        const normalizeVisibleText = ${normalizeVisibleText.toString()};
+        const resolveElementFingerprint = ${resolveElementFingerprint.toString()};
+        const interactiveSelector = [
+          'a[href]',
+          'button',
+          'input:not([type="hidden"])',
+          'select',
+          'textarea',
+          '[role="button"]',
+          '[role="link"]',
+          '[role="menuitem"]',
+          '[role="tab"]',
+          '[role="checkbox"]',
+          '[role="radio"]',
+          '[role="switch"]',
+          '[role="option"]',
+          '[tabindex]:not([tabindex="-1"])'
+        ].join(',');
+
+        function getVisibleText(element) {
+          if (element instanceof HTMLInputElement) {
+            if (['button', 'submit', 'reset'].includes(element.type)) {
+              return normalizeVisibleText(element.value);
+            }
+            return '';
+          }
+
+          return normalizeVisibleText(element instanceof HTMLElement ? element.innerText : element.textContent);
+        }
+
+        function describeElement(element) {
+          return {
+            tagName: element.tagName.toLowerCase(),
+            id: element.id || null,
+            visibleText: getVisibleText(element)
+          };
+        }
+
+        const elements = Array.from(document.querySelectorAll(interactiveSelector))
+          .filter((element) => element instanceof HTMLElement && !element.disabled);
+        const descriptors = elements.map(describeElement);
+        const resolved = resolveElementFingerprint(fingerprint, descriptors);
+        if (!resolved) return { matched: false };
+
+        const element = elements[resolved.index];
+        const rect = element.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return { matched: false };
+
+        return {
+          matched: true,
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2
+        };
+      })();
+    `
   }
 }
 

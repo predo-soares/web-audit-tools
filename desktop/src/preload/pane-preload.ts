@@ -1,4 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import {
+  buildElementFingerprint,
+  normalizeVisibleText,
+  type ElementDescriptor
+} from '../shared/element-fingerprint'
 import type { PaneId } from '../shared/types'
 
 function getPaneId(): PaneId {
@@ -8,6 +13,48 @@ function getPaneId(): PaneId {
 }
 
 const paneId = getPaneId()
+const INTERACTIVE_SELECTOR = [
+  'a[href]',
+  'button',
+  'input:not([type="hidden"])',
+  'select',
+  'textarea',
+  '[role="button"]',
+  '[role="link"]',
+  '[role="menuitem"]',
+  '[role="tab"]',
+  '[role="checkbox"]',
+  '[role="radio"]',
+  '[role="switch"]',
+  '[role="option"]',
+  '[tabindex]:not([tabindex="-1"])'
+].join(',')
+
+function findInteractiveAncestor(target: EventTarget | null): Element | null {
+  if (!(target instanceof Element)) return null
+  return target.closest(INTERACTIVE_SELECTOR)
+}
+
+function getVisibleText(element: Element): string {
+  if (element instanceof HTMLInputElement) {
+    if (['button', 'submit', 'reset'].includes(element.type)) {
+      return normalizeVisibleText(element.value)
+    }
+    return ''
+  }
+
+  return normalizeVisibleText(
+    element instanceof HTMLElement ? element.innerText : element.textContent
+  )
+}
+
+function describeElement(element: Element): ElementDescriptor {
+  return {
+    tagName: element.tagName.toLowerCase(),
+    id: element.id || null,
+    visibleText: getVisibleText(element)
+  }
+}
 
 function reportScroll(): void {
   const doc = document.documentElement
@@ -36,8 +83,13 @@ window.addEventListener(
 window.addEventListener(
   'click',
   (e: MouseEvent) => {
-    if (!window.innerWidth || !window.innerHeight) return
-    ipcRenderer.send('pane:click', paneId, e.clientX / window.innerWidth, e.clientY / window.innerHeight)
+    const interactive = findInteractiveAncestor(e.target)
+    if (!interactive) return
+
+    const fingerprint = buildElementFingerprint(describeElement(interactive))
+    if (!fingerprint) return
+
+    ipcRenderer.send('pane:click', paneId, fingerprint)
   },
   true
 )

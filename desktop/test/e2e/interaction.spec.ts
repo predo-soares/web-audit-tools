@@ -153,3 +153,110 @@ test('submitting a URL from the bar navigates all panes after per-pane divergenc
     await close()
   }
 })
+
+test('semantic click sync mirrors the same button with native input and no echo', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/semantic-click'))
+    await waitForAllPanes(window)
+
+    await evaluateInPane(
+      window,
+      'iphone',
+      `document.querySelector('#semantic-primary span')?.click()`
+    )
+
+    await expect
+      .poll(() =>
+        evaluateInPane<string>(
+          window,
+          'ipad',
+          `document.getElementById('semantic-result')?.dataset.primaryCount ?? '0'`
+        )
+      )
+      .toBe('1')
+
+    await expect
+      .poll(() =>
+        evaluateInPane<string>(
+          window,
+          'desktop',
+          `document.getElementById('semantic-result')?.dataset.primaryCount ?? '0'`
+        )
+      )
+      .toBe('1')
+
+    for (const paneId of ['ipad', 'desktop'] as const) {
+      const result = await evaluateInPane<Record<string, string>>(
+        window,
+        paneId,
+        `(() => {
+          const result = document.getElementById('semantic-result');
+          return {
+            primaryCount: result?.dataset.primaryCount ?? '',
+            trapCount: result?.dataset.trapCount ?? '',
+            lastTrusted: result?.dataset.lastTrusted ?? '',
+            activeElement: result?.dataset.activeElement ?? '',
+            touchCount: result?.dataset.touchCount ?? ''
+          };
+        })()`
+      )
+
+      expect(result.primaryCount).toBe('1')
+      expect(result.trapCount).toBe('0')
+      expect(result.lastTrusted).toBe('true')
+      expect(result.activeElement).toBe('semantic-primary')
+      if (paneId === 'ipad') {
+        expect(result.touchCount).toBe('1')
+      }
+    }
+
+    await window.waitForTimeout(500)
+    const counts = await Promise.all(
+      (['iphone', 'ipad', 'desktop'] as const).map((paneId) =>
+        evaluateInPane<string>(
+          window,
+          paneId,
+          `document.getElementById('semantic-result')?.dataset.primaryCount ?? '0'`
+        )
+      )
+    )
+    expect(counts).toEqual(['1', '1', '1'])
+  } finally {
+    await close()
+  }
+})
+
+test('semantic click sync mirrors link navigation and obeys the sync toggle', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/semantic-click'))
+    await waitForAllPanes(window)
+
+    await window.getByTestId('sync-toggle').click()
+    await evaluateInPane(window, 'iphone', `document.getElementById('semantic-primary')?.click()`)
+    await window.waitForTimeout(300)
+
+    for (const paneId of ['ipad', 'desktop'] as const) {
+      const count = await evaluateInPane<string>(
+        window,
+        paneId,
+        `document.getElementById('semantic-result')?.dataset.primaryCount ?? '0'`
+      )
+      expect(count).toBe('0')
+    }
+
+    await window.getByTestId('sync-toggle').click()
+    await evaluateInPane(window, 'iphone', `document.getElementById('semantic-link')?.click()`)
+
+    for (const paneId of ['iphone', 'ipad', 'desktop'] as const) {
+      await waitForPaneElement(window, paneId, 'semantic-destination')
+    }
+  } finally {
+    await close()
+  }
+})

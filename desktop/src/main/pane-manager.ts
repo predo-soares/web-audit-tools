@@ -6,6 +6,7 @@ import {
   setScrollSyncEnabled,
   type ScrollSyncState
 } from '../shared/scroll-sync'
+import type { ElementFingerprint } from '../shared/element-fingerprint'
 import type { PaneId, PaneMount, PaneNavigationState, ThemePreference } from '../shared/types'
 import type { EngineView } from './engine-view'
 import { getPanePreloadPath, WebContentsViewEngine } from './web-contents-view-engine'
@@ -171,22 +172,27 @@ export class PaneManager {
     )
   }
 
-  syncClick(paneId: PaneId, relX: number, relY: number): void {
+  async syncClick(paneId: PaneId, fingerprint: ElementFingerprint): Promise<void> {
     // Synthetic clicks are real input events, so the target pane's preload
     // re-reports them. Consume that echo here instead of broadcasting it,
     // otherwise panes ping-pong clicks forever.
     if (this.consumeSyntheticClick(paneId)) return
     if (!this.syncEnabled) return
 
-    for (const targetId of PANE_IDS) {
-      if (targetId === paneId) continue
-      const queue = this.syntheticClickExpiry.get(targetId) ?? []
-      queue.push(Date.now() + PaneManager.SYNTHETIC_CLICK_TTL_MS)
-      this.syntheticClickExpiry.set(targetId, queue)
+    await Promise.all(
+      PANE_IDS.map(async (targetId) => {
+        if (targetId === paneId) return
 
-      const preset = DEVICE_PRESETS[targetId]
-      this.getEngine(targetId).dispatchClick(relX * preset.width, relY * preset.height)
-    }
+        const point = await this.getEngine(targetId).resolveClickPoint(fingerprint)
+        if (!point) return
+
+        const queue = this.syntheticClickExpiry.get(targetId) ?? []
+        queue.push(Date.now() + PaneManager.SYNTHETIC_CLICK_TTL_MS)
+        this.syntheticClickExpiry.set(targetId, queue)
+
+        this.getEngine(targetId).dispatchClick(point.x, point.y)
+      })
+    )
   }
 
   private consumeSyntheticClick(paneId: PaneId): boolean {

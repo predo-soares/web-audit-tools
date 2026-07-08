@@ -1,5 +1,6 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import { normalizeUrl } from '../shared/url'
+import type { ElementFingerprint } from '../shared/element-fingerprint'
 import type { NewProjectInput } from '../shared/project'
 import type { PopoverAction, PopoverOpenOptions } from '../shared/popover-types'
 import type { PaneMount, PaneId, Size, ThemePreference } from '../shared/types'
@@ -73,8 +74,8 @@ export function registerIpcHandlers(
     void paneManager.syncScroll(paneId, ratio, programmatic)
   })
 
-  ipcMain.on('pane:click', (_event, paneId: PaneId, relX: number, relY: number) => {
-    paneManager.syncClick(paneId, relX, relY)
+  ipcMain.on('pane:click', (_event, paneId: PaneId, fingerprint: ElementFingerprint) => {
+    void paneManager.syncClick(paneId, fingerprint)
   })
 
   ipcMain.handle('pane:loading-states', () => {
