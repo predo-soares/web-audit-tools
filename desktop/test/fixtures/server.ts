@@ -460,7 +460,30 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     <input id="text-field" type="text" name="username" placeholder="Username">
     <textarea id="textarea-field" name="bio" placeholder="Bio"></textarea>
     <input id="email-field" type="email" name="email" placeholder="Email">
-    <div id="form-result" data-text-value="" data-textarea-value="" data-email-value=""></div>
+    <select id="country-select" name="country">
+      <option value="br">Brazil</option>
+      <option value="us">United States</option>
+      <option value="jp">Japan</option>
+    </select>
+    <select id="index-fallback-select" name="city">
+      <option value="rio-mobile">Rio</option>
+      <option value="ny-mobile">New York</option>
+      <option value="tokyo-mobile">Tokyo</option>
+    </select>
+    <label><input id="newsletter-checkbox" type="checkbox" name="newsletter"> Newsletter</label>
+    <label><input id="plan-basic" type="radio" name="plan" value="basic"> Basic</label>
+    <label><input id="plan-pro" type="radio" name="plan" value="pro"> Pro</label>
+    <button id="enter-submit" type="submit">Submit</button>
+    <div
+      id="form-result"
+      data-text-value=""
+      data-textarea-value=""
+      data-email-value=""
+      data-country-value="br"
+      data-city-value="rio-mobile"
+      data-checkbox-checked="false"
+      data-radio-value=""
+      data-submit-count="0"></div>
   </form>
   <input id="react-like-field" type="text" name="react-field">
   <div id="react-result" data-value=""></div>
@@ -474,6 +497,25 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     });
     document.getElementById('email-field').addEventListener('input', function(e) {
       result.dataset.emailValue = e.target.value;
+    });
+    document.getElementById('country-select').addEventListener('change', function(e) {
+      result.dataset.countryValue = e.target.value;
+    });
+    document.getElementById('index-fallback-select').addEventListener('change', function(e) {
+      result.dataset.cityValue = e.target.value;
+    });
+    document.getElementById('newsletter-checkbox').addEventListener('change', function(e) {
+      result.dataset.checkboxChecked = String(e.target.checked);
+    });
+    document.getElementById('plan-basic').addEventListener('change', function(e) {
+      if (e.target.checked) result.dataset.radioValue = e.target.value;
+    });
+    document.getElementById('plan-pro').addEventListener('change', function(e) {
+      if (e.target.checked) result.dataset.radioValue = e.target.value;
+    });
+    document.getElementById('test-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      result.dataset.submitCount = String(Number(result.dataset.submitCount || '0') + 1);
     });
 
     // Simulates React controlled input: listens to native input events via the setter override
@@ -493,6 +535,13 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     reactField.addEventListener('input', function(e) {
       reactResult.dataset.value = e.target.value;
     });
+
+    if (navigator.userAgent.includes('Macintosh')) {
+      document.getElementById('index-fallback-select').options[0].value = 'rio-desktop';
+      document.getElementById('index-fallback-select').options[1].value = 'ny-desktop';
+      document.getElementById('index-fallback-select').options[2].value = 'tokyo-desktop';
+      result.dataset.cityValue = 'rio-desktop';
+    }
   </script>
 </body></html>`
     )

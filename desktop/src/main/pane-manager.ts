@@ -8,7 +8,7 @@ import {
 } from '../shared/scroll-sync'
 import type { ElementFingerprint } from '../shared/element-fingerprint'
 import type { PaneId, PaneMount, PaneNavigationState, ThemePreference } from '../shared/types'
-import type { EngineView } from './engine-view'
+import type { EngineView, ValueSyncPayload } from './engine-view'
 import { getPanePreloadPath, WebContentsViewEngine } from './web-contents-view-engine'
 
 const SHARED_PARTITION = 'persist:audit-screens-preview'
@@ -27,9 +27,13 @@ export interface NavigationHistoryHooks {
 
 export class PaneManager {
   private static readonly SYNTHETIC_CLICK_TTL_MS = 1000
+  private static readonly SYNTHETIC_CHECKED_TTL_MS = 1000
+  private static readonly SYNTHETIC_SUBMIT_TTL_MS = 1000
 
   private readonly engines = new Map<PaneId, WebContentsViewEngine>()
   private readonly syntheticClickExpiry = new Map<PaneId, number[]>()
+  private readonly syntheticCheckedExpiry = new Map<PaneId, number[]>()
+  private readonly syntheticSubmitExpiry = new Map<PaneId, number[]>()
   private readonly webContentsToPane = new Map<number, PaneId>()
   private readonly loadingState = new Map<PaneId, boolean>()
   private readonly paneUrls = new Map<PaneId, string>()
@@ -197,13 +201,97 @@ export class PaneManager {
 
   async syncValue(sourcePaneId: PaneId, fingerprint: ElementFingerprint, value: string): Promise<void> {
     if (!this.syncEnabled) return
+    const payload: ValueSyncPayload = { value }
 
     await Promise.all(
       PANE_IDS.map(async (targetId) => {
         if (targetId === sourcePaneId) return
-        await this.getEngine(targetId).applyValue(fingerprint, value)
+        await this.getEngine(targetId).applyValue(fingerprint, payload)
       })
     )
+  }
+
+  async syncSelectValue(
+    sourcePaneId: PaneId,
+    fingerprint: ElementFingerprint,
+    value: string,
+    selectedIndex: number
+  ): Promise<void> {
+    if (!this.syncEnabled) return
+    const payload: ValueSyncPayload = { value, selectedIndex }
+
+    await Promise.all(
+      PANE_IDS.map(async (targetId) => {
+        if (targetId === sourcePaneId) return
+        await this.getEngine(targetId).applyValue(fingerprint, payload)
+      })
+    )
+  }
+
+  async syncChecked(
+    sourcePaneId: PaneId,
+    fingerprint: ElementFingerprint,
+    checked: boolean
+  ): Promise<void> {
+    if (this.consumeSyntheticChecked(sourcePaneId)) return
+    if (!this.syncEnabled) return
+
+    await Promise.all(
+      PANE_IDS.map(async (targetId) => {
+        if (targetId === sourcePaneId) return
+        const queue = this.syntheticCheckedExpiry.get(targetId) ?? []
+        queue.push(Date.now() + PaneManager.SYNTHETIC_CHECKED_TTL_MS)
+        this.syntheticCheckedExpiry.set(targetId, queue)
+        await this.getEngine(targetId).applyChecked(fingerprint, checked)
+      })
+    )
+  }
+
+  async syncSubmit(sourcePaneId: PaneId, fingerprint: ElementFingerprint): Promise<void> {
+    if (this.consumeSyntheticSubmit(sourcePaneId)) return
+    if (!this.syncEnabled) return
+
+    await Promise.all(
+      PANE_IDS.map(async (targetId) => {
+        if (targetId === sourcePaneId) return
+
+        const queue = this.syntheticSubmitExpiry.get(targetId) ?? []
+        queue.push(Date.now() + PaneManager.SYNTHETIC_SUBMIT_TTL_MS)
+        this.syntheticSubmitExpiry.set(targetId, queue)
+
+        await this.getEngine(targetId).submitForm(fingerprint)
+      })
+    )
+  }
+
+  private consumeSyntheticSubmit(paneId: PaneId): boolean {
+    const queue = this.syntheticSubmitExpiry.get(paneId)
+    if (!queue?.length) return false
+    const now = Date.now()
+    while (queue.length) {
+      const expiry = queue.shift()
+      if (expiry !== undefined && expiry >= now) return true
+    }
+    return false
+  }
+
+  private consumeSyntheticChecked(paneId: PaneId): boolean {
+    const queue = this.syntheticCheckedExpiry.get(paneId)
+    if (!queue?.length) return false
+    const now = Date.now()
+    while (queue.length) {
+      const expiry = queue.shift()
+      if (expiry !== undefined && expiry >= now) return true
+    }
+    return false
+  }
+
+  getMirrorFailureLogs(): Record<PaneId, ReturnType<EngineView['getMirrorFailureLogs']>> {
+    return {
+      iphone: this.getEngine('iphone').getMirrorFailureLogs(),
+      ipad: this.getEngine('ipad').getMirrorFailureLogs(),
+      desktop: this.getEngine('desktop').getMirrorFailureLogs()
+    }
   }
 
   private consumeSyntheticClick(paneId: PaneId): boolean {

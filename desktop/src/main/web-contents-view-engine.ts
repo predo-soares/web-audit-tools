@@ -17,7 +17,7 @@ import {
 } from '../shared/element-fingerprint'
 import { DEFAULT_ZOOM } from '../shared/mockup-layout'
 import { normalizeUrl } from '../shared/url'
-import type { EngineView } from './engine-view'
+import type { EngineView, ValueSyncPayload } from './engine-view'
 
 interface RuntimeEvaluateResponse {
   result?: {
@@ -30,6 +30,11 @@ interface ResolvedClickPoint {
   matched: boolean
   x?: number
   y?: number
+  failureReason?: 'not-found' | 'ambiguous' | 'occluded'
+}
+
+interface ResolvedMirrorAction {
+  matched: boolean
   failureReason?: 'not-found' | 'ambiguous' | 'occluded'
 }
 
@@ -200,16 +205,74 @@ export class WebContentsViewEngine implements EngineView {
     console.debug('[mirror-failure]', JSON.stringify(log))
   }
 
-  async applyValue(fingerprint: ElementFingerprint, value: string): Promise<void> {
+  async applyValue(fingerprint: ElementFingerprint, payload: ValueSyncPayload): Promise<void> {
     try {
       await this.ensureDebugger()
-      await this.webContents.debugger.sendCommand('Runtime.evaluate', {
-        expression: this.getValueApplyExpression(fingerprint, value),
+      const response = (await this.webContents.debugger.sendCommand('Runtime.evaluate', {
+        expression: this.getValueApplyExpression(fingerprint, payload),
         returnByValue: true
-      })
+      })) as RuntimeEvaluateResponse
+
+      if (response.exceptionDetails) return
+      const result = response.result?.value as ResolvedMirrorAction | undefined
+      if (result && !result.matched) {
+        this.logMirrorFailure({
+          fingerprint,
+          paneId: this.paneId,
+          reason: result.failureReason === 'ambiguous' ? 'ambiguous' : 'not-found'
+        })
+      }
     } catch {
       // Ignore if page not ready
     }
+  }
+
+  async applyChecked(fingerprint: ElementFingerprint, checked: boolean): Promise<void> {
+    try {
+      await this.ensureDebugger()
+      const response = (await this.webContents.debugger.sendCommand('Runtime.evaluate', {
+        expression: this.getCheckedApplyExpression(fingerprint, checked),
+        returnByValue: true
+      })) as RuntimeEvaluateResponse
+
+      if (response.exceptionDetails) return
+      const result = response.result?.value as ResolvedMirrorAction | undefined
+      if (result && !result.matched) {
+        this.logMirrorFailure({
+          fingerprint,
+          paneId: this.paneId,
+          reason: result.failureReason === 'ambiguous' ? 'ambiguous' : 'not-found'
+        })
+      }
+    } catch {
+      // Ignore if page not ready
+    }
+  }
+
+  async submitForm(fingerprint: ElementFingerprint): Promise<void> {
+    try {
+      await this.ensureDebugger()
+      const response = (await this.webContents.debugger.sendCommand('Runtime.evaluate', {
+        expression: this.getSubmitExpression(fingerprint),
+        returnByValue: true
+      })) as RuntimeEvaluateResponse
+
+      if (response.exceptionDetails) return
+      const result = response.result?.value as ResolvedMirrorAction | undefined
+      if (result && !result.matched) {
+        this.logMirrorFailure({
+          fingerprint,
+          paneId: this.paneId,
+          reason: result.failureReason === 'ambiguous' ? 'ambiguous' : 'not-found'
+        })
+      }
+    } catch {
+      // Ignore if page not ready
+    }
+  }
+
+  getMirrorFailureLogs(): MirrorFailureLog[] {
+    return [...this.mirrorFailureLogs]
   }
 
   dispatchClick(x: number, y: number): void {
@@ -450,15 +513,17 @@ export class WebContentsViewEngine implements EngineView {
     `
   }
 
-  private getValueApplyExpression(fingerprint: ElementFingerprint, value: string): string {
+  private getValueApplyExpression(
+    fingerprint: ElementFingerprint,
+    payload: ValueSyncPayload
+  ): string {
     return `
       (() => {
-        if (window.__suppressValueReport) return;
         const fingerprint = ${JSON.stringify(fingerprint)};
-        const value = ${JSON.stringify(value)};
+        const payload = ${JSON.stringify(payload)};
         const normalizeVisibleText = ${normalizeVisibleText.toString()};
         const resolveElementFingerprint = ${resolveElementFingerprint.toString()};
-        const interactiveSelector = 'input:not([type="hidden"]),textarea';
+        const interactiveSelector = 'input:not([type="hidden"]),textarea,select';
 
         function getVisibleText(element) {
           if (element instanceof HTMLInputElement) {
@@ -470,17 +535,42 @@ export class WebContentsViewEngine implements EngineView {
           return normalizeVisibleText(element instanceof HTMLElement ? element.innerText : element.textContent);
         }
 
+        function getStructuralPath(el) {
+          const parts = [];
+          let current = el;
+          while (current && current !== document.body) {
+            const parent = current.parentElement;
+            if (parent) {
+              const index = Array.from(parent.children).indexOf(current) + 1;
+              parts.unshift(current.tagName.toLowerCase() + ':nth-child(' + index + ')');
+            } else {
+              parts.unshift(current.tagName.toLowerCase());
+            }
+            current = parent;
+          }
+          return parts.join(' > ');
+        }
+
         function describeElement(element) {
+          const isFormField = element instanceof HTMLInputElement ||
+            element instanceof HTMLSelectElement ||
+            element instanceof HTMLTextAreaElement;
           return {
             tagName: element.tagName.toLowerCase(),
             id: element.id || null,
-            visibleText: getVisibleText(element)
+            visibleText: getVisibleText(element),
+            testId: element.getAttribute('data-testid') || (isFormField ? element.name || null : null),
+            ariaLabel: element.getAttribute('aria-label') || null,
+            role: element.getAttribute('role') || null,
+            structuralPath: getStructuralPath(element)
           };
         }
 
         const elements = Array.from(document.querySelectorAll(interactiveSelector))
           .filter(function(el) {
-            if (!(el instanceof HTMLInputElement) && !(el instanceof HTMLTextAreaElement)) return false;
+            if (!(el instanceof HTMLInputElement) &&
+                !(el instanceof HTMLTextAreaElement) &&
+                !(el instanceof HTMLSelectElement)) return false;
             if (el instanceof HTMLInputElement) {
               var t = el.type;
               if (t === 'checkbox' || t === 'radio' || t === 'hidden' || t === 'button' ||
@@ -490,26 +580,49 @@ export class WebContentsViewEngine implements EngineView {
           });
         const descriptors = elements.map(describeElement);
         const resolved = resolveElementFingerprint(fingerprint, descriptors);
-        if (!resolved) return;
+        if (!resolved) return { matched: false, failureReason: 'not-found' };
 
         const element = elements[resolved.index];
-        if (!element) return;
+        if (!element) return { matched: false, failureReason: 'not-found' };
 
         // Suppress echo: this apply should not be re-reported
         window.__suppressValueReport = true;
 
-        // Native value setter trick: bypasses React's synthetic event system
-        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-          element instanceof HTMLTextAreaElement
-            ? HTMLTextAreaElement.prototype
-            : HTMLInputElement.prototype,
-          'value'
-        )?.set;
+        if (element instanceof HTMLSelectElement) {
+          let applied = false;
+          for (let index = 0; index < element.options.length; index += 1) {
+            if (element.options[index]?.value === payload.value) {
+              element.selectedIndex = index;
+              applied = true;
+              break;
+            }
+          }
 
-        if (nativeInputValueSetter) {
-          nativeInputValueSetter.call(element, value);
+          if (!applied && typeof payload.selectedIndex === 'number') {
+            if (payload.selectedIndex >= 0 && payload.selectedIndex < element.options.length) {
+              element.selectedIndex = payload.selectedIndex;
+              applied = true;
+            }
+          }
+
+          if (!applied) {
+            setTimeout(function() { window.__suppressValueReport = false; }, 0);
+            return { matched: false, failureReason: 'not-found' };
+          }
         } else {
-          element.value = value;
+          // Native value setter trick: bypasses React's synthetic event system
+          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+            element instanceof HTMLTextAreaElement
+              ? HTMLTextAreaElement.prototype
+              : HTMLInputElement.prototype,
+            'value'
+          )?.set;
+
+          if (nativeInputValueSetter) {
+            nativeInputValueSetter.call(element, payload.value);
+          } else {
+            element.value = payload.value;
+          }
         }
 
         element.dispatchEvent(new Event('input', { bubbles: true }));
@@ -517,6 +630,137 @@ export class WebContentsViewEngine implements EngineView {
 
         // Clear suppression after events fire
         setTimeout(function() { window.__suppressValueReport = false; }, 0);
+        return { matched: true };
+      })();
+    `
+  }
+
+  private getSubmitExpression(fingerprint: ElementFingerprint): string {
+    return `
+      (() => {
+        const fingerprint = ${JSON.stringify(fingerprint)};
+        const normalizeVisibleText = ${normalizeVisibleText.toString()};
+        const resolveElementFingerprint = ${resolveElementFingerprint.toString()};
+
+        function getStructuralPath(el) {
+          const parts = [];
+          let current = el;
+          while (current && current !== document.body) {
+            const parent = current.parentElement;
+            if (parent) {
+              const index = Array.from(parent.children).indexOf(current) + 1;
+              parts.unshift(current.tagName.toLowerCase() + ':nth-child(' + index + ')');
+            } else {
+              parts.unshift(current.tagName.toLowerCase());
+            }
+            current = parent;
+          }
+          return parts.join(' > ');
+        }
+
+        function getVisibleText(element) {
+          return normalizeVisibleText(element instanceof HTMLElement ? element.innerText : element.textContent);
+        }
+
+        function describeElement(element) {
+          return {
+            tagName: element.tagName.toLowerCase(),
+            id: element.id || null,
+            visibleText: getVisibleText(element),
+            testId: element.getAttribute('data-testid') || null,
+            ariaLabel: element.getAttribute('aria-label') || null,
+            role: element.getAttribute('role') || null,
+            structuralPath: getStructuralPath(element)
+          };
+        }
+
+        const forms = Array.from(document.querySelectorAll('form'));
+        const descriptors = forms.map(describeElement);
+        const resolved = resolveElementFingerprint(fingerprint, descriptors);
+        if (!resolved) return { matched: false, failureReason: 'not-found' };
+
+        const form = forms[resolved.index];
+        if (!(form instanceof HTMLFormElement)) return { matched: false, failureReason: 'not-found' };
+
+        window.__suppressSubmitReport = true;
+        window.__suppressClickReport = true;
+        form.requestSubmit();
+        setTimeout(function() {
+          window.__suppressSubmitReport = false;
+          window.__suppressClickReport = false;
+        }, 100);
+        return { matched: true };
+      })();
+    `
+  }
+
+  private getCheckedApplyExpression(fingerprint: ElementFingerprint, checked: boolean): string {
+    return `
+      (() => {
+        const fingerprint = ${JSON.stringify(fingerprint)};
+        const checked = ${JSON.stringify(checked)};
+        const normalizeVisibleText = ${normalizeVisibleText.toString()};
+        const resolveElementFingerprint = ${resolveElementFingerprint.toString()};
+
+        function getVisibleText(element) {
+          if (element instanceof HTMLInputElement) return '';
+          return normalizeVisibleText(element instanceof HTMLElement ? element.innerText : element.textContent);
+        }
+
+        function getStructuralPath(el) {
+          const parts = [];
+          let current = el;
+          while (current && current !== document.body) {
+            const parent = current.parentElement;
+            if (parent) {
+              const index = Array.from(parent.children).indexOf(current) + 1;
+              parts.unshift(current.tagName.toLowerCase() + ':nth-child(' + index + ')');
+            } else {
+              parts.unshift(current.tagName.toLowerCase());
+            }
+            current = parent;
+          }
+          return parts.join(' > ');
+        }
+
+        function describeElement(element) {
+          return {
+            tagName: element.tagName.toLowerCase(),
+            id: element.id || null,
+            visibleText: getVisibleText(element),
+            testId: element.getAttribute('data-testid') || element.name || null,
+            ariaLabel: element.getAttribute('aria-label') || null,
+            role: element.getAttribute('role') || null,
+            structuralPath: getStructuralPath(element)
+          };
+        }
+
+        const elements = Array.from(
+          document.querySelectorAll('input[type="checkbox"],input[type="radio"]')
+        ).filter((element) => element instanceof HTMLInputElement && !element.disabled);
+        const descriptors = elements.map(describeElement);
+        const resolved = resolveElementFingerprint(fingerprint, descriptors);
+        if (!resolved) return { matched: false, failureReason: 'not-found' };
+
+        const element = elements[resolved.index];
+        if (!(element instanceof HTMLInputElement)) return { matched: false, failureReason: 'not-found' };
+
+        window.__suppressCheckedReport = true;
+        const nativeCheckedSetter = Object.getOwnPropertyDescriptor(
+          HTMLInputElement.prototype,
+          'checked'
+        )?.set;
+
+        if (nativeCheckedSetter) {
+          nativeCheckedSetter.call(element, checked);
+        } else {
+          element.checked = checked;
+        }
+
+        element.dispatchEvent(new Event('input', { bubbles: true }));
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+        setTimeout(function() { window.__suppressCheckedReport = false; }, 0);
+        return { matched: true };
       })();
     `
   }

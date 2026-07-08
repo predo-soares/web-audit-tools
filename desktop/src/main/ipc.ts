@@ -90,6 +90,30 @@ export function registerIpcHandlers(
     void paneManager.syncValue(paneId, fingerprint, value)
   })
 
+  ipcMain.on(
+    'pane:select',
+    (
+      _event,
+      paneId: PaneId,
+      fingerprint: ElementFingerprint,
+      value: string,
+      selectedIndex: number
+    ) => {
+      void paneManager.syncSelectValue(paneId, fingerprint, value, selectedIndex)
+    }
+  )
+
+  ipcMain.on(
+    'pane:checked',
+    (_event, paneId: PaneId, fingerprint: ElementFingerprint, checked: boolean) => {
+      void paneManager.syncChecked(paneId, fingerprint, checked)
+    }
+  )
+
+  ipcMain.on('pane:submit', (_event, paneId: PaneId, fingerprint: ElementFingerprint) => {
+    void paneManager.syncSubmit(paneId, fingerprint)
+  })
+
   ipcMain.handle('pane:loading-states', () => {
     return paneManager.getLoadingStates()
   })
@@ -112,6 +136,10 @@ export function registerIpcHandlers(
 
   ipcMain.handle('e2e:evaluate-in-pane', async (_event, paneId: PaneId, expression: string) => {
     return paneManager.evaluateInPane(paneId, expression)
+  })
+
+  ipcMain.handle('e2e:get-mirror-failure-logs', () => {
+    return paneManager.getMirrorFailureLogs()
   })
 
   ipcMain.handle('popover:open', async (_event, options: PopoverOpenOptions) => {

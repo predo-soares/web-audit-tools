@@ -36,6 +36,13 @@ function findInteractiveAncestor(target: EventTarget | null): Element | null {
   return target.closest(INTERACTIVE_SELECTOR)
 }
 
+function isCheckboxOrRadioInput(element: Element): element is HTMLInputElement {
+  return (
+    element instanceof HTMLInputElement &&
+    (element.type === 'checkbox' || element.type === 'radio')
+  )
+}
+
 function getVisibleText(element: Element): string {
   if (element instanceof HTMLInputElement) {
     if (['button', 'submit', 'reset'].includes(element.type)) {
@@ -112,8 +119,10 @@ window.addEventListener(
 window.addEventListener(
   'click',
   (e: MouseEvent) => {
+    if ((window as Window & { __suppressClickReport?: boolean }).__suppressClickReport) return
     const interactive = findInteractiveAncestor(e.target)
     if (!interactive) return
+    if (isCheckboxOrRadioInput(interactive)) return
 
     const allInteractive = Array.from(document.querySelectorAll(INTERACTIVE_SELECTOR)).filter(
       (el) => el instanceof HTMLElement && !(el as HTMLInputElement).disabled
@@ -165,6 +174,43 @@ window.addEventListener(
     }, 100)
 
     inputTimers.set(target, timer)
+  },
+  true
+)
+
+window.addEventListener(
+  'change',
+  (e: Event) => {
+    const target = e.target
+    if (target instanceof HTMLInputElement && (target.type === 'checkbox' || target.type === 'radio')) {
+      if ((window as Window & { __suppressCheckedReport?: boolean }).__suppressCheckedReport) return
+
+      const fingerprint = buildElementFingerprint(describeElement(target))
+      if (!fingerprint) return
+      ipcRenderer.send('pane:checked', paneId, fingerprint, target.checked)
+      return
+    }
+    if (!(target instanceof HTMLSelectElement)) return
+    if ((window as Window & { __suppressValueReport?: boolean }).__suppressValueReport) return
+
+    const fingerprint = buildElementFingerprint(describeElement(target))
+    if (!fingerprint) return
+    ipcRenderer.send('pane:select', paneId, fingerprint, target.value, target.selectedIndex)
+  },
+  true
+)
+
+window.addEventListener(
+  'submit',
+  (e: SubmitEvent) => {
+    if ((window as Window & { __suppressSubmitReport?: boolean }).__suppressSubmitReport) return
+
+    const form = e.target
+    if (!(form instanceof HTMLFormElement)) return
+
+    const fingerprint = buildElementFingerprint(describeElement(form))
+    if (!fingerprint) return
+    ipcRenderer.send('pane:submit', paneId, fingerprint)
   },
   true
 )

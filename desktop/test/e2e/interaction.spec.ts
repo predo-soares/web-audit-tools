@@ -2,6 +2,7 @@ import { test, expect } from './fixtures'
 import {
   evaluateInPane,
   fixtureUrl,
+  getMirrorFailureLogs,
   launchApp,
   navigateTo,
   waitForAllPanes,
@@ -560,6 +561,177 @@ test('paste mirrors the same as typing', async ({ fixturePort }) => {
       )
       expect(value).toBe('pasted text')
     }
+  } finally {
+    await close()
+  }
+})
+
+test('select change mirrors by value with index fallback when option values differ', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
+    await waitForAllPanes(window)
+
+    await evaluateInPane(window, 'iphone', `
+      var byValue = document.getElementById('country-select');
+      byValue.selectedIndex = 2;
+      byValue.dispatchEvent(new Event('change', { bubbles: true }));
+      var byIndex = document.getElementById('index-fallback-select');
+      byIndex.selectedIndex = 1;
+      byIndex.dispatchEvent(new Event('change', { bubbles: true }));
+    `)
+
+    await expect
+      .poll(() =>
+        evaluateInPane<string>(
+          window,
+          'ipad',
+          `document.getElementById('form-result')?.dataset.countryValue ?? ''`
+        )
+      )
+      .toBe('jp')
+
+    const desktopState = await evaluateInPane<Record<string, string>>(window, 'desktop', `(() => {
+      const result = document.getElementById('form-result');
+      return {
+        country: result?.dataset.countryValue ?? '',
+        city: result?.dataset.cityValue ?? '',
+        selectedCityValue: document.getElementById('index-fallback-select')?.value ?? ''
+      };
+    })()`)
+
+    expect(desktopState.country).toBe('jp')
+    expect(desktopState.city).toBe('ny-desktop')
+    expect(desktopState.selectedCityValue).toBe('ny-desktop')
+  } finally {
+    await close()
+  }
+})
+
+test('pressing Enter in a form field submits matching forms in every pane', async ({ fixturePort }) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
+    await waitForAllPanes(window)
+
+    await evaluateInPane(window, 'iphone', `
+      var el = document.getElementById('text-field');
+      el.focus();
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      if (el.form) {
+        el.form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      }
+    `)
+
+    await expect
+      .poll(() =>
+        evaluateInPane<string>(
+          window,
+          'ipad',
+          `document.getElementById('form-result')?.dataset.submitCount ?? '0'`
+        )
+      )
+      .toBe('1')
+
+    for (const paneId of ['iphone', 'ipad', 'desktop'] as const) {
+      const submitCount = await evaluateInPane<string>(
+        window,
+        paneId,
+        `document.getElementById('form-result')?.dataset.submitCount ?? '0'`
+      )
+      expect(submitCount).toBe('1')
+    }
+  } finally {
+    await close()
+  }
+})
+
+test('checkboxes and radios mirror exactly once through click sync without value-sync double toggles', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
+    await waitForAllPanes(window)
+
+    await evaluateInPane(window, 'iphone', `document.getElementById('newsletter-checkbox').click()`)
+    await evaluateInPane(window, 'iphone', `document.getElementById('plan-pro').click()`)
+
+    await expect
+      .poll(() =>
+        evaluateInPane<Record<string, string>>(window, 'ipad', `(() => {
+          const result = document.getElementById('form-result');
+          return {
+            checked: result?.dataset.checkboxChecked ?? '',
+            radio: result?.dataset.radioValue ?? ''
+          };
+        })()`)
+      )
+      .toEqual({ checked: 'true', radio: 'pro' })
+
+    for (const paneId of ['iphone', 'ipad', 'desktop'] as const) {
+      const state = await evaluateInPane<Record<string, string>>(window, paneId, `(() => {
+        const result = document.getElementById('form-result');
+        return {
+          checked: result?.dataset.checkboxChecked ?? '',
+          radio: result?.dataset.radioValue ?? '',
+          checkboxDom: String(document.getElementById('newsletter-checkbox')?.checked ?? false),
+          radioDom: String(document.getElementById('plan-pro')?.checked ?? false)
+        };
+      })()`)
+
+      expect(state.checked).toBe('true')
+      expect(state.radio).toBe('pro')
+      expect(state.checkboxDom).toBe('true')
+      expect(state.radioDom).toBe('true')
+    }
+  } finally {
+    await close()
+  }
+})
+
+test('missing select or form targets no-op and emit structured mirror-failure logs', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
+    await waitForAllPanes(window)
+
+    await evaluateInPane(window, 'ipad', `
+      document.getElementById('test-form')?.replaceWith(document.createElement('div'));
+    `)
+
+    await evaluateInPane(window, 'desktop', `
+      document.getElementById('country-select')?.remove();
+    `)
+
+    await evaluateInPane(window, 'iphone', `
+      var select = document.getElementById('country-select');
+      select.selectedIndex = 1;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      var form = document.getElementById('text-field')?.form;
+      if (form) form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    `)
+
+    await window.waitForTimeout(300)
+
+    const desktopCountry = await evaluateInPane<string>(
+      window,
+      'desktop',
+      `document.getElementById('form-result')?.dataset.countryValue ?? ''`
+    )
+    expect(desktopCountry).toBe('br')
+
+    const logs = await getMirrorFailureLogs(window)
+    expect(logs.desktop).toEqual(
+      expect.arrayContaining([expect.objectContaining({ paneId: 'desktop', reason: 'not-found' })])
+    )
+    expect(logs.ipad).toEqual(
+      expect.arrayContaining([expect.objectContaining({ paneId: 'ipad', reason: 'not-found' })])
+    )
   } finally {
     await close()
   }

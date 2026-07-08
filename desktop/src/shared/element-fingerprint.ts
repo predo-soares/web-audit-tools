@@ -99,7 +99,7 @@ function buildLayers(descriptor: ElementDescriptor): ElementFingerprintLayer[] {
   }
 
   const structuralPath = descriptor.structuralPath?.trim()
-  if (structuralPath) {
+  if (structuralPath && layers.length === 0) {
     layers.push({ type: 'structural-path', path: structuralPath })
   }
 

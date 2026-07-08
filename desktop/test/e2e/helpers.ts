@@ -4,6 +4,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import electronPath from 'electron'
 import { chromium, expect, type Browser, type Page } from '@playwright/test'
+import type { MirrorFailureLog } from '../../src/shared/element-fingerprint'
 import type { PaneId } from '../../src/shared/types'
 
 interface LaunchedApp {
@@ -224,6 +225,14 @@ export async function evaluateInPane<T>(
     async ({ paneId, expression }) => window.api.evaluateInPane(paneId, expression),
     { paneId, expression }
   ) as Promise<T>
+}
+
+export async function getMirrorFailureLogs(
+  window: Page
+): Promise<Record<PaneId, MirrorFailureLog[]>> {
+  return window.evaluate(() => window.api.getMirrorFailureLogs()) as Promise<
+    Record<PaneId, MirrorFailureLog[]>
+  >
 }
 
 export function fixtureUrl(port: number, path: string): string {

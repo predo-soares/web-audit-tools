@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { HistoryEntry } from '../shared/history'
 import type { PopoverAction, PopoverOpenOptions } from '../shared/popover-types'
 import type { NewProjectInput, Project } from '../shared/project'
+import type { MirrorFailureLog } from '../shared/element-fingerprint'
 import type { PaneMount, PaneId, PaneNavigationState, ThemePreference } from '../shared/types'
 
 export interface PreviewApi {
@@ -38,6 +39,7 @@ export interface PreviewApi {
   onProjectsChanged: (callback: (projects: Project[]) => void) => () => void
   onHistoryUpdated: (callback: (entries: HistoryEntry[]) => void) => () => void
   evaluateInPane: <T>(paneId: PaneId, expression: string) => Promise<T>
+  getMirrorFailureLogs: () => Promise<Record<PaneId, MirrorFailureLog[]>>
 }
 
 const api: PreviewApi = {
@@ -121,7 +123,8 @@ const api: PreviewApi = {
     return () => ipcRenderer.removeListener('history:updated', listener)
   },
   evaluateInPane: (paneId, expression) =>
-    ipcRenderer.invoke('e2e:evaluate-in-pane', paneId, expression)
+    ipcRenderer.invoke('e2e:evaluate-in-pane', paneId, expression),
+  getMirrorFailureLogs: () => ipcRenderer.invoke('e2e:get-mirror-failure-logs')
 }
 
 contextBridge.exposeInMainWorld('api', api)
