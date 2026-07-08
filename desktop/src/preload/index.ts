@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { HistoryEntry } from '../shared/history'
 import type { PopoverAction, PopoverOpenOptions } from '../shared/popover-types'
+import type { NewProjectInput, Project } from '../shared/project'
 import type { PaneMount, PaneId, PaneNavigationState, ThemePreference } from '../shared/types'
 
 export interface PreviewApi {
@@ -16,6 +18,7 @@ export interface PreviewApi {
   setPaneThemePreference: (preference: ThemePreference) => Promise<ThemePreference>
   getLoadingStates: () => Promise<Record<PaneId, boolean>>
   setPanesVisible: (visible: boolean) => Promise<void>
+  listHistory: () => Promise<HistoryEntry[]>
   openNativePopover: (options: PopoverOpenOptions) => Promise<void>
   closeNativePopover: () => Promise<void>
   getOpenNativePopoverPanel: () => Promise<PopoverOpenOptions['panelId'] | null>
@@ -24,6 +27,10 @@ export interface PreviewApi {
   onPopoverThemeChanged: (callback: (preference: ThemePreference) => void) => () => void
   onPaneLoading: (callback: (state: { paneId: PaneId; loading: boolean }) => void) => () => void
   onPaneNavigation: (callback: (state: PaneNavigationState) => void) => () => void
+  listProjects: () => Promise<Project[]>
+  addProject: (input: NewProjectInput & { pageTitle: string }) => Promise<Project>
+  onProjectsChanged: (callback: (projects: Project[]) => void) => () => void
+  onHistoryUpdated: (callback: (entries: HistoryEntry[]) => void) => () => void
   evaluateInPane: <T>(paneId: PaneId, expression: string) => Promise<T>
 }
 
@@ -42,6 +49,7 @@ const api: PreviewApi = {
     ipcRenderer.invoke('pane-theme:set-preference', preference),
   getLoadingStates: () => ipcRenderer.invoke('pane:loading-states'),
   setPanesVisible: (visible) => ipcRenderer.invoke('pane:set-visible', visible),
+  listHistory: () => ipcRenderer.invoke('history:list'),
   openNativePopover: (options) => ipcRenderer.invoke('popover:open', options),
   closeNativePopover: () => ipcRenderer.invoke('popover:close'),
   getOpenNativePopoverPanel: () => ipcRenderer.invoke('popover:get-open-panel'),
@@ -75,6 +83,20 @@ const api: PreviewApi = {
       callback(state)
     ipcRenderer.on('pane:navigation', listener)
     return () => ipcRenderer.removeListener('pane:navigation', listener)
+  },
+  listProjects: () => ipcRenderer.invoke('projects:list'),
+  addProject: (input) => ipcRenderer.invoke('projects:add', input),
+  onProjectsChanged: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, projects: Project[]): void =>
+      callback(projects)
+    ipcRenderer.on('projects:changed', listener)
+    return () => ipcRenderer.removeListener('projects:changed', listener)
+  },
+  onHistoryUpdated: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, entries: HistoryEntry[]): void =>
+      callback(entries)
+    ipcRenderer.on('history:updated', listener)
+    return () => ipcRenderer.removeListener('history:updated', listener)
   },
   evaluateInPane: (paneId, expression) =>
     ipcRenderer.invoke('e2e:evaluate-in-pane', paneId, expression)

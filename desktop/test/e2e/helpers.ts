@@ -8,6 +8,7 @@ import type { PaneId } from '../../src/shared/types'
 
 interface LaunchedApp {
   window: Page
+  userDataDir: string
   close: () => Promise<void>
 }
 
@@ -84,15 +85,14 @@ export async function getOverlayPage(window: Page): Promise<Page> {
   )
 }
 
-export async function launchApp(): Promise<LaunchedApp> {
+export async function launchApp(existingUserDataDir?: string): Promise<LaunchedApp> {
   suppressMacRestorePrompt()
 
   const port = 9400 + Math.floor(Math.random() * 200)
   const cwd = join(__dirname, '../..')
-  // Fresh profile per run: leftover instances must never share caches/locks
-  // with the dev profile or with each other (a crashed instance corrupts the
-  // disk cache for every later launch).
-  const userDataDir = mkdtempSync(join(tmpdir(), 'audit-screens-e2e-'))
+  const ownsUserDataDir = existingUserDataDir === undefined
+  const userDataDir =
+    existingUserDataDir ?? mkdtempSync(join(tmpdir(), 'audit-screens-e2e-'))
 
   const env = {
     ...process.env,
@@ -149,7 +149,9 @@ export async function launchApp(): Promise<LaunchedApp> {
         await waitForExit(electronProcess, 5_000)
       }
     }
-    rmSync(userDataDir, { recursive: true, force: true })
+    if (ownsUserDataDir) {
+      rmSync(userDataDir, { recursive: true, force: true })
+    }
   }
 
   try {
@@ -170,7 +172,7 @@ export async function launchApp(): Promise<LaunchedApp> {
     await window.waitForLoadState('domcontentloaded')
     await window.getByTestId('url-input').waitFor({ state: 'visible', timeout: 15_000 })
 
-    return { window, close }
+    return { window, userDataDir, close }
   } catch (error) {
     await close()
     throw error

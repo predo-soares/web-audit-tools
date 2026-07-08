@@ -1,13 +1,18 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import { normalizeUrl } from '../shared/url'
+import type { NewProjectInput } from '../shared/project'
 import type { PopoverAction, PopoverOpenOptions } from '../shared/popover-types'
 import type { PaneMount, PaneId, Size, ThemePreference } from '../shared/types'
 import type { PaneManager } from './pane-manager'
 import type { PopoverManager } from './popover-manager'
+import type { HistoryStore } from './history-store'
+import type { ProjectStore } from './project-store'
 
 export function registerIpcHandlers(
   paneManager: PaneManager,
-  popoverManager: PopoverManager
+  popoverManager: PopoverManager,
+  projectStore: ProjectStore,
+  historyStore: HistoryStore
 ): void {
   ipcMain.handle('window:close', (event) => {
     BrowserWindow.fromWebContents(event.sender)?.close()
@@ -80,6 +85,10 @@ export function registerIpcHandlers(
     paneManager.setPanesVisible(visible)
   })
 
+  ipcMain.handle('history:list', () => {
+    return historyStore.list()
+  })
+
   ipcMain.handle('e2e:evaluate-in-pane', async (_event, paneId: PaneId, expression: string) => {
     return paneManager.evaluateInPane(paneId, expression)
   })
@@ -105,4 +114,16 @@ export function registerIpcHandlers(
     if (!popoverManager.isOverlayWebContents(event.sender)) return
     void popoverManager.handleAction(action)
   })
+
+  ipcMain.handle('projects:list', () => {
+    return projectStore.list()
+  })
+
+  ipcMain.handle(
+    'projects:add',
+    (_event, input: NewProjectInput & { pageTitle: string }) => {
+      const { pageTitle, ...projectInput } = input
+      return projectStore.add(projectInput, pageTitle)
+    }
+  )
 }

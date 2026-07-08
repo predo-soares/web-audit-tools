@@ -2,9 +2,11 @@ import { app, shell, BrowserWindow, Menu } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { HistoryStore } from './history-store'
 import { registerIpcHandlers } from './ipc'
 import { PaneManager } from './pane-manager'
 import { PopoverManager } from './popover-manager'
+import { ProjectStore } from './project-store'
 
 // E2E runs get an isolated profile so parallel/leftover instances never share
 // caches or locks with the dev profile (a crashed instance corrupts the disk
@@ -15,6 +17,8 @@ if (process.env.E2E_USER_DATA_DIR) {
 
 const paneManager = new PaneManager()
 const popoverManager = new PopoverManager(paneManager)
+const projectStore = new ProjectStore()
+const historyStore = new HistoryStore()
 
 if (process.env.E2E_TEST) {
   ;(globalThis as { __paneManager?: PaneManager }).__paneManager = paneManager
@@ -52,6 +56,8 @@ function createWindow(): BrowserWindow {
   })
 
   mainWindow.once('close', () => {
+    projectStore.destroy()
+    historyStore.destroy()
     popoverManager.destroy()
     paneManager.destroy()
   })
@@ -63,7 +69,23 @@ function createWindow(): BrowserWindow {
 
   paneManager.initialize(mainWindow)
   popoverManager.initialize(mainWindow)
-  registerIpcHandlers(paneManager, popoverManager)
+  paneManager.setHistoryHooks({
+    onVisitCommitted: ({ url, title, faviconUrl }) => {
+      historyStore.logVisit(url, title, faviconUrl)
+    },
+    onMetadataUpdated: ({ url, title, faviconUrl }) => {
+      historyStore.refreshMetadata(url, title, faviconUrl)
+    }
+  })
+  registerIpcHandlers(paneManager, popoverManager, projectStore, historyStore)
+  projectStore.setOnChange((projects) => {
+    if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
+    mainWindow.webContents.send('projects:changed', projects)
+  })
+  historyStore.setOnChange((entries) => {
+    if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
+    mainWindow.webContents.send('history:updated', entries)
+  })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])

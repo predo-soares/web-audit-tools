@@ -3,16 +3,26 @@ import { PANE_IDS } from '../../../shared/device-presets'
 import { CANVAS_GAP, clampZoom, DEFAULT_ZOOM } from '../../../shared/mockup-layout'
 import { TOOLBAR_HEIGHT_PX } from '../../../shared/sidebar'
 import type { PaneId } from '../../../shared/types'
+import type { Project } from '../../../shared/project'
 import { Sidebar } from '@renderer/components/sidebar'
 import { DevicePane } from '@renderer/components/device-pane'
 import { PreviewCanvasContext } from '@renderer/context/preview-canvas-context'
 
 interface PreviewCanvasProps {
   loadingStates: Record<PaneId, boolean>
+  projects: Project[]
+  committedUrl: string
+  onProjectActivate: (project: Project) => void
   toolbar: ReactNode
 }
 
-export function PreviewCanvas({ loadingStates, toolbar }: PreviewCanvasProps): React.JSX.Element {
+export function PreviewCanvas({
+  loadingStates,
+  projects,
+  committedUrl,
+  onProjectActivate,
+  toolbar
+}: PreviewCanvasProps): React.JSX.Element {
   const [zoom, setZoomState] = useState(DEFAULT_ZOOM)
 
   const setZoom = useCallback((nextZoom: number) => {
@@ -35,7 +45,11 @@ export function PreviewCanvas({ loadingStates, toolbar }: PreviewCanvasProps): R
       <div className="relative h-screen overflow-hidden bg-transparent text-foreground">
         {toolbar}
         <div className="flex h-full">
-          <Sidebar />
+          <Sidebar
+            projects={projects}
+            committedUrl={committedUrl}
+            onProjectActivate={onProjectActivate}
+          />
           <div
             data-canvas-viewport
             className="relative min-h-0 min-w-0 flex-1 overflow-auto bg-black/20 [background-image:radial-gradient(circle_at_center,_rgba(255,255,255,0.08)_1px,_transparent_1px)] [background-size:20px_20px]"

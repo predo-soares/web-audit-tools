@@ -3,10 +3,22 @@ import {
   SIDEBAR_WIDTH_PX,
   TOOLBAR_HEIGHT_PX
 } from '../../../shared/sidebar'
+import type { Project } from '../../../shared/project'
+import { ProjectRow } from '@renderer/components/project-row'
 import { useSidebar, useSidebarInternals } from '@renderer/context/sidebar-context'
 import { cn } from '@renderer/lib/utils'
 
-export function Sidebar(): React.JSX.Element {
+interface SidebarProps {
+  projects: Project[]
+  committedUrl: string
+  onProjectActivate: (project: Project) => void
+}
+
+export function Sidebar({
+  projects,
+  committedUrl,
+  onProjectActivate
+}: SidebarProps): React.JSX.Element {
   const { isOpen, isTransitioning } = useSidebar()
   const { sidebarRef } = useSidebarInternals()
 
@@ -38,9 +50,25 @@ export function Sidebar(): React.JSX.Element {
             <h2 className="mb-2 px-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
               Projects
             </h2>
-            <p className="px-2 text-sm text-muted-foreground">
-              Save the current page to create a project.
-            </p>
+            {projects.length === 0 ? (
+              <p className="px-2 text-sm text-muted-foreground">
+                Save the current page to create a project.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-0.5">
+                {projects.map((project) => (
+                  <li key={project.id}>
+                    <ProjectRow
+                      project={project}
+                      onActivate={(entry) => {
+                        if (entry.url === committedUrl) return
+                        onProjectActivate(entry)
+                      }}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
           <section>
             <h2 className="mb-2 px-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">

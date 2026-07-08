@@ -13,6 +13,19 @@ import { getPanePreloadPath, WebContentsViewEngine } from './web-contents-view-e
 const SHARED_PARTITION = 'persist:audit-screens-preview'
 const DEFAULT_PREVIEW_URL = 'http://localhost:3000'
 
+export interface NavigationHistoryHooks {
+  onVisitCommitted?: (state: {
+    url: string
+    title: string
+    faviconUrl: string | null
+  }) => void
+  onMetadataUpdated?: (state: {
+    url: string
+    title: string
+    faviconUrl: string | null
+  }) => void
+}
+
 export class PaneManager {
   private static readonly SYNTHETIC_CLICK_TTL_MS = 1000
 
@@ -37,6 +50,14 @@ export class PaneManager {
   private themePreference: ThemePreference = 'system'
   private destroyed = false
   private readonly childViewStackListeners = new Set<() => void>()
+  private historyHooks: NavigationHistoryHooks | null = null
+  private pendingVisitUrl: string | null = null
+  private pendingVisitFailed = false
+  private pendingVisitInPage = false
+
+  setHistoryHooks(hooks: NavigationHistoryHooks | null): void {
+    this.historyHooks = hooks
+  }
 
   onChildViewStackChanged(listener: () => void): () => void {
     this.childViewStackListeners.add(listener)
@@ -94,6 +115,7 @@ export class PaneManager {
     this.activePane = null
     this.pageTitle = ''
     this.faviconUrl = null
+    this.markPendingVisit(url, false)
     this.emitNavigationState()
     await Promise.all(PANE_IDS.map((paneId) => this.getEngine(paneId).navigate(url)))
   }
@@ -345,7 +367,7 @@ export class PaneManager {
   }
 
   private attachNavigationListeners(webContents: WebContents, paneId: PaneId): void {
-    const handleNavigation = (url: string): void => {
+    const handleNavigation = (url: string, inPage: boolean): void => {
       if (url === 'about:blank') return
 
       if (this.pendingProgrammaticNavigation.has(paneId)) {
@@ -358,16 +380,19 @@ export class PaneManager {
       this.activePane = paneId
       this.barUrl = url
       this.pageTitle = this.paneTitles.get(paneId) ?? ''
+      this.faviconUrl = this.paneFavicons.get(paneId) ?? null
+      this.markPendingVisit(url, inPage)
       this.emitNavigationState()
     }
 
-    webContents.on('did-navigate', (_event, url) => handleNavigation(url))
-    webContents.on('did-navigate-in-page', (_event, url) => handleNavigation(url))
+    webContents.on('did-navigate', (_event, url) => handleNavigation(url, false))
+    webContents.on('did-navigate-in-page', (_event, url) => handleNavigation(url, true))
     webContents.on('page-title-updated', (_event, title) => {
       this.paneTitles.set(paneId, title)
       if (this.activePane === paneId || (this.activePane === null && this.barUrl === this.paneUrls.get(paneId))) {
         this.pageTitle = title
         this.emitNavigationState()
+        this.emitMetadataUpdate()
       }
     })
     webContents.on('page-favicon-updated', (_event, favicons) => {
@@ -376,10 +401,17 @@ export class PaneManager {
       if (this.activePane === paneId || (this.activePane === null && this.barUrl === this.paneUrls.get(paneId))) {
         this.faviconUrl = favicon
         this.emitNavigationState()
+        this.emitMetadataUpdate()
       }
     })
     webContents.on('did-fail-load', () => {
       this.pendingProgrammaticNavigation.delete(paneId)
+      if (this.pendingVisitUrl && this.barUrl === this.pendingVisitUrl) {
+        this.pendingVisitFailed = true
+      }
+    })
+    webContents.on('did-stop-loading', () => {
+      this.tryCommitVisit()
     })
     webContents.on('focus', () => {
       this.activePane = paneId
@@ -398,6 +430,49 @@ export class PaneManager {
     if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
 
     mainWindow.webContents.send('pane:navigation', this.getNavigationState())
+  }
+
+  private markPendingVisit(url: string, inPage: boolean): void {
+    if (url === 'about:blank') return
+
+    this.pendingVisitUrl = url
+    this.pendingVisitFailed = false
+    this.pendingVisitInPage = inPage
+
+    if (inPage) {
+      this.tryCommitVisit()
+    }
+  }
+
+  private tryCommitVisit(): void {
+    if (!this.pendingVisitUrl || this.pendingVisitFailed) return
+    if (this.pendingVisitUrl !== this.barUrl) return
+    if (this.pendingVisitInPage === false && this.isAnyPaneLoading()) return
+
+    this.historyHooks?.onVisitCommitted?.({
+      url: this.barUrl,
+      title: this.pageTitle,
+      faviconUrl: this.faviconUrl
+    })
+    this.pendingVisitUrl = null
+    this.pendingVisitInPage = false
+  }
+
+  private emitMetadataUpdate(): void {
+    if (!this.barUrl || this.barUrl === 'about:blank') return
+
+    this.historyHooks?.onMetadataUpdated?.({
+      url: this.barUrl,
+      title: this.pageTitle,
+      faviconUrl: this.faviconUrl
+    })
+  }
+
+  private isAnyPaneLoading(): boolean {
+    for (const paneId of PANE_IDS) {
+      if (this.loadingState.get(paneId)) return true
+    }
+    return false
   }
 
   private attachLoadingListeners(webContents: WebContents, paneId: PaneId): void {
