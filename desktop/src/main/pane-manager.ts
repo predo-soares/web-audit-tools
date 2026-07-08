@@ -11,8 +11,6 @@ import type { EngineView } from './engine-view'
 import { getPanePreloadPath, WebContentsViewEngine } from './web-contents-view-engine'
 
 const SHARED_PARTITION = 'persist:audit-screens-preview'
-const DEFAULT_PREVIEW_URL = 'http://localhost:3000'
-
 export interface NavigationHistoryHooks {
   onVisitCommitted?: (state: {
     url: string
@@ -37,7 +35,7 @@ export class PaneManager {
   private readonly paneTitles = new Map<PaneId, string>()
   private readonly paneFavicons = new Map<PaneId, string>()
   private activePane: PaneId | null = null
-  private barUrl = DEFAULT_PREVIEW_URL
+  private barUrl = ''
   private pageTitle = ''
   private faviconUrl: string | null = null
   private readonly pendingProgrammaticNavigation = new Set<PaneId>()
@@ -83,7 +81,6 @@ export class PaneManager {
         await this.createEngine(paneId, mainWindow, null)
       })
     )
-      .then(() => this.doNavigateAll(DEFAULT_PREVIEW_URL))
       .catch((error) => {
         console.error('Failed to initialize preview panes:', error)
       })
@@ -105,6 +102,7 @@ export class PaneManager {
   }
 
   private async doNavigateAll(url: string): Promise<void> {
+    this.setPanesVisible(true)
     for (const paneId of PANE_IDS) {
       this.pendingProgrammaticNavigation.add(paneId)
       this.setPaneLoading(paneId, true)
@@ -314,6 +312,7 @@ export class PaneManager {
     this.webContentsToPane.set(engine.webContents.id, paneId)
     this.loadingState.set(paneId, false)
     mainWindow.contentView.addChildView(engine.view)
+    engine.view.setVisible(false)
     this.notifyChildViewStackChanged()
     this.attachLoadingListeners(engine.webContents, paneId)
     this.attachNavigationListeners(engine.webContents, paneId)
