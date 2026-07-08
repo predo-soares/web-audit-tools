@@ -249,6 +249,7 @@ export class PaneManager {
         const epochStale = epochBeforeResolution !== epochAfterResolution
 
         const isHandled = resolution !== null && 'handled' in resolution
+        const isLinkNav = resolution !== null && 'skipDispatch' in resolution
         syncTrace('click:target-resolved', {
           sourcePane: paneId,
           targetPane: targetId,
@@ -259,7 +260,9 @@ export class PaneManager {
           resolution: resolution
             ? isHandled
               ? { matched: true, handled: true }
-              : { matched: true, x: (resolution as { x: number; y: number }).x, y: (resolution as { x: number; y: number }).y }
+              : isLinkNav
+                ? { matched: true, skipDispatch: true }
+                : { matched: true, x: (resolution as { x: number; y: number }).x, y: (resolution as { x: number; y: number }).y }
             : { matched: false }
         })
 
@@ -273,6 +276,22 @@ export class PaneManager {
           return
         }
 
+        // Navigation links are synced by navigating the target pane to the
+        // destination URL directly. This keeps activePane on the source pane
+        // and prevents the target pane's browser history from diverging.
+        if (isLinkNav) {
+          const { navigateTo } = resolution as { skipDispatch: true; navigateTo: string }
+          syncTrace('click:link-nav', { targetPane: targetId, navigateTo })
+          if (!this.pendingProgrammaticNavigation.has(targetId)) {
+            this.pendingProgrammaticNavigation.add(targetId)
+            this.paneUrls.set(targetId, navigateTo)
+            void this.getEngine(targetId).navigate(navigateTo)
+          }
+          return
+        }
+
+        // Push expiry so the preload's click echo (from element.click() or
+        // sendInputEvent) is suppressed rather than re-broadcast.
         const queue = this.syntheticClickExpiry.get(targetId) ?? []
         queue.push(Date.now() + PaneManager.SYNTHETIC_CLICK_TTL_MS)
         this.syntheticClickExpiry.set(targetId, queue)
@@ -342,6 +361,10 @@ export class PaneManager {
         const queue = this.syntheticSubmitExpiry.get(targetId) ?? []
         queue.push(Date.now() + PaneManager.SYNTHETIC_SUBMIT_TTL_MS)
         this.syntheticSubmitExpiry.set(targetId, queue)
+
+        // Mark as programmatic so the resulting navigation doesn't cascade
+        // back to the source pane via handleNavigation.
+        this.pendingProgrammaticNavigation.add(targetId)
 
         syncTrace('submit:applying', { sourcePane: sourcePaneId, targetPane: targetId })
         await this.getEngine(targetId).submitForm(fingerprint)
@@ -574,6 +597,23 @@ export class PaneManager {
       this.faviconUrl = this.paneFavicons.get(paneId) ?? null
       this.markPendingVisit(url, inPage)
       this.emitNavigationState()
+
+      // Keep all panes at the same URL when a pane navigates via user action
+      // (link click, toolbar back/forward, history.back() in JS, etc.).
+      // In-page navigations (hash changes) are excluded — those are replayed
+      // via the normal click path.
+      if (!inPage && this.syncEnabled) {
+        for (const targetId of PANE_IDS) {
+          if (targetId === paneId) continue
+          // Skip panes already being navigated (from syncClick or syncSubmit).
+          if (this.pendingProgrammaticNavigation.has(targetId)) continue
+          // Skip panes already at the destination (e.g. after a synced submit).
+          if (this.paneUrls.get(targetId) === url) continue
+          this.pendingProgrammaticNavigation.add(targetId)
+          this.paneUrls.set(targetId, url)
+          void this.getEngine(targetId).navigate(url)
+        }
+      }
     }
 
     webContents.on('did-navigate', (_event, url) => handleNavigation(url, false))

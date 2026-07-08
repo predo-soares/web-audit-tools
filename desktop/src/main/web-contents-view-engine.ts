@@ -44,6 +44,8 @@ interface ResolvedClickPoint {
   x?: number
   y?: number
   handled?: boolean
+  skipDispatch?: boolean
+  navigateTo?: string
   failureReason?: 'not-found' | 'ambiguous' | 'occluded'
 }
 
@@ -182,7 +184,7 @@ export class WebContentsViewEngine implements EngineView {
 
   async resolveClickPoint(
     fingerprint: ElementFingerprint
-  ): Promise<{ x: number; y: number } | { handled: true } | null> {
+  ): Promise<{ x: number; y: number } | { handled: true } | { skipDispatch: true; navigateTo: string } | null> {
     try {
       await this.ensureDebugger()
       const response = (await this.webContents.debugger.sendCommand('Runtime.evaluate', {
@@ -215,6 +217,7 @@ export class WebContentsViewEngine implements EngineView {
         return null
       }
       if (value.handled) return { handled: true }
+      if (value.skipDispatch && value.navigateTo) return { skipDispatch: true, navigateTo: value.navigateTo }
       if (typeof value.x !== 'number' || typeof value.y !== 'number') return null
       return { x: value.x, y: value.y }
     } catch (error) {
@@ -441,6 +444,19 @@ export class WebContentsViewEngine implements EngineView {
         if (isToggle) {
           element.click();
           return { matched: true, handled: true };
+        }
+
+        // Navigation links (<a href> pointing to a different page) are synced
+        // by navigating all panes to the destination URL rather than by
+        // replaying the click, so the browser history and activePane tracking
+        // stay on the source pane instead of all panes navigating independently.
+        const rawHref = element instanceof HTMLAnchorElement ? element.getAttribute('href') : null;
+        const isNavigationLink = rawHref !== null &&
+          rawHref !== '' &&
+          !rawHref.startsWith('#') &&
+          !rawHref.startsWith('javascript:');
+        if (isNavigationLink) {
+          return { matched: true, skipDispatch: true, navigateTo: (element as HTMLAnchorElement).href };
         }
 
         const rect = element.getBoundingClientRect();
