@@ -28,6 +28,7 @@
   --corner-shape-default: squircle;
   --font-family-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
   --font-family-mono: 'Geist Mono Variable', ui-monospace, monospace;
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 :root[data-platform='mac'] {
