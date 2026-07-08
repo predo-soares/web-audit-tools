@@ -33,6 +33,32 @@ describe('resolveProjectName', () => {
   })
 })
 
+describe('sortProjectsNewestFirst', () => {
+  it('orders projects by createdAt descending', () => {
+    const projects: Project[] = [
+      {
+        id: 'older',
+        name: 'Older',
+        url: 'https://older.test',
+        faviconUrl: null,
+        createdAt: 1
+      },
+      {
+        id: 'newer',
+        name: 'Newer',
+        url: 'https://newer.test',
+        faviconUrl: null,
+        createdAt: 2
+      }
+    ]
+
+    expect(sortProjectsNewestFirst(projects).map((project) => project.id)).toEqual([
+      'newer',
+      'older'
+    ])
+  })
+})
+
 describe('addProject', () => {
   it('prepends newest project and never saves blank names', () => {
     const existing: Project[] = [
@@ -61,6 +87,34 @@ describe('addProject', () => {
       faviconUrl: 'https://new.test/f.ico'
     })
     expect(sortProjectsNewestFirst(next)[0].id).toBe('new')
+  })
+
+  it('allows duplicate URLs and duplicate names', () => {
+    const existing: Project[] = [
+      {
+        id: 'first',
+        name: 'Shared name',
+        url: 'https://example.com',
+        faviconUrl: null,
+        createdAt: 1
+      }
+    ]
+
+    const next = addProject(
+      existing,
+      { name: 'Shared name', url: 'https://example.com', faviconUrl: null },
+      'Ignored title',
+      'second',
+      2
+    )
+
+    expect(next).toHaveLength(2)
+    expect(next.map((project) => project.url)).toEqual([
+      'https://example.com',
+      'https://example.com'
+    ])
+    expect(next.map((project) => project.name)).toEqual(['Shared name', 'Shared name'])
+    expect(next.map((project) => project.id)).toEqual(['second', 'first'])
   })
 })
 

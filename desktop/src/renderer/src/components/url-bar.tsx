@@ -80,7 +80,7 @@ export function UrlBar({
           </span>
         ) : null}
         <SaveProjectButton
-          disabled={!canSaveProject || disabled}
+          disabled={!canSaveProject || Boolean(disabled)}
           suggestedName={saveSuggestedName}
           onSave={onSaveProject}
           className="absolute top-1/2 right-8 z-10 -translate-y-1/2"

@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import electronPath from 'electron'
-import { chromium, type Browser, type Page } from '@playwright/test'
+import { chromium, expect, type Browser, type Page } from '@playwright/test'
 import type { PaneId } from '../../src/shared/types'
 
 interface LaunchedApp {
@@ -180,8 +180,26 @@ export async function launchApp(existingUserDataDir?: string): Promise<LaunchedA
 }
 
 export async function navigateTo(window: Page, address: string): Promise<void> {
-  await window.getByTestId('url-input').fill(address)
-  await window.getByTestId('url-submit').click()
+  const input = window.getByTestId('url-input')
+  await input.fill(address)
+  await input.press('Enter')
+}
+
+export async function launchAppReady(existingUserDataDir?: string): Promise<LaunchedApp> {
+  const launched = await launchApp(existingUserDataDir)
+  await waitForAllPanes(launched.window)
+  return launched
+}
+
+export async function navigateToCommitted(window: Page, address: string): Promise<void> {
+  await navigateTo(window, address)
+  await waitForAllPanes(window)
+  await expect(window.getByTestId('url-input')).toHaveValue(address, { timeout: 30_000 })
+  await expect(window.getByTestId(historyRowTestId(address))).toBeVisible({ timeout: 30_000 })
+}
+
+export async function clearHistoryViaApi(window: Page): Promise<void> {
+  await window.evaluate(() => window.api.clearHistory())
 }
 
 export async function waitForPaneLoad(window: Page, paneId: PaneId): Promise<void> {
@@ -210,6 +228,29 @@ export async function evaluateInPane<T>(
 
 export function fixtureUrl(port: number, path: string): string {
   return `http://127.0.0.1:${port}${path}`
+}
+
+export function historyRowTestId(url: string): string {
+  return `history-row-${encodeURIComponent(url)}`
+}
+
+export function sidebarToggleShortcut(): string {
+  return process.platform === 'darwin' ? 'Meta+b' : 'Control+b'
+}
+
+export async function waitForSidebarSettled(window: Page): Promise<void> {
+  await window.waitForFunction(() => {
+    const sidebar = document.querySelector('[data-testid="sidebar"]')
+    return sidebar?.getAttribute('data-sidebar-transitioning') === 'false'
+  })
+}
+
+export async function expectSidebarOpen(window: Page, open: boolean): Promise<void> {
+  await waitForSidebarSettled(window)
+  await expect(window.getByTestId('sidebar')).toHaveAttribute(
+    'data-sidebar-open',
+    open ? 'true' : 'false'
+  )
 }
 
 export async function waitForPaneElement(
