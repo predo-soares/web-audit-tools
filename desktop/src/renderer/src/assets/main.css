@@ -107,6 +107,17 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  input,
+  textarea,
+  [contenteditable='true'],
+  [contenteditable='plaintext-only'],
+  [data-allow-selection] {
+    user-select: text;
+    -webkit-user-select: text;
   }
 
   [data-app-region='drag'] {
