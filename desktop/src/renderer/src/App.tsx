@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { PaneId } from '../../shared/types'
 import { PreviewCanvas } from '@renderer/components/preview-canvas'
 import { Toolbar } from '@renderer/components/toolbar'
+import { SidebarProvider } from '@renderer/context/sidebar-context'
 
 export default function App(): React.JSX.Element {
   const [loadingStates, setLoadingStates] = useState<Record<PaneId, boolean>>({
@@ -64,18 +65,23 @@ export default function App(): React.JSX.Element {
   }, [])
 
   return (
-    <PreviewCanvas loadingStates={loadingStates}>
-      <Toolbar
-        url={url}
-        pageTitle={pageTitle}
-        faviconUrl={faviconUrl}
-        navigating={navigating}
-        onUrlChange={setUrl}
-        onNavigate={handleNavigate}
-        onRefresh={handleRefresh}
-        syncEnabled={syncEnabled}
-        onSyncChange={handleSyncChange}
+    <SidebarProvider>
+      <PreviewCanvas
+        loadingStates={loadingStates}
+        toolbar={
+          <Toolbar
+            url={url}
+            pageTitle={pageTitle}
+            faviconUrl={faviconUrl}
+            navigating={navigating}
+            onUrlChange={setUrl}
+            onNavigate={handleNavigate}
+            onRefresh={handleRefresh}
+            syncEnabled={syncEnabled}
+            onSyncChange={handleSyncChange}
+          />
+        }
       />
-    </PreviewCanvas>
+    </SidebarProvider>
   )
 }

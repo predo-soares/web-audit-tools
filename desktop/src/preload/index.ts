@@ -15,6 +15,7 @@ export interface PreviewApi {
   getSyncEnabled: () => Promise<boolean>
   setPaneThemePreference: (preference: ThemePreference) => Promise<ThemePreference>
   getLoadingStates: () => Promise<Record<PaneId, boolean>>
+  setPanesVisible: (visible: boolean) => Promise<void>
   openNativePopover: (options: PopoverOpenOptions) => Promise<void>
   closeNativePopover: () => Promise<void>
   getOpenNativePopoverPanel: () => Promise<PopoverOpenOptions['panelId'] | null>
@@ -40,6 +41,7 @@ const api: PreviewApi = {
   setPaneThemePreference: (preference) =>
     ipcRenderer.invoke('pane-theme:set-preference', preference),
   getLoadingStates: () => ipcRenderer.invoke('pane:loading-states'),
+  setPanesVisible: (visible) => ipcRenderer.invoke('pane:set-visible', visible),
   openNativePopover: (options) => ipcRenderer.invoke('popover:open', options),
   closeNativePopover: () => ipcRenderer.invoke('popover:close'),
   getOpenNativePopoverPanel: () => ipcRenderer.invoke('popover:get-open-panel'),

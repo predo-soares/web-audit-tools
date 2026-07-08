@@ -221,6 +221,21 @@ export class PaneManager {
     }
   }
 
+  setPanesVisible(visible: boolean): void {
+    for (const paneId of PANE_IDS) {
+      this.getEngine(paneId).view.setVisible(visible)
+    }
+
+    if (visible) {
+      for (const paneId of PANE_IDS) {
+        const mount = this.lastMount.get(paneId)
+        if (mount) {
+          this.getEngine(paneId).mount(mount)
+        }
+      }
+    }
+  }
+
   getEngineView(paneId: PaneId): EngineView {
     return this.getEngine(paneId)
   }

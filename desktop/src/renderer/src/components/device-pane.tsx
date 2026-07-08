@@ -2,6 +2,7 @@ import { DEVICE_PRESETS } from '../../../shared/device-presets'
 import { getMockupDimensions, getScaledScreenCornerRadius } from '../../../shared/mockup-layout'
 import type { PaneId } from '../../../shared/types'
 import { cn } from '@renderer/lib/utils'
+import { useSidebar } from '@renderer/context/sidebar-context'
 import { usePaneBounds } from '@renderer/hooks/use-pane-bounds'
 import { usePreviewCanvas } from '@renderer/context/preview-canvas-context'
 import { Loader2 } from 'lucide-react'
@@ -19,6 +20,7 @@ const FRAME_STYLES: Record<PaneId, string> = {
 
 export function DevicePane({ paneId, loading }: DevicePaneProps): React.JSX.Element {
   const { zoom } = usePreviewCanvas()
+  const { isTransitioning } = useSidebar()
   const profile = DEVICE_PRESETS[paneId]
   const dimensions = getMockupDimensions(paneId)
   const { chrome } = dimensions
@@ -31,6 +33,7 @@ export function DevicePane({ paneId, loading }: DevicePaneProps): React.JSX.Elem
       style={{ width: dimensions.frameWidth }}
       data-testid={`device-pane-${paneId}`}
       data-pane-interactive
+      data-pane-transitioning={isTransitioning ? 'true' : 'false'}
     >
       <div className="flex shrink-0 items-center justify-between gap-2 px-1">
         <div className="min-w-0">
@@ -49,8 +52,9 @@ export function DevicePane({ paneId, loading }: DevicePaneProps): React.JSX.Elem
 
       <div
         className={cn(
-          'flex shrink-0 flex-col border border-zinc-700/80 bg-zinc-900',
-          FRAME_STYLES[paneId]
+          'flex shrink-0 flex-col border border-zinc-700/80 bg-zinc-900 transition-opacity duration-200',
+          FRAME_STYLES[paneId],
+          isTransitioning && 'opacity-0'
         )}
         style={{
           width: dimensions.frameWidth,

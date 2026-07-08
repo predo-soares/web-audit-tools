@@ -1,16 +1,18 @@
 import { useCallback, useState, type ReactNode } from 'react'
 import { PANE_IDS } from '../../../shared/device-presets'
 import { CANVAS_GAP, clampZoom, DEFAULT_ZOOM } from '../../../shared/mockup-layout'
+import { TOOLBAR_HEIGHT_PX } from '../../../shared/sidebar'
 import type { PaneId } from '../../../shared/types'
+import { Sidebar } from '@renderer/components/sidebar'
 import { DevicePane } from '@renderer/components/device-pane'
 import { PreviewCanvasContext } from '@renderer/context/preview-canvas-context'
 
 interface PreviewCanvasProps {
   loadingStates: Record<PaneId, boolean>
-  children: ReactNode
+  toolbar: ReactNode
 }
 
-export function PreviewCanvas({ loadingStates, children }: PreviewCanvasProps): React.JSX.Element {
+export function PreviewCanvas({ loadingStates, toolbar }: PreviewCanvasProps): React.JSX.Element {
   const [zoom, setZoomState] = useState(DEFAULT_ZOOM)
 
   const setZoom = useCallback((nextZoom: number) => {
@@ -30,26 +32,30 @@ export function PreviewCanvas({ loadingStates, children }: PreviewCanvasProps): 
 
   return (
     <PreviewCanvasContext.Provider value={{ zoom, setZoom, adjustZoom }}>
-      <div className="flex h-screen flex-col bg-transparent text-foreground">
-        {children}
-        <div
-          data-canvas-viewport
-          className="relative min-h-0 flex-1 overflow-auto bg-black/20 [background-image:radial-gradient(circle_at_center,_rgba(255,255,255,0.08)_1px,_transparent_1px)] [background-size:20px_20px]"
-          onWheel={handleWheel}
-          data-testid="preview-canvas"
-        >
-          <div className="flex w-max min-w-full items-start justify-center py-6">
-            <div
-              className="flex items-start px-8"
-              style={{ gap: CANVAS_GAP, zoom }}
-            >
-              {PANE_IDS.map((paneId) => (
-                <DevicePane
-                  key={paneId}
-                  paneId={paneId}
-                  loading={loadingStates[paneId]}
-                />
-              ))}
+      <div className="relative h-screen overflow-hidden bg-transparent text-foreground">
+        {toolbar}
+        <div className="flex h-full">
+          <Sidebar />
+          <div
+            data-canvas-viewport
+            className="relative min-h-0 min-w-0 flex-1 overflow-auto bg-black/20 [background-image:radial-gradient(circle_at_center,_rgba(255,255,255,0.08)_1px,_transparent_1px)] [background-size:20px_20px]"
+            style={{ paddingTop: TOOLBAR_HEIGHT_PX }}
+            onWheel={handleWheel}
+            data-testid="preview-canvas"
+          >
+            <div className="flex w-max min-w-full items-start justify-center py-6">
+              <div
+                className="flex items-start px-8"
+                style={{ gap: CANVAS_GAP, zoom }}
+              >
+                {PANE_IDS.map((paneId) => (
+                  <DevicePane
+                    key={paneId}
+                    paneId={paneId}
+                    loading={loadingStates[paneId]}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </div>

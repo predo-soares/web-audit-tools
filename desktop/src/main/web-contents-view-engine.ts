@@ -8,6 +8,7 @@ import type {
   Size,
   ThemePreference
 } from '../shared/types'
+import { DEFAULT_ZOOM } from '../shared/mockup-layout'
 import { normalizeUrl } from '../shared/url'
 import type { EngineView } from './engine-view'
 
@@ -16,7 +17,9 @@ export class WebContentsViewEngine implements EngineView {
   readonly webContents: WebContents
   private profile: DeviceProfile | null = null
   private debuggerAttached = false
-  private zoom = 1
+  // Match the renderer's initial zoom so setDevice() applies the right scale
+  // before the first mountPane IPC arrives from the renderer.
+  private zoom = DEFAULT_ZOOM
   private screenBounds: Bounds | null = null
   private logicalSize: Size | null = null
   private themePreference: ThemePreference = 'system'
@@ -93,6 +96,10 @@ export class WebContentsViewEngine implements EngineView {
     }
     await this.webContents.loadURL(url)
     await this.applyThemePreference()
+    // Re-apply after every load: enableDeviceEmulation can be silently ignored
+    // when the renderer is still initialising, so the initial call in setDevice
+    // may not take. After a completed load the WebContents is always ready.
+    this.applyDeviceEmulation()
   }
 
   async setDevice(profile: DeviceProfile): Promise<void> {

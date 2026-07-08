@@ -76,6 +76,10 @@ export function registerIpcHandlers(
     return paneManager.getLoadingStates()
   })
 
+  ipcMain.handle('pane:set-visible', (_event, visible: boolean) => {
+    paneManager.setPanesVisible(visible)
+  })
+
   ipcMain.handle('e2e:evaluate-in-pane', async (_event, paneId: PaneId, expression: string) => {
     return paneManager.evaluateInPane(paneId, expression)
   })

@@ -4,7 +4,13 @@ import { usePreviewCanvas } from '@renderer/context/preview-canvas-context'
 import { UrlBar } from '@renderer/components/url-bar'
 import { useNativePopover } from '@renderer/hooks/use-native-popover'
 import type { ThemePreference } from '../../../shared/types'
-import { Link2, Link2Off, Palette, ZoomIn } from 'lucide-react'
+import {
+  SIDEBAR_TRANSITION_MS,
+  SIDEBAR_WIDTH_PX,
+  TOOLBAR_HEIGHT_PX
+} from '../../../shared/sidebar'
+import { useSidebar, useSidebarInternals } from '@renderer/context/sidebar-context'
+import { Link2, Link2Off, Palette, PanelLeft, ZoomIn } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 const THEME_STORAGE_KEY = 'audit-screens-theme-preference'
@@ -45,6 +51,8 @@ export function Toolbar({
   const toolbarRef = useRef<HTMLDivElement>(null)
   const zoomTriggerRef = useRef<HTMLButtonElement>(null)
   const themeTriggerRef = useRef<HTMLButtonElement>(null)
+  const { isOpen: sidebarOpen, toggle: toggleSidebar } = useSidebar()
+  const { toggleButtonRef } = useSidebarInternals()
   const { zoom, setZoom } = usePreviewCanvas()
   const { open, close, openPanelId } = useNativePopover(toolbarRef)
   const [themePreference, setThemePreference] = useState<ThemePreference>(readStoredThemePreference)
@@ -108,10 +116,11 @@ export function Toolbar({
 
   return (
     <header
-      className="grid shrink-0 grid-cols-[1fr_minmax(0,42rem)_1fr] items-center gap-3 border-b border-white/10 bg-black/40 px-4 py-3 backdrop-blur-xl"
+      className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-3 bg-transparent px-4"
+      style={{ height: TOOLBAR_HEIGHT_PX }}
       data-app-region="drag"
     >
-      <div className="flex shrink-0 items-center gap-2 justify-self-start" data-app-region="no-drag">
+      <div className="relative z-10 flex shrink-0 items-center gap-2" data-app-region="no-drag">
         <button
           type="button"
           className="size-3 rounded-full bg-[#ff5f57] transition hover:brightness-110 active:brightness-90"
@@ -130,21 +139,43 @@ export function Toolbar({
           aria-label="Toggle fullscreen"
           onClick={() => void window.api.toggleMaximizeWindow()}
         />
+        <button
+          ref={toggleButtonRef}
+          type="button"
+          data-testid="sidebar-toggle"
+          className={cn(buttonVariants({ variant: 'outline', size: 'icon-sm' }), 'ml-1')}
+          aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+          aria-expanded={sidebarOpen}
+          aria-controls="sidebar"
+          aria-keyshortcuts="Meta+B"
+          onClick={toggleSidebar}
+        >
+          <PanelLeft />
+        </button>
       </div>
-      <div className="min-w-0" data-app-region="no-drag">
-        <UrlBar
-          value={url}
-          pageTitle={pageTitle}
-          faviconUrl={faviconUrl}
-          onChange={onUrlChange}
-          onNavigate={onNavigate}
-          onRefresh={onRefresh}
-          disabled={navigating}
-        />
+      <div
+        className="pointer-events-none absolute inset-y-0 flex items-center px-4"
+        style={{
+          left: sidebarOpen ? SIDEBAR_WIDTH_PX : 0,
+          right: 0,
+          transition: `left ${SIDEBAR_TRANSITION_MS}ms ease`
+        }}
+      >
+        <div className="pointer-events-auto mx-auto w-full min-w-0 max-w-[42rem]" data-app-region="no-drag">
+          <UrlBar
+            value={url}
+            pageTitle={pageTitle}
+            faviconUrl={faviconUrl}
+            onChange={onUrlChange}
+            onNavigate={onNavigate}
+            onRefresh={onRefresh}
+            disabled={navigating}
+          />
+        </div>
       </div>
       <div
         ref={toolbarRef}
-        className="relative flex items-center gap-2 justify-self-end"
+        className="relative z-10 flex shrink-0 items-center gap-2"
         data-app-region="no-drag"
       >
         <button

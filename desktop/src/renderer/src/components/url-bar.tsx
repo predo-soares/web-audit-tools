@@ -36,7 +36,7 @@ export function UrlBar({
 
   return (
     <form
-      className="flex min-w-0 flex-1 items-center gap-2  bg-white/5 rounded-lg"
+      className="flex min-w-0 flex-1 items-center gap-2  bg-black/40 rounded-lg"
       onSubmit={handleSubmit}
     >
       <div className="relative min-w-0 flex-1">

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import { getMockupDimensions } from '../../../shared/mockup-layout'
+import { LAYOUT_SETTLED_EVENT } from '@renderer/context/sidebar-context'
 import { usePreviewCanvas } from '@renderer/context/preview-canvas-context'
 import type { Bounds, PaneId } from '../../../shared/types'
 
@@ -17,15 +18,19 @@ export function usePaneBounds(
     if (!element) return
 
     const rect = element.getBoundingClientRect()
+    const dimensions = getMockupDimensions(paneId)
+    // CSS `zoom` on an ancestor affects x/y but getBoundingClientRect may
+    // return the pre-zoom layout size for width/height. Compute them from
+    // known device dimensions so the native WebContentsView is always sized
+    // correctly without depending on how the browser reports zoomed rects.
     const bounds: Bounds = {
       x: rect.left,
       y: rect.top,
-      width: rect.width,
-      height: rect.height
+      width: dimensions.screenWidth * zoom,
+      height: dimensions.screenHeight * zoom
     }
     const viewport = element.closest('[data-canvas-viewport]')
     const canvasTop = Math.round(viewport?.getBoundingClientRect().top ?? 0)
-    const dimensions = getMockupDimensions(paneId)
     void window.api.mountPane(paneId, {
       screenBounds: bounds,
       logicalSize: {
@@ -77,13 +82,16 @@ export function usePaneBounds(
 
   useEffect(() => {
     const handleLayoutChange = (): void => scheduleReport()
+    const handleLayoutSettled = (): void => scheduleReport()
     const viewport = elementRef.current?.closest('[data-canvas-viewport]')
 
     window.addEventListener('resize', handleLayoutChange)
+    window.addEventListener(LAYOUT_SETTLED_EVENT, handleLayoutSettled)
     viewport?.addEventListener('scroll', handleLayoutChange)
 
     return () => {
       window.removeEventListener('resize', handleLayoutChange)
+      window.removeEventListener(LAYOUT_SETTLED_EVENT, handleLayoutSettled)
       viewport?.removeEventListener('scroll', handleLayoutChange)
     }
   }, [scheduleReport])
