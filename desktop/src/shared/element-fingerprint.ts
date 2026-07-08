@@ -144,7 +144,7 @@ export function buildElementFingerprintInContext(
   return { layers }
 }
 
-function getLayerMatches(
+export function getLayerMatches(
   layer: ElementFingerprintLayer,
   candidates: readonly ElementDescriptor[]
 ): number[] {
@@ -157,7 +157,7 @@ function getLayerMatches(
   return matches
 }
 
-function matchesLayer(layer: ElementFingerprintLayer, candidate: ElementDescriptor): boolean {
+export function matchesLayer(layer: ElementFingerprintLayer, candidate: ElementDescriptor): boolean {
   if (layer.type === 'id') {
     return candidate.id === layer.id
   }
@@ -188,42 +188,7 @@ export function resolveElementFingerprint(
   candidates: readonly ElementDescriptor[]
 ): ResolvedElementFingerprint | null {
   for (const layer of fingerprint.layers) {
-    const matches: number[] = []
-
-    candidates.forEach((candidate, index) => {
-      if (layer.type === 'id') {
-        if (candidate.id === layer.id) matches.push(index)
-        return
-      }
-
-      if (layer.type === 'testid') {
-        if (candidate.testId === layer.testId) matches.push(index)
-        return
-      }
-
-      if (layer.type === 'accessible-name') {
-        if (
-          candidate.tagName.toLowerCase() === layer.tagName &&
-          (candidate.role?.trim() || candidate.tagName.toLowerCase()) === layer.role &&
-          normalizeVisibleText(candidate.ariaLabel) === layer.name
-        ) {
-          matches.push(index)
-        }
-        return
-      }
-
-      if (layer.type === 'structural-path') {
-        if (candidate.structuralPath === layer.path) matches.push(index)
-        return
-      }
-
-      if (
-        candidate.tagName.toLowerCase() === layer.tagName &&
-        normalizeVisibleText(candidate.visibleText) === layer.text
-      ) {
-        matches.push(index)
-      }
-    })
+    const matches = getLayerMatches(layer, candidates)
 
     if (matches.length === 1) {
       return { index: matches[0], layer }
@@ -242,4 +207,18 @@ export function resolveElementFingerprint(
   }
 
   return null
+}
+
+export function classifyMirrorFailure(
+  fingerprint: ElementFingerprint,
+  candidates: readonly ElementDescriptor[]
+): Exclude<MirrorFailureReason, 'occluded'> {
+  for (const layer of fingerprint.layers) {
+    const matches = getLayerMatches(layer, candidates)
+    if (matches.length > 1 && fingerprint.indexAmongMatches === undefined) {
+      return 'ambiguous'
+    }
+  }
+
+  return 'not-found'
 }

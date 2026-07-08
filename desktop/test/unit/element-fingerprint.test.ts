@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildElementFingerprint,
   buildElementFingerprintInContext,
+  classifyMirrorFailure,
   isMachineGeneratedId,
   resolveElementFingerprint,
   type ElementDescriptor
@@ -488,6 +489,7 @@ describe('element fingerprint', () => {
       { tagName: 'button', visibleText: 'Add to cart' }
     ]
     expect(resolveElementFingerprint(fingerprint!, candidates)).toBeNull()
+    expect(classifyMirrorFailure(fingerprint!, candidates)).toBe('ambiguous')
   })
 
   it('not-found: no layer matches any candidate → returns null', () => {
@@ -503,6 +505,26 @@ describe('element fingerprint', () => {
       { tagName: 'a', visibleText: 'About' }
     ]
     expect(resolveElementFingerprint(fingerprint!, candidates)).toBeNull()
+    expect(classifyMirrorFailure(fingerprint!, candidates)).toBe('not-found')
+  })
+
+  it('classifies duplicate matches with indexAmongMatches as not-found instead of ambiguous', () => {
+    const fingerprint = buildElementFingerprint({
+      tagName: 'button',
+      visibleText: 'Add to cart'
+    })
+    fingerprint!.indexAmongMatches = 1
+
+    const candidates: ElementDescriptor[] = [
+      { tagName: 'button', visibleText: 'Add to cart' },
+      { tagName: 'button', visibleText: 'Add to cart' }
+    ]
+
+    expect(resolveElementFingerprint(fingerprint!, candidates)).toEqual({
+      index: 1,
+      layer: { type: 'text-tag', tagName: 'button', text: 'Add to cart' }
+    })
+    expect(classifyMirrorFailure(fingerprint!, candidates)).toBe('not-found')
   })
 
   // --- buildElementFingerprint returns null when no layers ---

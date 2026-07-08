@@ -9,12 +9,24 @@ import type {
   ThemePreference
 } from '../shared/types'
 import {
+  classifyMirrorFailure,
+  getLayerMatches,
+  matchesLayer,
   normalizeVisibleText,
-  isMachineGeneratedId,
   resolveElementFingerprint,
   type ElementFingerprint,
   type MirrorFailureLog
 } from '../shared/element-fingerprint'
+import {
+  describeElementInPage,
+  getDescriptorTestIdInPage,
+  getInputGroupMatchIndexInPage,
+  getStructuralPathInPage,
+  getVisibleTextInPage,
+  INTERACTIVE_SELECTOR,
+  VALUE_SYNC_SELECTOR
+} from '../shared/in-page-element-descriptor'
+import { getDescribedElementsInPage, resolveFingerprintInPage } from '../shared/in-page-element-matcher'
 import { DEFAULT_ZOOM } from '../shared/mockup-layout'
 import { normalizeUrl } from '../shared/url'
 import type { EngineView, ValueSyncPayload } from './engine-view'
@@ -176,7 +188,10 @@ export class WebContentsViewEngine implements EngineView {
         returnByValue: true
       })) as RuntimeEvaluateResponse
 
-      if (response.exceptionDetails) return null
+      if (response.exceptionDetails) {
+        console.error(`[pane:${this.paneId}] click resolution evaluate failed:`, response.exceptionDetails)
+        return null
+      }
       const value = response.result?.value as ResolvedClickPoint | undefined
       if (!value?.matched || typeof value.x !== 'number' || typeof value.y !== 'number') {
         if (value && !value.matched) {
@@ -194,7 +209,8 @@ export class WebContentsViewEngine implements EngineView {
       }
 
       return { x: value.x, y: value.y }
-    } catch {
+    } catch (error) {
+      console.error(`[pane:${this.paneId}] click resolution failed:`, error)
       return null
     }
   }
@@ -213,7 +229,10 @@ export class WebContentsViewEngine implements EngineView {
         returnByValue: true
       })) as RuntimeEvaluateResponse
 
-      if (response.exceptionDetails) return
+      if (response.exceptionDetails) {
+        console.error(`[pane:${this.paneId}] value apply evaluate failed:`, response.exceptionDetails)
+        return
+      }
       const result = response.result?.value as ResolvedMirrorAction | undefined
       if (result && !result.matched) {
         this.logMirrorFailure({
@@ -222,8 +241,8 @@ export class WebContentsViewEngine implements EngineView {
           reason: result.failureReason === 'ambiguous' ? 'ambiguous' : 'not-found'
         })
       }
-    } catch {
-      // Ignore if page not ready
+    } catch (error) {
+      console.error(`[pane:${this.paneId}] value apply failed:`, error)
     }
   }
 
@@ -235,7 +254,10 @@ export class WebContentsViewEngine implements EngineView {
         returnByValue: true
       })) as RuntimeEvaluateResponse
 
-      if (response.exceptionDetails) return
+      if (response.exceptionDetails) {
+        console.error(`[pane:${this.paneId}] submit evaluate failed:`, response.exceptionDetails)
+        return
+      }
       const result = response.result?.value as ResolvedMirrorAction | undefined
       if (result && !result.matched) {
         this.logMirrorFailure({
@@ -244,8 +266,8 @@ export class WebContentsViewEngine implements EngineView {
           reason: result.failureReason === 'ambiguous' ? 'ambiguous' : 'not-found'
         })
       }
-    } catch {
-      // Ignore if page not ready
+    } catch (error) {
+      console.error(`[pane:${this.paneId}] submit failed:`, error)
     }
   }
 
@@ -353,130 +375,39 @@ export class WebContentsViewEngine implements EngineView {
     }
   }
 
+  private getInPageMatcherBootstrapExpression(): string {
+    return `
+      const matchesLayer = ${matchesLayer.toString()};
+      const getLayerMatches = ${getLayerMatches.toString()};
+      const classifyMirrorFailure = ${classifyMirrorFailure.toString()};
+      const resolveElementFingerprint = ${resolveElementFingerprint.toString()};
+      const getVisibleTextInPage = ${getVisibleTextInPage.toString()};
+      const getStructuralPathInPage = ${getStructuralPathInPage.toString()};
+      const getInputGroupMatchIndexInPage = ${getInputGroupMatchIndexInPage.toString()};
+      const getDescriptorTestIdInPage = ${getDescriptorTestIdInPage.toString()};
+      const describeElementInPage = ${describeElementInPage.toString()};
+      const getDescribedElementsInPage = ${getDescribedElementsInPage.toString()};
+      const resolveFingerprintInPageShared = ${resolveFingerprintInPage.toString()};
+    `
+  }
+
   private getClickResolutionExpression(fingerprint: ElementFingerprint): string {
     return `
       (() => {
         const fingerprint = ${JSON.stringify(fingerprint)};
         const normalizeVisibleText = ${normalizeVisibleText.toString()};
-        const isMachineGeneratedId = ${isMachineGeneratedId.toString()};
-        const resolveElementFingerprint = ${resolveElementFingerprint.toString()};
-        const interactiveSelector = [
-          'a[href]',
-          'button',
-          'input:not([type="hidden"])',
-          'select',
-          'textarea',
-          '[role="button"]',
-          '[role="link"]',
-          '[role="menuitem"]',
-          '[role="tab"]',
-          '[role="checkbox"]',
-          '[role="radio"]',
-          '[role="switch"]',
-          '[role="option"]',
-          '[tabindex]:not([tabindex="-1"])'
-        ].join(',');
-
-        function getVisibleText(element) {
-          if (element instanceof HTMLInputElement) {
-            if (['button', 'submit', 'reset'].includes(element.type)) {
-              return normalizeVisibleText(element.value);
-            }
-            return '';
-          }
-
-          return normalizeVisibleText(element instanceof HTMLElement ? element.innerText : element.textContent);
-        }
-
-        function getStructuralPath(el) {
-          const parts = [];
-          let current = el;
-          while (current && current !== document.body) {
-            const parent = current.parentElement;
-            if (parent) {
-              const index = Array.from(parent.children).indexOf(current) + 1;
-              parts.unshift(current.tagName.toLowerCase() + ':nth-child(' + index + ')');
-            } else {
-              parts.unshift(current.tagName.toLowerCase());
-            }
-            current = parent;
-          }
-          return parts.join(' > ');
-        }
-
-        function describeElement(element) {
-          const tagName = element.tagName.toLowerCase();
-          const isFormField = element instanceof HTMLInputElement ||
-            element instanceof HTMLSelectElement ||
-            element instanceof HTMLTextAreaElement;
-          let testId = element.getAttribute('data-testid') || null;
-          if (!testId && isFormField) {
-            if ((element instanceof HTMLInputElement) &&
-                (element.type === 'checkbox' || element.type === 'radio') &&
-                element.name) {
-              const groupMatches = Array.from(document.querySelectorAll('input'))
-                .filter((candidate) =>
-                  candidate instanceof HTMLInputElement &&
-                  !candidate.disabled &&
-                  candidate.type === element.type &&
-                  candidate.name === element.name
-                );
-              const groupIndex = groupMatches.indexOf(element);
-              testId = groupMatches.length > 1 && groupIndex !== -1
-                ? element.type + ':' + element.name + ':' + groupIndex
-                : element.name || null;
-            } else {
-              testId = element.name || null;
-            }
-          }
-          return {
-            tagName,
-            id: element.id || null,
-            visibleText: getVisibleText(element),
-            testId,
-            ariaLabel: element.getAttribute('aria-label') || null,
-            role: element.getAttribute('role') || null,
-            structuralPath: getStructuralPath(element)
-          };
-        }
+        ${this.getInPageMatcherBootstrapExpression()}
+        const interactiveSelector = ${JSON.stringify(INTERACTIVE_SELECTOR)};
 
         const elements = Array.from(document.querySelectorAll(interactiveSelector))
           .filter((element) => element instanceof HTMLElement && !element.disabled);
-        const descriptors = elements.map(describeElement);
-        const resolved = resolveElementFingerprint(fingerprint, descriptors);
+        const match = resolveFingerprintInPageShared(fingerprint, elements, normalizeVisibleText);
 
-        if (!resolved) {
-          // Determine failure reason: check if any layer had multiple matches
-          let failureReason = 'not-found';
-          for (const layer of fingerprint.layers) {
-            let matchCount = 0;
-            for (const candidate of descriptors) {
-              let matched = false;
-              if (layer.type === 'id') {
-                matched = candidate.id === layer.id;
-              } else if (layer.type === 'testid') {
-                matched = candidate.testId === layer.testId;
-              } else if (layer.type === 'accessible-name') {
-                matched = candidate.tagName.toLowerCase() === layer.tagName &&
-                  (candidate.role || candidate.tagName.toLowerCase()) === layer.role &&
-                  normalizeVisibleText(candidate.ariaLabel) === layer.name;
-              } else if (layer.type === 'structural-path') {
-                matched = candidate.structuralPath === layer.path;
-              } else {
-                matched = candidate.tagName.toLowerCase() === layer.tagName &&
-                  normalizeVisibleText(candidate.visibleText) === layer.text;
-              }
-              if (matched) matchCount++;
-            }
-            if (matchCount > 1 && fingerprint.indexAmongMatches === undefined) {
-              failureReason = 'ambiguous';
-              break;
-            }
-          }
-          return { matched: false, failureReason };
+        if (!match.element) {
+          return { matched: false, failureReason: match.failureReason ?? 'not-found' };
         }
 
-        const element = elements[resolved.index];
+        const element = match.element;
 
         // Scroll the element into view before measuring its position.
         // Set the scroll-suppression flag so that the scroll events fired by
@@ -521,49 +452,8 @@ export class WebContentsViewEngine implements EngineView {
         const fingerprint = ${JSON.stringify(fingerprint)};
         const payload = ${JSON.stringify(payload)};
         const normalizeVisibleText = ${normalizeVisibleText.toString()};
-        const resolveElementFingerprint = ${resolveElementFingerprint.toString()};
-        const interactiveSelector = 'input:not([type="hidden"]),textarea,select';
-
-        function getVisibleText(element) {
-          if (element instanceof HTMLInputElement) {
-            if (['button', 'submit', 'reset'].includes(element.type)) {
-              return normalizeVisibleText(element.value);
-            }
-            return '';
-          }
-          return normalizeVisibleText(element instanceof HTMLElement ? element.innerText : element.textContent);
-        }
-
-        function getStructuralPath(el) {
-          const parts = [];
-          let current = el;
-          while (current && current !== document.body) {
-            const parent = current.parentElement;
-            if (parent) {
-              const index = Array.from(parent.children).indexOf(current) + 1;
-              parts.unshift(current.tagName.toLowerCase() + ':nth-child(' + index + ')');
-            } else {
-              parts.unshift(current.tagName.toLowerCase());
-            }
-            current = parent;
-          }
-          return parts.join(' > ');
-        }
-
-        function describeElement(element) {
-          const isFormField = element instanceof HTMLInputElement ||
-            element instanceof HTMLSelectElement ||
-            element instanceof HTMLTextAreaElement;
-          return {
-            tagName: element.tagName.toLowerCase(),
-            id: element.id || null,
-            visibleText: getVisibleText(element),
-            testId: element.getAttribute('data-testid') || (isFormField ? element.name || null : null),
-            ariaLabel: element.getAttribute('aria-label') || null,
-            role: element.getAttribute('role') || null,
-            structuralPath: getStructuralPath(element)
-          };
-        }
+        ${this.getInPageMatcherBootstrapExpression()}
+        const interactiveSelector = ${JSON.stringify(VALUE_SYNC_SELECTOR)};
 
         const elements = Array.from(document.querySelectorAll(interactiveSelector))
           .filter(function(el) {
@@ -577,40 +467,12 @@ export class WebContentsViewEngine implements EngineView {
             }
             return true;
           });
-        function getFailureReason(descriptors) {
-          for (const layer of fingerprint.layers) {
-            let matchCount = 0;
-            for (const candidate of descriptors) {
-              let matched = false;
-              if (layer.type === 'id') {
-                matched = candidate.id === layer.id;
-              } else if (layer.type === 'testid') {
-                matched = candidate.testId === layer.testId;
-              } else if (layer.type === 'accessible-name') {
-                matched = candidate.tagName.toLowerCase() === layer.tagName &&
-                  (candidate.role || candidate.tagName.toLowerCase()) === layer.role &&
-                  normalizeVisibleText(candidate.ariaLabel) === layer.name;
-              } else if (layer.type === 'structural-path') {
-                matched = candidate.structuralPath === layer.path;
-              } else {
-                matched = candidate.tagName.toLowerCase() === layer.tagName &&
-                  normalizeVisibleText(candidate.visibleText) === layer.text;
-              }
-              if (matched) matchCount++;
-            }
-            if (matchCount > 1 && fingerprint.indexAmongMatches === undefined) {
-              return 'ambiguous';
-            }
-          }
-          return 'not-found';
+        const match = resolveFingerprintInPageShared(fingerprint, elements, normalizeVisibleText);
+        if (!match.element) {
+          return { matched: false, failureReason: match.failureReason ?? 'not-found' };
         }
 
-        const descriptors = elements.map(describeElement);
-        const resolved = resolveElementFingerprint(fingerprint, descriptors);
-        if (!resolved) return { matched: false, failureReason: getFailureReason(descriptors) };
-
-        const element = elements[resolved.index];
-        if (!element) return { matched: false, failureReason: 'not-found' };
+        const element = match.element;
 
         // Suppress echo: this apply should not be re-reported
         window.__suppressValueReport = true;
@@ -667,75 +529,15 @@ export class WebContentsViewEngine implements EngineView {
       (() => {
         const fingerprint = ${JSON.stringify(fingerprint)};
         const normalizeVisibleText = ${normalizeVisibleText.toString()};
-        const resolveElementFingerprint = ${resolveElementFingerprint.toString()};
-
-        function getStructuralPath(el) {
-          const parts = [];
-          let current = el;
-          while (current && current !== document.body) {
-            const parent = current.parentElement;
-            if (parent) {
-              const index = Array.from(parent.children).indexOf(current) + 1;
-              parts.unshift(current.tagName.toLowerCase() + ':nth-child(' + index + ')');
-            } else {
-              parts.unshift(current.tagName.toLowerCase());
-            }
-            current = parent;
-          }
-          return parts.join(' > ');
-        }
-
-        function getVisibleText(element) {
-          return normalizeVisibleText(element instanceof HTMLElement ? element.innerText : element.textContent);
-        }
-
-        function describeElement(element) {
-          return {
-            tagName: element.tagName.toLowerCase(),
-            id: element.id || null,
-            visibleText: getVisibleText(element),
-            testId: element.getAttribute('data-testid') || null,
-            ariaLabel: element.getAttribute('aria-label') || null,
-            role: element.getAttribute('role') || null,
-            structuralPath: getStructuralPath(element)
-          };
-        }
+        ${this.getInPageMatcherBootstrapExpression()}
 
         const forms = Array.from(document.querySelectorAll('form'));
-        function getFailureReason(descriptors) {
-          for (const layer of fingerprint.layers) {
-            let matchCount = 0;
-            for (const candidate of descriptors) {
-              let matched = false;
-              if (layer.type === 'id') {
-                matched = candidate.id === layer.id;
-              } else if (layer.type === 'testid') {
-                matched = candidate.testId === layer.testId;
-              } else if (layer.type === 'accessible-name') {
-                matched = candidate.tagName.toLowerCase() === layer.tagName &&
-                  (candidate.role || candidate.tagName.toLowerCase()) === layer.role &&
-                  normalizeVisibleText(candidate.ariaLabel) === layer.name;
-              } else if (layer.type === 'structural-path') {
-                matched = candidate.structuralPath === layer.path;
-              } else {
-                matched = candidate.tagName.toLowerCase() === layer.tagName &&
-                  normalizeVisibleText(candidate.visibleText) === layer.text;
-              }
-              if (matched) matchCount++;
-            }
-            if (matchCount > 1 && fingerprint.indexAmongMatches === undefined) {
-              return 'ambiguous';
-            }
-          }
-          return 'not-found';
+        const match = resolveFingerprintInPageShared(fingerprint, forms, normalizeVisibleText);
+        if (!match.element || !(match.element instanceof HTMLFormElement)) {
+          return { matched: false, failureReason: match.failureReason ?? 'not-found' };
         }
 
-        const descriptors = forms.map(describeElement);
-        const resolved = resolveElementFingerprint(fingerprint, descriptors);
-        if (!resolved) return { matched: false, failureReason: getFailureReason(descriptors) };
-
-        const form = forms[resolved.index];
-        if (!(form instanceof HTMLFormElement)) return { matched: false, failureReason: 'not-found' };
+        const form = match.element;
 
         window.__suppressSubmitReport = true;
         window.__suppressClickReport = true;
