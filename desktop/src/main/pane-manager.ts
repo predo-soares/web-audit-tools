@@ -30,6 +30,7 @@ export class PaneManager {
   private static readonly SYNTHETIC_SUBMIT_TTL_MS = 1000
 
   private readonly engines = new Map<PaneId, WebContentsViewEngine>()
+  private readonly paneInteractionEpoch = new Map<PaneId, number>()
   private readonly syntheticClickExpiry = new Map<PaneId, number[]>()
   private readonly syntheticSubmitExpiry = new Map<PaneId, number[]>()
   private readonly webContentsToPane = new Map<number, PaneId>()
@@ -185,14 +186,18 @@ export class PaneManager {
       PANE_IDS.map(async (targetId) => {
         if (targetId === paneId) return
 
-        const point = await this.getEngine(targetId).resolveClickPoint(fingerprint)
+        const engine = this.getEngine(targetId)
+        const epochBeforeResolution = this.getPaneInteractionEpoch(targetId)
+        const point = await engine.resolveClickPoint(fingerprint)
         if (!point) return
+        if (engine !== this.engines.get(targetId)) return
+        if (epochBeforeResolution !== this.getPaneInteractionEpoch(targetId)) return
 
         const queue = this.syntheticClickExpiry.get(targetId) ?? []
         queue.push(Date.now() + PaneManager.SYNTHETIC_CLICK_TTL_MS)
         this.syntheticClickExpiry.set(targetId, queue)
 
-        this.getEngine(targetId).dispatchClick(point.x, point.y)
+        engine.dispatchClick(point.x, point.y)
       })
     )
   }
@@ -375,6 +380,14 @@ export class PaneManager {
     return engine
   }
 
+  private bumpPaneInteractionEpoch(paneId: PaneId): void {
+    this.paneInteractionEpoch.set(paneId, this.getPaneInteractionEpoch(paneId) + 1)
+  }
+
+  private getPaneInteractionEpoch(paneId: PaneId): number {
+    return this.paneInteractionEpoch.get(paneId) ?? 0
+  }
+
   private async createEngine(
     paneId: PaneId,
     mainWindow: BrowserWindow,
@@ -382,6 +395,7 @@ export class PaneManager {
   ): Promise<WebContentsViewEngine> {
     const engine = new WebContentsViewEngine(paneId, this.getSharedSession(), getPanePreloadPath())
     this.engines.set(paneId, engine)
+    this.bumpPaneInteractionEpoch(paneId)
     this.webContentsToPane.set(engine.webContents.id, paneId)
     this.loadingState.set(paneId, false)
     mainWindow.contentView.addChildView(engine.view)
@@ -459,6 +473,9 @@ export class PaneManager {
 
     webContents.on('did-navigate', (_event, url) => handleNavigation(url, false))
     webContents.on('did-navigate-in-page', (_event, url) => handleNavigation(url, true))
+    webContents.on('did-start-loading', () => {
+      this.bumpPaneInteractionEpoch(paneId)
+    })
     webContents.on('page-title-updated', (_event, title) => {
       this.paneTitles.set(paneId, title)
       if (this.activePane === paneId || (this.activePane === null && this.barUrl === this.paneUrls.get(paneId))) {
