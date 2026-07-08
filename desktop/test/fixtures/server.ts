@@ -542,22 +542,22 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     <div id="duplicate-forms">
       ${
         mobile
-          ? `<form class="dup-submit-form">
+          ? `<form class="dup-submit-form" data-testid="dup-submit-form-0">
         <input class="dup-submit-input" type="text" name="shared-submit" value="alpha">
         <button type="submit">Save draft</button>
       </form>
-      <form class="dup-submit-form">
+      <form class="dup-submit-form" data-testid="dup-submit-form-1">
         <input class="dup-submit-input" type="text" name="shared-submit" value="beta">
         <button type="submit">Save draft</button>
       </form>`
           : `<div class="dup-stack">
-        <form class="dup-submit-form">
+        <form class="dup-submit-form" data-testid="dup-submit-form-0">
           <div class="dup-row"><span>desktop</span><input class="dup-submit-input" type="text" name="shared-submit" value="alpha"></div>
           <button type="submit">Save draft</button>
         </form>
       </div>
       <div class="dup-stack">
-        <form class="dup-submit-form">
+        <form class="dup-submit-form" data-testid="dup-submit-form-1">
           <div class="dup-row"><span>desktop</span><input class="dup-submit-input" type="text" name="shared-submit" value="beta"></div>
           <button type="submit">Save draft</button>
         </form>
