@@ -31,6 +31,7 @@ interface ToolbarProps {
   faviconUrl: string | null
   navigating: boolean
   canSaveProject: boolean
+  isSavedProject: boolean
   saveSuggestedName: string
   onSaveProject: (name: string) => void
   onUrlChange: (url: string) => void
@@ -46,6 +47,7 @@ export function Toolbar({
   faviconUrl,
   navigating,
   canSaveProject,
+  isSavedProject,
   saveSuggestedName,
   onSaveProject,
   onUrlChange,
@@ -177,6 +179,7 @@ export function Toolbar({
             onRefresh={onRefresh}
             disabled={navigating}
             canSaveProject={canSaveProject}
+            isSavedProject={isSavedProject}
             saveSuggestedName={saveSuggestedName}
             onSaveProject={onSaveProject}
           />

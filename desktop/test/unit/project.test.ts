@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   addProject,
+  dedupeProjectsByUrl,
+  findProjectsByUrl,
+  hasProjectForUrl,
   isCommittedPageUrl,
+  normalizeProjectUrl,
   resolveProjectName,
   sortProjectsNewestFirst,
   suggestProjectName,
@@ -83,7 +87,7 @@ describe('addProject', () => {
     expect(next[0]).toMatchObject({
       id: 'new',
       name: 'New Title',
-      url: 'https://new.test',
+      url: 'https://new.test/',
       faviconUrl: 'https://new.test/f.ico'
     })
     expect(sortProjectsNewestFirst(next)[0].id).toBe('new')
@@ -110,7 +114,7 @@ describe('addProject', () => {
 
     expect(next).toHaveLength(2)
     expect(next.map((project) => project.url)).toEqual([
-      'https://example.com',
+      'https://example.com/',
       'https://example.com'
     ])
     expect(next.map((project) => project.name)).toEqual(['Shared name', 'Shared name'])
@@ -123,5 +127,92 @@ describe('isCommittedPageUrl', () => {
     expect(isCommittedPageUrl('https://example.com')).toBe(true)
     expect(isCommittedPageUrl('about:blank')).toBe(false)
     expect(isCommittedPageUrl('')).toBe(false)
+  })
+})
+
+describe('hasProjectForUrl', () => {
+  it('matches saved projects by exact url', () => {
+    const projects: Project[] = [
+      {
+        id: 'saved',
+        name: 'Saved',
+        url: 'https://example.com',
+        faviconUrl: null,
+        createdAt: 1
+      }
+    ]
+
+    expect(hasProjectForUrl(projects, 'https://example.com/')).toBe(true)
+    expect(hasProjectForUrl(projects, 'https://other.test/')).toBe(false)
+    expect(hasProjectForUrl(projects, '   ')).toBe(false)
+  })
+})
+
+describe('normalizeProjectUrl', () => {
+  it('collapses trailing slash variants but keeps query strings distinct', () => {
+    expect(normalizeProjectUrl('https://example.com')).toBe('https://example.com/')
+    expect(normalizeProjectUrl('https://example.com/')).toBe('https://example.com/')
+    expect(normalizeProjectUrl('https://example.com/path/')).toBe('https://example.com/path')
+    expect(normalizeProjectUrl('https://example.com/path?a=1')).toBe(
+      'https://example.com/path?a=1'
+    )
+  })
+})
+
+describe('findProjectsByUrl', () => {
+  it('matches existing projects using canonical url keys', () => {
+    const projects: Project[] = [
+      {
+        id: 'first',
+        name: 'First',
+        url: 'https://example.com/',
+        faviconUrl: null,
+        createdAt: 2
+      },
+      {
+        id: 'second',
+        name: 'Second',
+        url: 'https://example.com/path',
+        faviconUrl: null,
+        createdAt: 1
+      }
+    ]
+
+    expect(findProjectsByUrl(projects, 'https://example.com')).toHaveLength(1)
+    expect(findProjectsByUrl(projects, 'https://example.com/path/')).toHaveLength(1)
+    expect(findProjectsByUrl(projects, 'https://example.com/path?a=1')).toHaveLength(0)
+  })
+})
+
+describe('dedupeProjectsByUrl', () => {
+  it('keeps the newest project per canonical url', () => {
+    const projects: Project[] = [
+      {
+        id: 'older',
+        name: 'Older',
+        url: 'https://example.com',
+        faviconUrl: null,
+        createdAt: 1
+      },
+      {
+        id: 'newer',
+        name: 'Newer',
+        url: 'https://example.com/',
+        faviconUrl: null,
+        createdAt: 2
+      },
+      {
+        id: 'different',
+        name: 'Different',
+        url: 'https://example.com/path?a=1',
+        faviconUrl: null,
+        createdAt: 3
+      }
+    ]
+
+    expect(dedupeProjectsByUrl(projects).map((project) => project.id)).toEqual([
+      'different',
+      'newer'
+    ])
   })
 })

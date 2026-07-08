@@ -1,3 +1,5 @@
+import { normalizeUrl } from './url'
+
 export interface Project {
   id: string
   name: string
@@ -43,6 +45,33 @@ export function sortProjectsNewestFirst(projects: Project[]): Project[] {
   return [...projects].sort((a, b) => b.createdAt - a.createdAt)
 }
 
+export function normalizeProjectUrl(url: string): string {
+  const normalized = normalizeUrl(url).trim()
+  if (!normalized) return normalized
+
+  try {
+    const parsed = new URL(normalized)
+    if (parsed.pathname === '/') {
+      parsed.pathname = ''
+    } else if (parsed.pathname.endsWith('/')) {
+      parsed.pathname = parsed.pathname.slice(0, -1)
+    }
+    return parsed.toString()
+  } catch {
+    return normalized
+  }
+}
+
+export function getProjectUrlKey(project: Pick<Project, 'url'>): string {
+  return normalizeProjectUrl(project.url)
+}
+
+export function findProjectsByUrl(projects: Project[], url: string): Project[] {
+  const target = normalizeProjectUrl(url)
+  if (!target) return []
+  return projects.filter((project) => getProjectUrlKey(project) === target)
+}
+
 export function addProject(
   projects: Project[],
   input: NewProjectInput,
@@ -53,7 +82,7 @@ export function addProject(
   const project: Project = {
     id,
     name: resolveProjectName(input.name, pageTitle, input.url),
-    url: input.url,
+    url: normalizeProjectUrl(input.url),
     faviconUrl: input.faviconUrl,
     createdAt
   }
@@ -63,4 +92,22 @@ export function addProject(
 export function isCommittedPageUrl(url: string): boolean {
   const trimmed = url.trim()
   return trimmed.length > 0 && trimmed !== 'about:blank'
+}
+
+export function hasProjectForUrl(projects: Project[], url: string): boolean {
+  return findProjectsByUrl(projects, url).length > 0
+}
+
+export function dedupeProjectsByUrl(projects: Project[]): Project[] {
+  const sorted = sortProjectsNewestFirst(projects)
+  const seen = new Set<string>()
+
+  return sorted.filter((project) => {
+    const key = getProjectUrlKey(project)
+    if (!key || seen.has(key)) {
+      return false
+    }
+    seen.add(key)
+    return true
+  })
 }

@@ -128,10 +128,10 @@ export function registerIpcHandlers(
   })
 
   ipcMain.handle(
-    'projects:add',
+    'projects:toggle',
     (_event, input: NewProjectInput & { pageTitle: string }) => {
       const { pageTitle, ...projectInput } = input
-      return projectStore.add(projectInput, pageTitle)
+      return projectStore.toggle(projectInput, pageTitle)
     }
   )
 }

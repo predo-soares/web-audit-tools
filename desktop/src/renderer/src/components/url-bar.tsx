@@ -14,6 +14,7 @@ interface UrlBarProps {
   onRefresh: () => void
   disabled?: boolean
   canSaveProject: boolean
+  isSavedProject: boolean
   saveSuggestedName: string
   onSaveProject: (name: string) => void
 }
@@ -27,6 +28,7 @@ export function UrlBar({
   onRefresh,
   disabled,
   canSaveProject,
+  isSavedProject,
   saveSuggestedName,
   onSaveProject
 }: UrlBarProps): React.JSX.Element {
@@ -81,6 +83,7 @@ export function UrlBar({
         ) : null}
         <SaveProjectButton
           disabled={!canSaveProject || Boolean(disabled)}
+          isSaved={isSavedProject}
           suggestedName={saveSuggestedName}
           onSave={onSaveProject}
           className="absolute top-1/2 right-8 z-10 -translate-y-1/2"

@@ -87,3 +87,28 @@ test('save uses last committed page while navigation is loading', async ({ fixtu
     await close()
   }
 })
+
+test('save-project toggles the current project and keeps only one saved row per site', async ({ fixturePort }) => {
+  const { window, close } = await launchApp()
+
+  try {
+    const url = fixtureUrl(fixturePort, '/strict-headers')
+
+    await navigateTo(window, url)
+    await waitForAllPanes(window)
+
+    const saveButton = window.getByTestId('save-project')
+    const projectRows = window.locator('[data-testid^="project-row-"]')
+
+    await saveButton.click()
+    await expect(projectRows).toHaveCount(1)
+
+    await saveButton.click()
+    await expect(projectRows).toHaveCount(0)
+
+    await saveButton.click()
+    await expect(projectRows).toHaveCount(1)
+  } finally {
+    await close()
+  }
+})

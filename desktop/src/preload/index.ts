@@ -30,7 +30,7 @@ export interface PreviewApi {
   onPaneLoading: (callback: (state: { paneId: PaneId; loading: boolean }) => void) => () => void
   onPaneNavigation: (callback: (state: PaneNavigationState) => void) => () => void
   listProjects: () => Promise<Project[]>
-  addProject: (input: NewProjectInput & { pageTitle: string }) => Promise<Project>
+  toggleProject: (input: NewProjectInput & { pageTitle: string }) => Promise<Project[]>
   onProjectsChanged: (callback: (projects: Project[]) => void) => () => void
   onHistoryUpdated: (callback: (entries: HistoryEntry[]) => void) => () => void
   evaluateInPane: <T>(paneId: PaneId, expression: string) => Promise<T>
@@ -89,7 +89,7 @@ const api: PreviewApi = {
     return () => ipcRenderer.removeListener('pane:navigation', listener)
   },
   listProjects: () => ipcRenderer.invoke('projects:list'),
-  addProject: (input) => ipcRenderer.invoke('projects:add', input),
+  toggleProject: (input) => ipcRenderer.invoke('projects:toggle', input),
   onProjectsChanged: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, projects: Project[]): void =>
       callback(projects)

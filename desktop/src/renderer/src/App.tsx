@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { PaneId } from '../../shared/types'
 import type { Project } from '../../shared/project'
-import { isCommittedPageUrl, suggestProjectName } from '../../shared/project'
+import { hasProjectForUrl, isCommittedPageUrl, suggestProjectName } from '../../shared/project'
 import { PreviewCanvas } from '@renderer/components/preview-canvas'
 import { Toolbar } from '@renderer/components/toolbar'
 import { SidebarProvider } from '@renderer/context/sidebar-context'
@@ -27,7 +27,7 @@ export default function App(): React.JSX.Element {
   const [pageTitle, setPageTitle] = useState('')
   const [faviconUrl, setFaviconUrl] = useState<string | null>(null)
   const [committedPage, setCommittedPage] = useState<CommittedPage | null>(null)
-  const { projects, addProject } = useProjects()
+  const { projects, toggleProject } = useProjects()
   const { history, deleteHistoryEntry, clearHistory } = useHistory()
 
   const anyPaneLoading = useMemo(
@@ -94,17 +94,17 @@ export default function App(): React.JSX.Element {
     setSyncEnabled(next)
   }, [])
 
-  const handleSaveProject = useCallback(
+  const handleToggleProject = useCallback(
     async (name: string) => {
       if (!committedPage) return
-      await addProject({
+      await toggleProject({
         name,
         url: committedPage.url,
         faviconUrl: committedPage.faviconUrl,
         pageTitle: committedPage.pageTitle
       })
     },
-    [addProject, committedPage]
+    [committedPage, toggleProject]
   )
 
   const handleProjectActivate = useCallback(
@@ -137,6 +137,7 @@ export default function App(): React.JSX.Element {
   const saveSuggestedName = committedPage
     ? suggestProjectName(committedPage.pageTitle, committedPage.url)
     : ''
+  const isSavedProject = committedPage ? hasProjectForUrl(projects, committedPage.url) : false
 
   return (
     <SidebarProvider>
@@ -156,8 +157,9 @@ export default function App(): React.JSX.Element {
             faviconUrl={faviconUrl}
             navigating={navigating}
             canSaveProject={committedPage !== null}
+            isSavedProject={isSavedProject}
             saveSuggestedName={saveSuggestedName}
-            onSaveProject={(name) => void handleSaveProject(name)}
+            onSaveProject={(name) => void handleToggleProject(name)}
             onUrlChange={setUrl}
             onNavigate={handleNavigate}
             onRefresh={handleRefresh}

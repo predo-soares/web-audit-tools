@@ -4,6 +4,8 @@ import { join } from 'path'
 import { randomUUID } from 'crypto'
 import {
   addProject as addProjectToList,
+  dedupeProjectsByUrl,
+  findProjectsByUrl,
   sortProjectsNewestFirst,
   type NewProjectInput,
   type Project
@@ -31,21 +33,22 @@ export class ProjectStore {
   }
 
   list(): Project[] {
-    return sortProjectsNewestFirst(this.projects)
+    return sortProjectsNewestFirst(dedupeProjectsByUrl(this.projects))
   }
 
-  add(input: NewProjectInput, pageTitle: string): Project {
-    const id = randomUUID()
-    const createdAt = Date.now()
-    const before = this.projects
-    this.projects = addProjectToList(before, input, pageTitle, id, createdAt)
-    const project = this.projects.find((entry) => entry.id === id)
-    if (!project) {
-      throw new Error('Failed to create project')
-    }
+  toggle(input: NewProjectInput, pageTitle: string): Project[] {
+    const deduped = dedupeProjectsByUrl(this.projects)
+    const matches = findProjectsByUrl(deduped, input.url)
+
+    this.projects =
+      matches.length > 0
+        ? deduped.filter((project) => !matches.some((match) => match.id === project.id))
+        : addProjectToList(deduped, input, pageTitle, randomUUID(), Date.now())
+
     this.scheduleWrite()
-    this.onChange?.(this.list())
-    return project
+    const next = this.list()
+    this.onChange?.(next)
+    return next
   }
 
   destroy(): void {
@@ -65,7 +68,7 @@ export class ProjectStore {
     try {
       const raw = readFileSync(this.filePath, 'utf8')
       const parsed = JSON.parse(raw) as ProjectsFile
-      this.projects = Array.isArray(parsed.projects) ? parsed.projects : []
+      this.projects = Array.isArray(parsed.projects) ? dedupeProjectsByUrl(parsed.projects) : []
     } catch {
       this.projects = []
     }

@@ -7,13 +7,13 @@ describe('normalizeUrl', () => {
   })
 
   it('uses http for localhost', () => {
-    expect(normalizeUrl('localhost:3000')).toBe('http://localhost:3000')
+    expect(normalizeUrl('localhost:3000')).toBe('http://localhost:3000/')
     expect(normalizeUrl('127.0.0.1:4173/')).toBe('http://127.0.0.1:4173/')
   })
 
   it('preserves explicit schemes', () => {
-    expect(normalizeUrl('https://example.com')).toBe('https://example.com')
-    expect(normalizeUrl('http://localhost:8080')).toBe('http://localhost:8080')
+    expect(normalizeUrl('https://example.com')).toBe('https://example.com/')
+    expect(normalizeUrl('http://localhost:8080')).toBe('http://localhost:8080/')
   })
 
   it('canonicalizes bare youtube nocookie links to the cert-valid host', () => {

@@ -3,12 +3,12 @@ import type { Project } from '../../../shared/project'
 
 export function useProjects(): {
   projects: Project[]
-  addProject: (input: {
+  toggleProject: (input: {
     name: string
     url: string
     faviconUrl: string | null
     pageTitle: string
-  }) => Promise<Project>
+  }) => Promise<Project[]>
 } {
   const [projects, setProjects] = useState<Project[]>([])
 
@@ -18,22 +18,19 @@ export function useProjects(): {
     return unsubscribe
   }, [])
 
-  const addProject = useCallback(
+  const toggleProject = useCallback(
     async (input: {
       name: string
       url: string
       faviconUrl: string | null
       pageTitle: string
     }) => {
-      const project = await window.api.addProject(input)
-      setProjects((current) => {
-        const without = current.filter((entry) => entry.id !== project.id)
-        return [project, ...without].sort((a, b) => b.createdAt - a.createdAt)
-      })
-      return project
+      const nextProjects = await window.api.toggleProject(input)
+      setProjects(nextProjects)
+      return nextProjects
     },
     []
   )
 
-  return { projects, addProject }
+  return { projects, toggleProject }
 }
