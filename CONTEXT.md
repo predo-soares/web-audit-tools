@@ -7,6 +7,10 @@ A macOS desktop tool for previewing a website across multiple device viewports s
 - **Device pane** — one live browser view emulating a device (viewport, DPR, UA, touch) inside the app window.
 - **Device preset** — a named emulation profile (e.g. "iPhone 16 Pro" = 393×852 @3x, touch, mobile UA).
 - **Scroll sync** — mirroring vertical scroll position across panes, ratio-based (scrollTop / scrollable height), with echo suppression.
+- **Interaction sync** — mirroring clicks (and other interactions) across panes by resolving the *same interactive element* in each target pane, not by mapped coordinates. Strict: if no confident match exists in a target pane, that pane does nothing (no coordinate fallback). A missing match is honest — the element may genuinely not exist at that breakpoint.
+- **Element fingerprint** — the serialized identity of an interacted element, layered by stability: id → test id (`data-testid`/`name`) → accessible name + role/tag → visible text + tag → structural path as tiebreaker. A target pane resolves layers in order and requires a unique hit; ambiguity among identical candidates is broken by index-among-matches.
+- **Value sync** — the input-mirroring half of interaction sync: text-entry state (`input`/`change`) is mirrored as *resulting value*, not keystrokes — panes converge on the same field state even if per-key behavior diverges. Checkboxes/radios are excluded (their trusted mirrored click already toggles them); `<select>` mirrors the chosen option.
+- **Interactive ancestor** — the nearest self-or-ancestor element that is actually interactive (`a`, `button`, form controls, interactive ARIA roles, tabbable). Interactions are fingerprinted against it, not the raw event target — clicking an icon inside a button means the button.
 - **EngineView** — the abstraction a pane renders through. First and only backend today: Electron `WebContentsView` (Chromium). Designed so future backends (native WKWebView overlay, streamed Playwright WebKit/Firefox) plug in without rearchitecting.
 - **Native popover** — floating UI that must paint above device panes. Rendered in a dedicated overlay view stacked above pane views inside the main window (not DOM/CSS in the shell renderer — device panes are OS-level surfaces that ignore z-index).
 - **Popover panel** — the typed content inside a native popover (e.g. zoom picker, theme picker), identified by `panelId`.
@@ -23,4 +27,4 @@ pnpm · electron-vite · TypeScript · React · Tailwind. File conventions: keba
 
 ## Status
 
-Pre-implementation. The MVP is specced in `.scratch/multi-device-preview/PRD.md` with implementation issues alongside it.
+MVP built (multi-device preview, scroll sync, history, saved projects). Direction decided 2026-07-07: Agentic Workbench — human→agent handoff. Product artifacts live in `.gstack/`.

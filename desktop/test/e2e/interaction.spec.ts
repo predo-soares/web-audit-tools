@@ -376,6 +376,19 @@ test('mirrored click scrolls off-screen element into view and clicks it', async 
         )
         .toBe('true')
     }
+
+    const targetScrolls = await Promise.all(
+      (['ipad', 'desktop'] as const).map((paneId) =>
+        evaluateInPane<number>(window, paneId, `window.scrollY`)
+      )
+    )
+    expect(targetScrolls[0]).toBeGreaterThan(0)
+    expect(targetScrolls[1]).toBeGreaterThan(0)
+
+    await window.waitForTimeout(500)
+
+    const sourceScrollAfterSettle = await evaluateInPane<number>(window, 'iphone', `window.scrollY`)
+    expect(sourceScrollAfterSettle).toBe(0)
   } finally {
     await close()
   }
@@ -642,6 +655,139 @@ test('pressing Enter in a form field submits matching forms in every pane', asyn
         `document.getElementById('form-result')?.dataset.submitCount ?? '0'`
       )
       expect(submitCount).toBe('1')
+    }
+  } finally {
+    await close()
+  }
+})
+
+test('typing into the second duplicate text input mirrors to the second match in every pane', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
+    await waitForAllPanes(window)
+
+    await evaluateInPane(window, 'iphone', `
+      var el = document.querySelectorAll('.dup-text-input')[1];
+      el.focus();
+      el.value = 'second duplicate';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    `)
+
+    await expect
+      .poll(() =>
+        evaluateInPane<string>(
+          window,
+          'ipad',
+          `document.getElementById('duplicate-result')?.dataset.secondText ?? ''`
+        )
+      )
+      .toBe('second duplicate')
+
+    for (const paneId of ['iphone', 'ipad', 'desktop'] as const) {
+      const state = await evaluateInPane<Record<string, string>>(window, paneId, `(() => {
+        const inputs = Array.from(document.querySelectorAll('.dup-text-input'));
+        const result = document.getElementById('duplicate-result');
+        return {
+          first: inputs[0]?.value ?? '',
+          second: inputs[1]?.value ?? '',
+          reflected: result?.dataset.secondText ?? ''
+        };
+      })()`)
+
+      expect(state.first).toBe('')
+      expect(state.second).toBe('second duplicate')
+      expect(state.reflected).toBe('second duplicate')
+    }
+  } finally {
+    await close()
+  }
+})
+
+test('changing the second duplicate select mirrors to the second match in every pane', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
+    await waitForAllPanes(window)
+
+    await evaluateInPane(window, 'iphone', `
+      var el = document.querySelectorAll('.dup-select')[1];
+      el.selectedIndex = 2;
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    `)
+
+    await expect
+      .poll(() =>
+        evaluateInPane<string>(
+          window,
+          'desktop',
+          `document.getElementById('duplicate-result')?.dataset.secondSelect ?? ''`
+        )
+      )
+      .toBe('jp')
+
+    for (const paneId of ['iphone', 'ipad', 'desktop'] as const) {
+      const state = await evaluateInPane<Record<string, string>>(window, paneId, `(() => {
+        const selects = Array.from(document.querySelectorAll('.dup-select'));
+        const result = document.getElementById('duplicate-result');
+        return {
+          first: selects[0]?.value ?? '',
+          second: selects[1]?.value ?? '',
+          reflected: result?.dataset.secondSelect ?? ''
+        };
+      })()`)
+
+      expect(state.first).toBe('br')
+      expect(state.second).toBe('jp')
+      expect(state.reflected).toBe('jp')
+    }
+  } finally {
+    await close()
+  }
+})
+
+test('pressing Enter in the second duplicate form submits the matching form in every pane', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
+    await waitForAllPanes(window)
+
+    await evaluateInPane(window, 'iphone', `
+      var input = document.querySelectorAll('.dup-submit-input')[1];
+      input.focus();
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      if (input.form) {
+        input.form.requestSubmit();
+      }
+    `)
+
+    await expect
+      .poll(() =>
+        evaluateInPane<string>(
+          window,
+          'ipad',
+          `document.getElementById('duplicate-result')?.dataset.submitIndex ?? '-1'`
+        )
+      )
+      .toBe('1')
+
+    for (const paneId of ['iphone', 'ipad', 'desktop'] as const) {
+      const state = await evaluateInPane<Record<string, string>>(window, paneId, `(() => {
+        const result = document.getElementById('duplicate-result');
+        return {
+          submitIndex: result?.dataset.submitIndex ?? '-1',
+          submitValues: result?.dataset.submitValues ?? ''
+        };
+      })()`)
+
+      expect(state.submitIndex).toBe('1')
+      expect(state.submitValues).toBe('alpha|beta')
     }
   } finally {
     await close()

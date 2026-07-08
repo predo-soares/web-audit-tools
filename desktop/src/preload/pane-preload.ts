@@ -92,6 +92,63 @@ function describeElement(element: Element): ElementDescriptor {
   }
 }
 
+function isValueSyncControl(target: EventTarget | null): target is HTMLInputElement | HTMLTextAreaElement {
+  if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLTextAreaElement)) return false
+  if (target instanceof HTMLInputElement) {
+    const t = target.type
+    if (
+      t === 'checkbox' ||
+      t === 'radio' ||
+      t === 'hidden' ||
+      t === 'button' ||
+      t === 'submit' ||
+      t === 'reset' ||
+      t === 'file'
+    ) {
+      return false
+    }
+  }
+  return true
+}
+
+function getValueSyncCandidates(): Array<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> {
+  return Array.from(document.querySelectorAll('input:not([type="hidden"]),textarea,select')).filter(
+    (
+      el
+    ): el is HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement => {
+      if (
+        !(el instanceof HTMLInputElement) &&
+        !(el instanceof HTMLTextAreaElement) &&
+        !(el instanceof HTMLSelectElement)
+      ) {
+        return false
+      }
+      if (el instanceof HTMLInputElement) {
+        const t = el.type
+        if (
+          t === 'checkbox' ||
+          t === 'radio' ||
+          t === 'hidden' ||
+          t === 'button' ||
+          t === 'submit' ||
+          t === 'reset' ||
+          t === 'file'
+        ) {
+          return false
+        }
+      }
+      return true
+    }
+  )
+}
+
+function buildFingerprintFromCandidates(target: Element, candidates: Element[]): ReturnType<typeof buildElementFingerprintInContext> {
+  const descriptors = candidates.map(describeElement)
+  const targetIndex = candidates.indexOf(target)
+  const descriptorForContext = targetIndex !== -1 ? descriptors[targetIndex] : describeElement(target)
+  return buildElementFingerprintInContext(descriptorForContext, descriptors)
+}
+
 function reportScroll(): void {
   const doc = document.documentElement
   const max = doc.scrollHeight - doc.clientHeight
@@ -147,20 +204,7 @@ window.addEventListener(
   'input',
   (e: Event) => {
     const target = e.target
-    if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLTextAreaElement)) return
-    if (target instanceof HTMLInputElement) {
-      const t = target.type
-      if (
-        t === 'checkbox' ||
-        t === 'radio' ||
-        t === 'hidden' ||
-        t === 'button' ||
-        t === 'submit' ||
-        t === 'reset' ||
-        t === 'file'
-      )
-        return
-    }
+    if (!isValueSyncControl(target)) return
     if ((window as Window & { __suppressValueReport?: boolean }).__suppressValueReport) return
 
     const prev = inputTimers.get(target)
@@ -168,7 +212,7 @@ window.addEventListener(
 
     const timer = setTimeout(() => {
       inputTimers.delete(target)
-      const fingerprint = buildElementFingerprint(describeElement(target))
+      const fingerprint = buildFingerprintFromCandidates(target, getValueSyncCandidates())
       if (!fingerprint) return
       ipcRenderer.send('pane:value', paneId, fingerprint, target.value)
     }, 100)
@@ -193,7 +237,7 @@ window.addEventListener(
     if (!(target instanceof HTMLSelectElement)) return
     if ((window as Window & { __suppressValueReport?: boolean }).__suppressValueReport) return
 
-    const fingerprint = buildElementFingerprint(describeElement(target))
+    const fingerprint = buildFingerprintFromCandidates(target, getValueSyncCandidates())
     if (!fingerprint) return
     ipcRenderer.send('pane:select', paneId, fingerprint, target.value, target.selectedIndex)
   },
@@ -208,7 +252,7 @@ window.addEventListener(
     const form = e.target
     if (!(form instanceof HTMLFormElement)) return
 
-    const fingerprint = buildElementFingerprint(describeElement(form))
+    const fingerprint = buildFingerprintFromCandidates(form, Array.from(document.querySelectorAll('form')))
     if (!fingerprint) return
     ipcRenderer.send('pane:submit', paneId, fingerprint)
   },

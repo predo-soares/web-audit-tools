@@ -453,6 +453,7 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
   }
 
   if (pathname === '/form-sync') {
+    const mobile = isMobileUa(ua)
     sendHtml(
       res,
       `<!doctype html><html><head></head><body>
@@ -487,8 +488,92 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
   </form>
   <input id="react-like-field" type="text" name="react-field">
   <div id="react-result" data-value=""></div>
+  <section id="duplicate-controls">
+    <div id="duplicate-inputs">
+      ${
+        mobile
+          ? `<div class="dup-row"><input class="dup-text-input" type="text" name="shared-text"></div>
+      <div class="dup-row"><input class="dup-text-input" type="text" name="shared-text"></div>`
+          : `<div class="dup-stack">
+        <div class="dup-row"><span>desktop</span><input class="dup-text-input" type="text" name="shared-text"></div>
+      </div>
+      <div class="dup-stack">
+        <div class="dup-row"><span>desktop</span><input class="dup-text-input" type="text" name="shared-text"></div>
+      </div>`
+      }
+    </div>
+    <div id="duplicate-selects">
+      ${
+        mobile
+          ? `<div class="dup-row">
+        <select class="dup-select" name="shared-select">
+          <option value="br">Brazil</option>
+          <option value="us">United States</option>
+          <option value="jp">Japan</option>
+        </select>
+      </div>
+      <div class="dup-row">
+        <select class="dup-select" name="shared-select">
+          <option value="br">Brazil</option>
+          <option value="us">United States</option>
+          <option value="jp">Japan</option>
+        </select>
+      </div>`
+          : `<div class="dup-stack">
+        <div class="dup-row"><span>desktop</span>
+          <select class="dup-select" name="shared-select">
+            <option value="br">Brazil</option>
+            <option value="us">United States</option>
+            <option value="jp">Japan</option>
+          </select>
+        </div>
+      </div>
+      <div class="dup-stack">
+        <div class="dup-row"><span>desktop</span>
+          <select class="dup-select" name="shared-select">
+            <option value="br">Brazil</option>
+            <option value="us">United States</option>
+            <option value="jp">Japan</option>
+          </select>
+        </div>
+      </div>`
+      }
+    </div>
+    <div id="duplicate-forms">
+      ${
+        mobile
+          ? `<form class="dup-submit-form">
+        <input class="dup-submit-input" type="text" name="shared-submit" value="alpha">
+        <button type="submit">Save draft</button>
+      </form>
+      <form class="dup-submit-form">
+        <input class="dup-submit-input" type="text" name="shared-submit" value="beta">
+        <button type="submit">Save draft</button>
+      </form>`
+          : `<div class="dup-stack">
+        <form class="dup-submit-form">
+          <div class="dup-row"><span>desktop</span><input class="dup-submit-input" type="text" name="shared-submit" value="alpha"></div>
+          <button type="submit">Save draft</button>
+        </form>
+      </div>
+      <div class="dup-stack">
+        <form class="dup-submit-form">
+          <div class="dup-row"><span>desktop</span><input class="dup-submit-input" type="text" name="shared-submit" value="beta"></div>
+          <button type="submit">Save draft</button>
+        </form>
+      </div>`
+      }
+    </div>
+  </section>
+  <div
+    id="duplicate-result"
+    data-second-text=""
+    data-second-select="br"
+    data-submit-index="-1"
+    data-submit-values=""></div>
   <script>
     var result = document.getElementById('form-result');
+    var duplicateResult = document.getElementById('duplicate-result');
     document.getElementById('text-field').addEventListener('input', function(e) {
       result.dataset.textValue = e.target.value;
     });
@@ -534,6 +619,34 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
 
     reactField.addEventListener('input', function(e) {
       reactResult.dataset.value = e.target.value;
+    });
+
+    document.querySelectorAll('.dup-text-input').forEach(function(input, index) {
+      input.addEventListener('input', function(e) {
+        if (index === 1) {
+          duplicateResult.dataset.secondText = e.target.value;
+        }
+      });
+    });
+
+    document.querySelectorAll('.dup-select').forEach(function(select, index) {
+      select.addEventListener('change', function(e) {
+        if (index === 1) {
+          duplicateResult.dataset.secondSelect = e.target.value;
+        }
+      });
+    });
+
+    document.querySelectorAll('.dup-submit-form').forEach(function(form, index) {
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        duplicateResult.dataset.submitIndex = String(index);
+        duplicateResult.dataset.submitValues = Array.from(
+          document.querySelectorAll('.dup-submit-input')
+        ).map(function(input) {
+          return input.value;
+        }).join('|');
+      });
     });
 
     if (navigator.userAgent.includes('Macintosh')) {

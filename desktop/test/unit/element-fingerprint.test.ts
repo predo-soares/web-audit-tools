@@ -349,6 +349,121 @@ describe('element fingerprint', () => {
     expect(resolveElementFingerprint(fp2!, candidates)!.index).toBe(2)
   })
 
+  it('captures and resolves indexAmongMatches for duplicate text inputs by shared name', () => {
+    const sourceCandidates: ElementDescriptor[] = [
+      {
+        tagName: 'input',
+        testId: 'shared-text',
+        structuralPath: 'section > div:nth-child(1) > input:nth-child(1)'
+      },
+      {
+        tagName: 'input',
+        testId: 'shared-text',
+        structuralPath: 'section > div:nth-child(2) > input:nth-child(1)'
+      }
+    ]
+
+    const fingerprint = buildElementFingerprintInContext(sourceCandidates[1], sourceCandidates)
+
+    expect(fingerprint).toEqual({
+      layers: [
+        { type: 'testid', testId: 'shared-text' },
+        { type: 'structural-path', path: 'section > div:nth-child(2) > input:nth-child(1)' }
+      ],
+      indexAmongMatches: 1
+    })
+
+    const targetCandidates: ElementDescriptor[] = [
+      {
+        tagName: 'input',
+        testId: 'shared-text',
+        structuralPath: 'section > div:nth-child(1) > div:nth-child(1) > input:nth-child(2)'
+      },
+      {
+        tagName: 'input',
+        testId: 'shared-text',
+        structuralPath: 'section > div:nth-child(2) > div:nth-child(1) > input:nth-child(2)'
+      }
+    ]
+
+    expect(resolveElementFingerprint(fingerprint!, targetCandidates)).toEqual({
+      index: 1,
+      layer: { type: 'testid', testId: 'shared-text' }
+    })
+  })
+
+  it('captures and resolves indexAmongMatches for duplicate selects by shared name', () => {
+    const sourceCandidates: ElementDescriptor[] = [
+      {
+        tagName: 'select',
+        testId: 'shared-select',
+        structuralPath: 'section > div:nth-child(1) > select:nth-child(1)'
+      },
+      {
+        tagName: 'select',
+        testId: 'shared-select',
+        structuralPath: 'section > div:nth-child(2) > select:nth-child(1)'
+      }
+    ]
+
+    const fingerprint = buildElementFingerprintInContext(sourceCandidates[1], sourceCandidates)
+    expect(fingerprint!.indexAmongMatches).toBe(1)
+
+    const targetCandidates: ElementDescriptor[] = [
+      {
+        tagName: 'select',
+        testId: 'shared-select',
+        structuralPath: 'section > div:nth-child(1) > div:nth-child(1) > select:nth-child(2)'
+      },
+      {
+        tagName: 'select',
+        testId: 'shared-select',
+        structuralPath: 'section > div:nth-child(2) > div:nth-child(1) > select:nth-child(2)'
+      }
+    ]
+
+    expect(resolveElementFingerprint(fingerprint!, targetCandidates)).toEqual({
+      index: 1,
+      layer: { type: 'testid', testId: 'shared-select' }
+    })
+  })
+
+  it('captures and resolves indexAmongMatches for duplicate forms before structural-path fallback', () => {
+    const sourceCandidates: ElementDescriptor[] = [
+      {
+        tagName: 'form',
+        visibleText: 'Save draft',
+        structuralPath: 'section > form:nth-child(1)'
+      },
+      {
+        tagName: 'form',
+        visibleText: 'Save draft',
+        structuralPath: 'section > form:nth-child(2)'
+      }
+    ]
+
+    const fingerprint = buildElementFingerprintInContext(sourceCandidates[1], sourceCandidates)
+    expect(fingerprint!.indexAmongMatches).toBe(1)
+
+    const targetCandidates: ElementDescriptor[] = [
+      {
+        tagName: 'form',
+        visibleText: 'Save draft',
+        structuralPath: 'section > div:nth-child(1) > form:nth-child(1)'
+      },
+      {
+        tagName: 'form',
+        visibleText: 'Save draft',
+        structuralPath: 'section > div:nth-child(2) > form:nth-child(1)'
+      }
+    ]
+
+    expect(resolveElementFingerprint(fingerprint!, targetCandidates)).toEqual({
+      index: 1,
+      layer: { type: 'text-tag', tagName: 'form', text: 'Save draft' }
+    })
+  })
+
   it('unique element needs no indexAmongMatches', () => {
     const candidates: ElementDescriptor[] = [
       { tagName: 'button', visibleText: 'Add to cart' },

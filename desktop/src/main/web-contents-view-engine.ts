@@ -489,7 +489,9 @@ export class WebContentsViewEngine implements EngineView {
         // setTimeout(0) to queue the cleanup after the current microtask.
         window.__suppressScrollReport = true;
         element.scrollIntoView({ block: 'center', behavior: 'instant' });
-        setTimeout(function() { window.__suppressScrollReport = false; }, 0);
+        requestAnimationFrame(function () {
+          window.__suppressScrollReport = false;
+        });
 
         const rect = element.getBoundingClientRect();
         if (rect.width <= 0 || rect.height <= 0) return { matched: false, failureReason: 'not-found' };
@@ -578,9 +580,37 @@ export class WebContentsViewEngine implements EngineView {
             }
             return true;
           });
+        function getFailureReason(descriptors) {
+          for (const layer of fingerprint.layers) {
+            let matchCount = 0;
+            for (const candidate of descriptors) {
+              let matched = false;
+              if (layer.type === 'id') {
+                matched = candidate.id === layer.id;
+              } else if (layer.type === 'testid') {
+                matched = candidate.testId === layer.testId;
+              } else if (layer.type === 'accessible-name') {
+                matched = candidate.tagName.toLowerCase() === layer.tagName &&
+                  (candidate.role || candidate.tagName.toLowerCase()) === layer.role &&
+                  normalizeVisibleText(candidate.ariaLabel) === layer.name;
+              } else if (layer.type === 'structural-path') {
+                matched = candidate.structuralPath === layer.path;
+              } else {
+                matched = candidate.tagName.toLowerCase() === layer.tagName &&
+                  normalizeVisibleText(candidate.visibleText) === layer.text;
+              }
+              if (matched) matchCount++;
+            }
+            if (matchCount > 1 && fingerprint.indexAmongMatches === undefined) {
+              return 'ambiguous';
+            }
+          }
+          return 'not-found';
+        }
+
         const descriptors = elements.map(describeElement);
         const resolved = resolveElementFingerprint(fingerprint, descriptors);
-        if (!resolved) return { matched: false, failureReason: 'not-found' };
+        if (!resolved) return { matched: false, failureReason: getFailureReason(descriptors) };
 
         const element = elements[resolved.index];
         if (!element) return { matched: false, failureReason: 'not-found' };
@@ -675,9 +705,37 @@ export class WebContentsViewEngine implements EngineView {
         }
 
         const forms = Array.from(document.querySelectorAll('form'));
+        function getFailureReason(descriptors) {
+          for (const layer of fingerprint.layers) {
+            let matchCount = 0;
+            for (const candidate of descriptors) {
+              let matched = false;
+              if (layer.type === 'id') {
+                matched = candidate.id === layer.id;
+              } else if (layer.type === 'testid') {
+                matched = candidate.testId === layer.testId;
+              } else if (layer.type === 'accessible-name') {
+                matched = candidate.tagName.toLowerCase() === layer.tagName &&
+                  (candidate.role || candidate.tagName.toLowerCase()) === layer.role &&
+                  normalizeVisibleText(candidate.ariaLabel) === layer.name;
+              } else if (layer.type === 'structural-path') {
+                matched = candidate.structuralPath === layer.path;
+              } else {
+                matched = candidate.tagName.toLowerCase() === layer.tagName &&
+                  normalizeVisibleText(candidate.visibleText) === layer.text;
+              }
+              if (matched) matchCount++;
+            }
+            if (matchCount > 1 && fingerprint.indexAmongMatches === undefined) {
+              return 'ambiguous';
+            }
+          }
+          return 'not-found';
+        }
+
         const descriptors = forms.map(describeElement);
         const resolved = resolveElementFingerprint(fingerprint, descriptors);
-        if (!resolved) return { matched: false, failureReason: 'not-found' };
+        if (!resolved) return { matched: false, failureReason: getFailureReason(descriptors) };
 
         const form = forms[resolved.index];
         if (!(form instanceof HTMLFormElement)) return { matched: false, failureReason: 'not-found' };
