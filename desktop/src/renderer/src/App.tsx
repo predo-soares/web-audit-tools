@@ -143,6 +143,7 @@ export default function App(): React.JSX.Element {
     <SidebarProvider>
       <PreviewCanvas
         loadingStates={loadingStates}
+        navigating={navigating}
         projects={projects}
         history={history}
         committedUrl={committedPage?.url ?? ''}

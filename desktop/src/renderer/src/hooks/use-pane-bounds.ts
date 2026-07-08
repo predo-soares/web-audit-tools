@@ -6,7 +6,8 @@ import type { Bounds, PaneId } from '../../../shared/types'
 
 export function usePaneBounds(
   paneId: PaneId,
-  cornerRadius: number
+  cornerRadius: number,
+  enabled = true
 ): (node: HTMLDivElement | null) => void {
   const { zoom } = usePreviewCanvas()
   const elementRef = useRef<HTMLDivElement | null>(null)
@@ -14,6 +15,7 @@ export function usePaneBounds(
   const frameRefs = useRef<number[]>([])
 
   const reportBounds = useCallback(() => {
+    if (!enabled) return
     const element = elementRef.current
     if (!element) return
 
@@ -41,7 +43,7 @@ export function usePaneBounds(
       zoom,
       canvasTop
     })
-  }, [cornerRadius, paneId, zoom])
+  }, [cornerRadius, enabled, paneId, zoom])
 
   const scheduleReport = useCallback(() => {
     if (frameRefs.current.length > 0) return
@@ -67,20 +69,24 @@ export function usePaneBounds(
       elementRef.current = node
       observerRef.current?.disconnect()
 
+      if (!enabled) return
+
       if (!node) return
 
       observerRef.current = new ResizeObserver(() => scheduleReport())
       observerRef.current.observe(node)
       scheduleReport()
     },
-    [scheduleReport]
+    [enabled, scheduleReport]
   )
 
   useLayoutEffect(() => {
+    if (!enabled) return
     scheduleReport()
-  }, [scheduleReport])
+  }, [enabled, scheduleReport])
 
   useEffect(() => {
+    if (!enabled) return
     const handleLayoutChange = (): void => scheduleReport()
     const handleLayoutSettled = (): void => scheduleReport()
     const viewport = elementRef.current?.closest('[data-canvas-viewport]')
@@ -94,7 +100,7 @@ export function usePaneBounds(
       window.removeEventListener(LAYOUT_SETTLED_EVENT, handleLayoutSettled)
       viewport?.removeEventListener('scroll', handleLayoutChange)
     }
-  }, [scheduleReport])
+  }, [enabled, scheduleReport])
 
   // Unmount-only: this cleanup must not run when scheduleReport changes
   // identity (e.g. on zoom changes), or it cancels the pending frame while

@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react'
 
 interface DevicePaneProps {
   paneId: PaneId
+  active: boolean
   loading: boolean
 }
 
@@ -18,14 +19,14 @@ const FRAME_STYLES: Record<PaneId, string> = {
   desktop: 'rounded-xl shadow-lg shadow-black/30'
 }
 
-export function DevicePane({ paneId, loading }: DevicePaneProps): React.JSX.Element {
+export function DevicePane({ paneId, active, loading }: DevicePaneProps): React.JSX.Element {
   const { zoom } = usePreviewCanvas()
   const { isTransitioning } = useSidebar()
   const profile = DEVICE_PRESETS[paneId]
   const dimensions = getMockupDimensions(paneId)
   const { chrome } = dimensions
   const cornerRadius = getScaledScreenCornerRadius(paneId, zoom)
-  const setBoundsRef = usePaneBounds(paneId, cornerRadius)
+  const setBoundsRef = usePaneBounds(paneId, cornerRadius, active)
 
   return (
     <div
@@ -89,7 +90,18 @@ export function DevicePane({ paneId, loading }: DevicePaneProps): React.JSX.Elem
           }}
           data-testid={`pane-surface-${paneId}`}
         >
-          {paneId === 'iphone' ? (
+          {!active ? (
+            <div className="flex h-full items-center justify-center bg-zinc-950/90 px-6 text-center">
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-zinc-100">No screen loaded</p>
+                <p className="text-xs leading-5 text-zinc-400">
+                  Enter a URL to open this preview.
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          {active && paneId === 'iphone' ? (
             <div
               className="pointer-events-none absolute top-2 left-1/2 z-10 h-5 w-[72px] -translate-x-1/2 rounded-full bg-black"
             />

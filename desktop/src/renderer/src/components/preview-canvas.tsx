@@ -3,6 +3,7 @@ import { PANE_IDS } from '../../../shared/device-presets'
 import { CANVAS_GAP, clampZoom, DEFAULT_ZOOM } from '../../../shared/mockup-layout'
 import { TOOLBAR_HEIGHT_PX } from '../../../shared/sidebar'
 import type { HistoryEntry } from '../../../shared/history'
+import { isCommittedPageUrl } from '../../../shared/project'
 import type { PaneId } from '../../../shared/types'
 import type { Project } from '../../../shared/project'
 import { Sidebar } from '@renderer/components/sidebar'
@@ -11,6 +12,7 @@ import { PreviewCanvasContext } from '@renderer/context/preview-canvas-context'
 
 interface PreviewCanvasProps {
   loadingStates: Record<PaneId, boolean>
+  navigating: boolean
   projects: Project[]
   history: HistoryEntry[]
   committedUrl: string
@@ -23,6 +25,7 @@ interface PreviewCanvasProps {
 
 export function PreviewCanvas({
   loadingStates,
+  navigating,
   projects,
   history,
   committedUrl,
@@ -33,6 +36,8 @@ export function PreviewCanvas({
   toolbar
 }: PreviewCanvasProps): React.JSX.Element {
   const [zoom, setZoomState] = useState(DEFAULT_ZOOM)
+  const hasPreview =
+    navigating || isCommittedPageUrl(committedUrl) || Object.values(loadingStates).some(Boolean)
 
   const setZoom = useCallback((nextZoom: number) => {
     setZoomState(clampZoom(nextZoom))
@@ -79,6 +84,7 @@ export function PreviewCanvas({
                   <DevicePane
                     key={paneId}
                     paneId={paneId}
+                    active={hasPreview}
                     loading={loadingStates[paneId]}
                   />
                 ))}
