@@ -86,6 +86,10 @@ export function registerIpcHandlers(
     void paneManager.syncClick(paneId, fingerprint)
   })
 
+  ipcMain.on('pane:value', (_event, paneId: PaneId, fingerprint: ElementFingerprint, value: string) => {
+    void paneManager.syncValue(paneId, fingerprint, value)
+  })
+
   ipcMain.handle('pane:loading-states', () => {
     return paneManager.getLoadingStates()
   })

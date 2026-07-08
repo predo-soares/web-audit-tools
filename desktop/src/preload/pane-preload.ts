@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import {
   buildElementFingerprintInContext,
+  buildElementFingerprint,
   normalizeVisibleText,
   type ElementDescriptor
 } from '../shared/element-fingerprint'
@@ -127,6 +128,43 @@ window.addEventListener(
     if (!fingerprint) return
 
     ipcRenderer.send('pane:click', paneId, fingerprint)
+  },
+  true
+)
+
+const inputTimers = new WeakMap<Element, ReturnType<typeof setTimeout>>()
+
+window.addEventListener(
+  'input',
+  (e: Event) => {
+    const target = e.target
+    if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLTextAreaElement)) return
+    if (target instanceof HTMLInputElement) {
+      const t = target.type
+      if (
+        t === 'checkbox' ||
+        t === 'radio' ||
+        t === 'hidden' ||
+        t === 'button' ||
+        t === 'submit' ||
+        t === 'reset' ||
+        t === 'file'
+      )
+        return
+    }
+    if ((window as Window & { __suppressValueReport?: boolean }).__suppressValueReport) return
+
+    const prev = inputTimers.get(target)
+    if (prev !== undefined) clearTimeout(prev)
+
+    const timer = setTimeout(() => {
+      inputTimers.delete(target)
+      const fingerprint = buildElementFingerprint(describeElement(target))
+      if (!fingerprint) return
+      ipcRenderer.send('pane:value', paneId, fingerprint, target.value)
+    }, 100)
+
+    inputTimers.set(target, timer)
   },
   true
 )

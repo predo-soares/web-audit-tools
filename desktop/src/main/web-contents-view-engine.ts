@@ -200,6 +200,18 @@ export class WebContentsViewEngine implements EngineView {
     console.debug('[mirror-failure]', JSON.stringify(log))
   }
 
+  async applyValue(fingerprint: ElementFingerprint, value: string): Promise<void> {
+    try {
+      await this.ensureDebugger()
+      await this.webContents.debugger.sendCommand('Runtime.evaluate', {
+        expression: this.getValueApplyExpression(fingerprint, value),
+        returnByValue: true
+      })
+    } catch {
+      // Ignore if page not ready
+    }
+  }
+
   dispatchClick(x: number, y: number): void {
     // Native input injection: executeJavaScript is deferred while the page is
     // loading (real sites can hold isLoading for seconds), sendInputEvent is
@@ -438,6 +450,76 @@ export class WebContentsViewEngine implements EngineView {
     `
   }
 
+  private getValueApplyExpression(fingerprint: ElementFingerprint, value: string): string {
+    return `
+      (() => {
+        if (window.__suppressValueReport) return;
+        const fingerprint = ${JSON.stringify(fingerprint)};
+        const value = ${JSON.stringify(value)};
+        const normalizeVisibleText = ${normalizeVisibleText.toString()};
+        const resolveElementFingerprint = ${resolveElementFingerprint.toString()};
+        const interactiveSelector = 'input:not([type="hidden"]),textarea';
+
+        function getVisibleText(element) {
+          if (element instanceof HTMLInputElement) {
+            if (['button', 'submit', 'reset'].includes(element.type)) {
+              return normalizeVisibleText(element.value);
+            }
+            return '';
+          }
+          return normalizeVisibleText(element instanceof HTMLElement ? element.innerText : element.textContent);
+        }
+
+        function describeElement(element) {
+          return {
+            tagName: element.tagName.toLowerCase(),
+            id: element.id || null,
+            visibleText: getVisibleText(element)
+          };
+        }
+
+        const elements = Array.from(document.querySelectorAll(interactiveSelector))
+          .filter(function(el) {
+            if (!(el instanceof HTMLInputElement) && !(el instanceof HTMLTextAreaElement)) return false;
+            if (el instanceof HTMLInputElement) {
+              var t = el.type;
+              if (t === 'checkbox' || t === 'radio' || t === 'hidden' || t === 'button' ||
+                  t === 'submit' || t === 'reset' || t === 'file') return false;
+            }
+            return true;
+          });
+        const descriptors = elements.map(describeElement);
+        const resolved = resolveElementFingerprint(fingerprint, descriptors);
+        if (!resolved) return;
+
+        const element = elements[resolved.index];
+        if (!element) return;
+
+        // Suppress echo: this apply should not be re-reported
+        window.__suppressValueReport = true;
+
+        // Native value setter trick: bypasses React's synthetic event system
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+          element instanceof HTMLTextAreaElement
+            ? HTMLTextAreaElement.prototype
+            : HTMLInputElement.prototype,
+          'value'
+        )?.set;
+
+        if (nativeInputValueSetter) {
+          nativeInputValueSetter.call(element, value);
+        } else {
+          element.value = value;
+        }
+
+        element.dispatchEvent(new Event('input', { bubbles: true }));
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+
+        // Clear suppression after events fire
+        setTimeout(function() { window.__suppressValueReport = false; }, 0);
+      })();
+    `
+  }
 }
 
 export function getPanePreloadPath(): string {

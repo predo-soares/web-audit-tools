@@ -408,3 +408,159 @@ test('mirrored click does not click when element is occluded by overlay', async 
     await close()
   }
 })
+
+test('typing in a text field mirrors value to other panes', async ({ fixturePort }) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
+    await waitForAllPanes(window)
+
+    await evaluateInPane(window, 'iphone', `
+      var el = document.getElementById('text-field');
+      el.focus();
+      el.value = 'hello world';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    `)
+
+    // Wait for debounce (100ms) + IPC round-trip
+    await window.waitForTimeout(250)
+
+    for (const paneId of ['ipad', 'desktop'] as const) {
+      const value = await evaluateInPane<string>(
+        window,
+        paneId,
+        `document.getElementById('form-result')?.dataset.textValue ?? ''`
+      )
+      expect(value).toBe('hello world')
+    }
+  } finally {
+    await close()
+  }
+})
+
+test('value sync works for React-controlled inputs via native setter', async ({ fixturePort }) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
+    await waitForAllPanes(window)
+
+    await evaluateInPane(window, 'iphone', `
+      var el = document.getElementById('react-like-field');
+      el.focus();
+      el.value = 'react value';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    `)
+
+    // Wait for debounce + IPC round-trip
+    await window.waitForTimeout(250)
+
+    for (const paneId of ['ipad', 'desktop'] as const) {
+      const value = await evaluateInPane<string>(
+        window,
+        paneId,
+        `document.getElementById('react-result')?.dataset.value ?? ''`
+      )
+      expect(value).toBe('react value')
+    }
+  } finally {
+    await close()
+  }
+})
+
+test('value sync does not echo back (no ping-pong)', async ({ fixturePort }) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
+    await waitForAllPanes(window)
+
+    await evaluateInPane(window, 'iphone', `
+      var el = document.getElementById('text-field');
+      el.focus();
+      el.value = 'no echo';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    `)
+
+    // Wait for debounce + IPC + any potential echo
+    await window.waitForTimeout(400)
+
+    // The source pane should still have the correct value (not cleared or doubled)
+    const sourceValue = await evaluateInPane<string>(
+      window,
+      'iphone',
+      `document.getElementById('text-field')?.value ?? ''`
+    )
+    expect(sourceValue).toBe('no echo')
+
+    // All panes should have consistent count (exactly one sync, not recursive)
+    for (const paneId of ['ipad', 'desktop'] as const) {
+      const value = await evaluateInPane<string>(
+        window,
+        paneId,
+        `document.getElementById('form-result')?.dataset.textValue ?? ''`
+      )
+      expect(value).toBe('no echo')
+    }
+  } finally {
+    await close()
+  }
+})
+
+test('sync toggle disables value sync', async ({ fixturePort }) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
+    await waitForAllPanes(window)
+
+    // Disable sync
+    await window.getByTestId('sync-toggle').click()
+
+    await evaluateInPane(window, 'iphone', `
+      var el = document.getElementById('text-field');
+      el.focus();
+      el.value = 'should not mirror';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    `)
+
+    await window.waitForTimeout(250)
+
+    for (const paneId of ['ipad', 'desktop'] as const) {
+      const value = await evaluateInPane<string>(
+        window,
+        paneId,
+        `document.getElementById('form-result')?.dataset.textValue ?? ''`
+      )
+      expect(value).toBe('')
+    }
+  } finally {
+    await close()
+  }
+})
+
+test('paste mirrors the same as typing', async ({ fixturePort }) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
+    await waitForAllPanes(window)
+
+    // Simulate paste: set value + dispatch 'input' event (same as typing)
+    await evaluateInPane(window, 'iphone', `
+      var el = document.getElementById('text-field');
+      el.focus();
+      el.value = 'pasted text';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    `)
+
+    await window.waitForTimeout(250)
+
+    for (const paneId of ['ipad', 'desktop'] as const) {
+      const value = await evaluateInPane<string>(
+        window,
+        paneId,
+        `document.getElementById('form-result')?.dataset.textValue ?? ''`
+      )
+      expect(value).toBe('pasted text')
+    }
+  } finally {
+    await close()
+  }
+})

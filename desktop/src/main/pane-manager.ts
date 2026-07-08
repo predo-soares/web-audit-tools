@@ -195,6 +195,17 @@ export class PaneManager {
     )
   }
 
+  async syncValue(sourcePaneId: PaneId, fingerprint: ElementFingerprint, value: string): Promise<void> {
+    if (!this.syncEnabled) return
+
+    await Promise.all(
+      PANE_IDS.map(async (targetId) => {
+        if (targetId === sourcePaneId) return
+        await this.getEngine(targetId).applyValue(fingerprint, value)
+      })
+    )
+  }
+
   private consumeSyntheticClick(paneId: PaneId): boolean {
     const queue = this.syntheticClickExpiry.get(paneId)
     if (!queue?.length) return false

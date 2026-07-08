@@ -452,6 +452,53 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     return
   }
 
+  if (pathname === '/form-sync') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head></head><body>
+  <form id="test-form">
+    <input id="text-field" type="text" name="username" placeholder="Username">
+    <textarea id="textarea-field" name="bio" placeholder="Bio"></textarea>
+    <input id="email-field" type="email" name="email" placeholder="Email">
+    <div id="form-result" data-text-value="" data-textarea-value="" data-email-value=""></div>
+  </form>
+  <input id="react-like-field" type="text" name="react-field">
+  <div id="react-result" data-value=""></div>
+  <script>
+    var result = document.getElementById('form-result');
+    document.getElementById('text-field').addEventListener('input', function(e) {
+      result.dataset.textValue = e.target.value;
+    });
+    document.getElementById('textarea-field').addEventListener('input', function(e) {
+      result.dataset.textareaValue = e.target.value;
+    });
+    document.getElementById('email-field').addEventListener('input', function(e) {
+      result.dataset.emailValue = e.target.value;
+    });
+
+    // Simulates React controlled input: listens to native input events via the setter override
+    var reactField = document.getElementById('react-like-field');
+    var reactResult = document.getElementById('react-result');
+
+    // Override value setter to simulate React's synthetic event handling
+    var proto = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    Object.defineProperty(reactField, 'value', {
+      get: function() { return proto.get.call(this); },
+      set: function(v) {
+        proto.set.call(this, v);
+        reactResult.dataset.value = v;
+      }
+    });
+
+    reactField.addEventListener('input', function(e) {
+      reactResult.dataset.value = e.target.value;
+    });
+  </script>
+</body></html>`
+    )
+    return
+  }
+
   res.writeHead(404)
   res.end('Not found')
 }

@@ -7,6 +7,7 @@ export interface EngineView {
   setDevice(profile: DeviceProfile): Promise<void>
   syncScroll(ratio: number): Promise<void>
   resolveClickPoint(fingerprint: ElementFingerprint): Promise<{ x: number; y: number } | null>
+  applyValue(fingerprint: ElementFingerprint, value: string): Promise<void>
   dispatchClick(x: number, y: number): void
   destroy(): void
 }
