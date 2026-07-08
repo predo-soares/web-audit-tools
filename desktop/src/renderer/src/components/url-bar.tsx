@@ -17,6 +17,7 @@ interface UrlBarProps {
   isSavedProject: boolean
   saveSuggestedName: string
   onSaveProject: (name: string) => void
+  className?: string
 }
 
 export function UrlBar({
@@ -30,7 +31,8 @@ export function UrlBar({
   canSaveProject,
   isSavedProject,
   saveSuggestedName,
-  onSaveProject
+  onSaveProject,
+  className
 }: UrlBarProps): React.JSX.Element {
   const [faviconFailed, setFaviconFailed] = useState(false)
 
@@ -46,7 +48,7 @@ export function UrlBar({
 
   return (
     <form
-      className="flex min-w-0 flex-1 items-center gap-2  bg-white/20 rounded-lg"
+      className={cn('flex min-w-0 flex-1 items-center gap-2 rounded-lg bg-white/20', className)}
       onSubmit={handleSubmit}
     >
       <div className="relative min-w-0 flex-1">

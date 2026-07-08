@@ -41,6 +41,8 @@ export interface PaneNavigationState {
   barUrl: string
   pageTitle: string
   faviconUrl: string | null
+  canGoBack: boolean
+  canGoForward: boolean
 }
 
 export interface PaneScrollReport {

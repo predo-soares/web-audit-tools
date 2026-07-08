@@ -144,11 +144,42 @@ export class PaneManager {
   }
 
   getNavigationState(): PaneNavigationState {
+    const { canGoBack, canGoForward } = this.getNavigationCapabilities()
     return {
       activePane: this.activePane,
       barUrl: this.barUrl,
       pageTitle: this.pageTitle,
-      faviconUrl: this.faviconUrl
+      faviconUrl: this.faviconUrl,
+      canGoBack,
+      canGoForward
+    }
+  }
+
+  async goBack(): Promise<void> {
+    await this.deviceReady
+    const paneId = this.resolveNavigationPane()
+    const webContents = this.getEngine(paneId).webContents
+    if (!webContents.canGoBack()) return
+    webContents.goBack()
+  }
+
+  async goForward(): Promise<void> {
+    await this.deviceReady
+    const paneId = this.resolveNavigationPane()
+    const webContents = this.getEngine(paneId).webContents
+    if (!webContents.canGoForward()) return
+    webContents.goForward()
+  }
+
+  private resolveNavigationPane(): PaneId {
+    return this.activePane ?? 'desktop'
+  }
+
+  private getNavigationCapabilities(): { canGoBack: boolean; canGoForward: boolean } {
+    const webContents = this.getEngine(this.resolveNavigationPane()).webContents
+    return {
+      canGoBack: webContents.canGoBack(),
+      canGoForward: webContents.canGoForward()
     }
   }
 

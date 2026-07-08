@@ -14,6 +14,9 @@ A macOS desktop tool for previewing a website across multiple device viewports s
 - **EngineView** — the abstraction a pane renders through. First and only backend today: Electron `WebContentsView` (Chromium). Designed so future backends (native WKWebView overlay, streamed Playwright WebKit/Firefox) plug in without rearchitecting.
 - **Native popover** — floating UI that must paint above device panes. Rendered in a dedicated overlay view stacked above pane views inside the main window (not DOM/CSS in the shell renderer — device panes are OS-level surfaces that ignore z-index).
 - **Popover panel** — the typed content inside a native popover (e.g. zoom picker, theme picker), identified by `panelId`.
+- **Active pane** — the device pane the toolbar reflects: last to navigate in-page or last to receive focus. URL bar, title, and favicon track the active pane. Toolbar back/forward operate on its per-pane browser history stack only. When no pane is active yet (e.g. after URL-bar navigation only), **desktop** is the fallback target.
+- **Pane navigation** — back/forward within one device pane's Chromium session history (`webContents.goBack()` / `goForward()`). Distinct from **visit history** (sidebar log of committed URLs).
+- **Visit history** — sidebar list of URLs the user has loaded (`HistoryStore`). Choosing an entry navigates all panes to that URL; it is not the same as browser back/forward.
 
 ## Architecture (decided — see docs/adr/)
 

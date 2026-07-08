@@ -23,6 +23,8 @@ export default function App(): React.JSX.Element {
   })
   const [syncEnabled, setSyncEnabled] = useState(true)
   const [navigating, setNavigating] = useState(false)
+  const [canGoBack, setCanGoBack] = useState(false)
+  const [canGoForward, setCanGoForward] = useState(false)
   const [url, setUrl] = useState('')
   const [pageTitle, setPageTitle] = useState('')
   const [faviconUrl, setFaviconUrl] = useState<string | null>(null)
@@ -42,6 +44,8 @@ export default function App(): React.JSX.Element {
       setUrl(state.barUrl)
       setPageTitle(state.pageTitle)
       setFaviconUrl(state.faviconUrl)
+      setCanGoBack(state.canGoBack)
+      setCanGoForward(state.canGoForward)
     })
 
     const unsubscribeLoading = window.api.onPaneLoading(({ paneId, loading }) => {
@@ -51,6 +55,8 @@ export default function App(): React.JSX.Element {
       setUrl(state.barUrl)
       setPageTitle(state.pageTitle)
       setFaviconUrl(state.faviconUrl)
+      setCanGoBack(state.canGoBack)
+      setCanGoForward(state.canGoForward)
     })
 
     return () => {
@@ -88,6 +94,31 @@ export default function App(): React.JSX.Element {
       setNavigating(false)
     }
   }, [])
+
+  const handleGoBack = useCallback(async () => {
+    await window.api.goBack()
+  }, [])
+
+  const handleGoForward = useCallback(async () => {
+    await window.api.goForward()
+  }, [])
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (!event.metaKey && !event.ctrlKey) return
+
+      if (event.key === '[') {
+        event.preventDefault()
+        void handleGoBack()
+      } else if (event.key === ']') {
+        event.preventDefault()
+        void handleGoForward()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleGoBack, handleGoForward])
 
   const handleSyncChange = useCallback(async (enabled: boolean) => {
     const next = await window.api.setSyncEnabled(enabled)
@@ -157,6 +188,8 @@ export default function App(): React.JSX.Element {
             pageTitle={pageTitle}
             faviconUrl={faviconUrl}
             navigating={navigating}
+            canGoBack={canGoBack}
+            canGoForward={canGoForward}
             canSaveProject={committedPage !== null}
             isSavedProject={isSavedProject}
             saveSuggestedName={saveSuggestedName}
@@ -164,6 +197,8 @@ export default function App(): React.JSX.Element {
             onUrlChange={setUrl}
             onNavigate={handleNavigate}
             onRefresh={handleRefresh}
+            onGoBack={() => void handleGoBack()}
+            onGoForward={() => void handleGoForward()}
             syncEnabled={syncEnabled}
             onSyncChange={handleSyncChange}
           />

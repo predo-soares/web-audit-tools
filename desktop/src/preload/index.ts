@@ -16,6 +16,8 @@ export interface PreviewApi {
   mountPane: (paneId: PaneId, mount: PaneMount) => Promise<void>
   navigate: (url: string) => Promise<string>
   reload: () => Promise<void>
+  goBack: () => Promise<void>
+  goForward: () => Promise<void>
   getNavigationState: () => Promise<PaneNavigationState>
   recreatePanes: () => Promise<void>
   setSyncEnabled: (enabled: boolean) => Promise<boolean>
@@ -63,6 +65,8 @@ const api: PreviewApi = {
   mountPane: (paneId, mount) => ipcRenderer.invoke('pane:mount', paneId, mount),
   navigate: (url) => ipcRenderer.invoke('preview:navigate', url),
   reload: () => ipcRenderer.invoke('preview:reload'),
+  goBack: () => ipcRenderer.invoke('preview:go-back'),
+  goForward: () => ipcRenderer.invoke('preview:go-forward'),
   getNavigationState: () => ipcRenderer.invoke('preview:navigation-state'),
   recreatePanes: () => ipcRenderer.invoke('pane:recreate-all'),
   setSyncEnabled: (enabled) => ipcRenderer.invoke('sync:set-enabled', enabled),

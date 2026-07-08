@@ -60,6 +60,14 @@ export function registerIpcHandlers(
     await paneManager.reloadAll()
   })
 
+  ipcMain.handle('preview:go-back', async () => {
+    await paneManager.goBack()
+  })
+
+  ipcMain.handle('preview:go-forward', async () => {
+    await paneManager.goForward()
+  })
+
   ipcMain.handle('pane:recreate-all', async () => {
     await paneManager.recreateAll()
   })

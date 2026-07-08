@@ -11,7 +11,7 @@ import {
 } from '../../../shared/sidebar'
 import { useSidebar, useSidebarInternals } from '@renderer/context/sidebar-context'
 import { WindowControls } from '@renderer/components/window-controls'
-import { Link2, Link2Off, Palette, PanelLeft, ZoomIn } from 'lucide-react'
+import { Link2, Link2Off, Palette, PanelLeft, ZoomIn, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 const THEME_STORAGE_KEY = 'audit-screens-theme-preference'
@@ -31,6 +31,8 @@ interface ToolbarProps {
   pageTitle: string
   faviconUrl: string | null
   navigating: boolean
+  canGoBack: boolean
+  canGoForward: boolean
   canSaveProject: boolean
   isSavedProject: boolean
   saveSuggestedName: string
@@ -38,6 +40,8 @@ interface ToolbarProps {
   onUrlChange: (url: string) => void
   onNavigate: (url: string) => void
   onRefresh: () => void
+  onGoBack: () => void
+  onGoForward: () => void
   syncEnabled: boolean
   onSyncChange: (enabled: boolean) => void
 }
@@ -47,6 +51,8 @@ export function Toolbar({
   pageTitle,
   faviconUrl,
   navigating,
+  canGoBack,
+  canGoForward,
   canSaveProject,
   isSavedProject,
   saveSuggestedName,
@@ -54,6 +60,8 @@ export function Toolbar({
   onUrlChange,
   onNavigate,
   onRefresh,
+  onGoBack,
+  onGoForward,
   syncEnabled,
   onSyncChange
 }: ToolbarProps): React.JSX.Element {
@@ -153,7 +161,32 @@ export function Toolbar({
           transition: `left ${SIDEBAR_TRANSITION_MS}ms ease`
         }}
       >
-        <div className="pointer-events-auto mx-auto w-full min-w-0 max-w-[42rem]" data-app-region="no-drag">
+        <div
+          className="pointer-events-auto mx-auto flex w-full min-w-0 max-w-[42rem] items-center gap-1"
+          data-app-region="no-drag"
+        >
+          <button
+            type="button"
+            data-testid="toolbar-back"
+            className={cn(buttonVariants({ variant: 'ghost', size: 'icon-sm' }))}
+            aria-label="Back"
+            aria-keyshortcuts="Meta+["
+            disabled={!canGoBack || navigating}
+            onClick={() => onGoBack()}
+          >
+            <ChevronLeft />
+          </button>
+          <button
+            type="button"
+            data-testid="toolbar-forward"
+            className={cn(buttonVariants({ variant: 'ghost', size: 'icon-sm' }))}
+            aria-label="Forward"
+            aria-keyshortcuts="Meta+]"
+            disabled={!canGoForward || navigating}
+            onClick={() => onGoForward()}
+          >
+            <ChevronRight />
+          </button>
           <UrlBar
             value={url}
             pageTitle={pageTitle}
@@ -166,6 +199,7 @@ export function Toolbar({
             isSavedProject={isSavedProject}
             saveSuggestedName={saveSuggestedName}
             onSaveProject={onSaveProject}
+            className="min-w-0 flex-1"
           />
         </div>
       </div>
