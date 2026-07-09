@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { ElementFingerprint } from '../../src/shared/element-mirror'
 import { PaneManager } from '../../src/main/pane-manager'
 import { createRuntimeEvidenceBuffer } from '../../src/main/runtime-evidence-buffer'
+import { FakeEngine } from '../support/fake-engine'
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
@@ -58,6 +59,21 @@ function createPaneManagerWithEngines() {
   const iphone = createMockEngine()
   const ipad = createMockEngine()
   const desktop = createMockEngine()
+
+  ;(paneManager as any).engines.set('iphone', iphone)
+  ;(paneManager as any).engines.set('ipad', ipad)
+  ;(paneManager as any).engines.set('desktop', desktop)
+
+  return { paneManager, iphone, ipad, desktop }
+}
+
+// Injects real FakeEngine adapters instead of Electron-internal mocks — the
+// tracer proving PaneManager runs against the EngineView seam, not webContents.
+function createPaneManagerWithFakeEngines() {
+  const paneManager = new PaneManager()
+  const iphone = new FakeEngine('iphone')
+  const ipad = new FakeEngine('ipad')
+  const desktop = new FakeEngine('desktop')
 
   ;(paneManager as any).engines.set('iphone', iphone)
   ;(paneManager as any).engines.set('ipad', ipad)
@@ -281,44 +297,56 @@ describe('PaneManager scroll sync', () => {
   })
 })
 
+// Migrated from Electron-internal mocks to injected FakeEngine adapters:
+// assertions read FakeEngine-observable recorded calls instead of vi.fn spies.
 describe('PaneManager value sync', () => {
   it('mirrors value to other panes but not the source', async () => {
-    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithEngines()
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithFakeEngines()
     const fingerprint = createFingerprint()
 
     await paneManager.syncValue('iphone', fingerprint, 'hello')
 
-    expect(iphone.applyValue).not.toHaveBeenCalled()
-    expect(ipad.applyValue).toHaveBeenCalledWith(fingerprint, { value: 'hello', generation: 1 })
-    expect(desktop.applyValue).toHaveBeenCalledWith(fingerprint, { value: 'hello', generation: 1 })
+    expect(iphone.calls.applyValue).toHaveLength(0)
+    expect(ipad.calls.applyValue).toEqual([{ fingerprint, payload: { value: 'hello', generation: 1 } }])
+    expect(desktop.calls.applyValue).toEqual([{ fingerprint, payload: { value: 'hello', generation: 1 } }])
   })
 
   it('suppresses value echo from a mirrored apply', async () => {
-    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithEngines()
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithFakeEngines()
     const fingerprint = createFingerprint()
-    ipad.applyValue.mockImplementation(async () => {
+    // The applied value is re-reported by the target pane, exactly as a live
+    // WebContents would echo it; PaneManager must swallow that echo.
+    ipad.onApplyValue = async () => {
       await paneManager.syncValue('ipad', fingerprint, 'echo')
-    })
-    desktop.applyValue.mockResolvedValue(undefined)
+    }
 
     await paneManager.syncValue('iphone', fingerprint, 'hello')
 
-    expect(ipad.applyValue).toHaveBeenCalledTimes(1)
-    expect(desktop.applyValue).toHaveBeenCalledTimes(1)
-    expect(desktop.applyValue).toHaveBeenCalledWith(fingerprint, { value: 'hello', generation: 1 })
+    expect(ipad.calls.applyValue).toHaveLength(1)
+    expect(desktop.calls.applyValue).toHaveLength(1)
+    expect(desktop.calls.applyValue[0]).toEqual({
+      fingerprint,
+      payload: { value: 'hello', generation: 1 }
+    })
+    expect(iphone.calls.applyValue).toHaveLength(0)
   })
 
   it('bumps generation for rapid successive updates to the same field', async () => {
-    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithEngines()
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithFakeEngines()
     const fingerprint = createFingerprint()
 
     await paneManager.syncValue('iphone', fingerprint, 'a')
     await paneManager.syncValue('iphone', fingerprint, 'ab')
 
-    expect(ipad.applyValue).toHaveBeenNthCalledWith(1, fingerprint, { value: 'a', generation: 1 })
-    expect(ipad.applyValue).toHaveBeenNthCalledWith(2, fingerprint, { value: 'ab', generation: 2 })
-    expect(desktop.applyValue).toHaveBeenNthCalledWith(2, fingerprint, { value: 'ab', generation: 2 })
-    expect(iphone.applyValue).not.toHaveBeenCalled()
+    expect(ipad.calls.applyValue).toEqual([
+      { fingerprint, payload: { value: 'a', generation: 1 } },
+      { fingerprint, payload: { value: 'ab', generation: 2 } }
+    ])
+    expect(desktop.calls.applyValue[1]).toEqual({
+      fingerprint,
+      payload: { value: 'ab', generation: 2 }
+    })
+    expect(iphone.calls.applyValue).toHaveLength(0)
   })
 })
 
