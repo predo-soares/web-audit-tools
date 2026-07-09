@@ -1,19 +1,19 @@
-import { useCallback, useRef, useState } from 'react'
-import { SIDEBAR_TRANSITION_MS, SIDEBAR_WIDTH_PX, TOOLBAR_HEIGHT_PX } from '../../../shared/sidebar'
-import type { HistoryEntry } from '../../../shared/history'
-import { resolveFocusIndexAfterRemoval } from '../../../shared/history'
-import type { Project } from '../../../shared/project'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { HistoryEntry } from '../../../../../shared/history'
+import { resolveFocusIndexAfterRemoval } from '../../../../../shared/history'
+import { isCommittedPageUrl } from '../../../../../shared/project'
+import type { Project } from '../../../../../shared/project'
+import { SIDEBAR_WIDTH_PX, TOOLBAR_HEIGHT_PX } from '../../../../../shared/sidebar'
 import { ClearHistoryDialog } from '@renderer/components/clear-history-dialog'
 import { HistoryRow } from '@renderer/components/history-row'
 import { ProjectRow } from '@renderer/components/project-row'
+import type { PanelAction } from '../../../../../shared/panel-types'
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger
 } from '@renderer/components/ui/accordion'
-import { TooltipProvider } from '@renderer/components/ui/tooltip'
-import { useSidebar, useSidebarInternals } from '@renderer/context/sidebar-context'
 import { cn } from '@renderer/lib/utils'
 
 const sidebarSectionTriggerClassName = cn(
@@ -34,33 +34,50 @@ const sidebarSectionTriggerClassName = cn(
 )
 
 const sidebarListClassName = 'flex flex-col gap-0.5'
-
 const sidebarSectionContentClassName = 'pb-0 [&>div]:pb-0'
 
-interface SidebarProps {
-  projects: Project[]
-  history: HistoryEntry[]
-  committedUrl: string
-  onProjectActivate: (project: Project) => void
-  onHistoryActivate: (entry: HistoryEntry) => void
-  onHistoryDelete: (entry: HistoryEntry) => Promise<void>
-  onHistoryClear: () => Promise<void>
-}
-
-export function Sidebar({
-  projects,
-  history,
-  committedUrl,
-  onProjectActivate,
-  onHistoryActivate,
-  onHistoryDelete,
-  onHistoryClear
-}: SidebarProps): React.JSX.Element {
-  const { isOpen, isTransitioning } = useSidebar()
-  const { sidebarRef } = useSidebarInternals()
+export function SidebarPanel({
+  onAction
+}: {
+  onAction: (action: PanelAction) => void
+}): React.JSX.Element {
+  const rootRef = useRef<HTMLElement>(null)
+  const [projects, setProjects] = useState<Project[]>([])
+  const [history, setHistory] = useState<HistoryEntry[]>([])
+  const [committedUrl, setCommittedUrl] = useState('')
   const [clearDialogOpen, setClearDialogOpen] = useState(false)
   const historyHeadingRef = useRef<HTMLButtonElement>(null)
   const historyRowRefs = useRef<Array<HTMLButtonElement | null>>([])
+
+  useEffect(() => {
+    void window.panelApi.listProjects().then(setProjects)
+    void window.panelApi.listHistory().then(setHistory)
+    void window.panelApi.getNavigationState().then((state) => {
+      if (isCommittedPageUrl(state.barUrl)) {
+        setCommittedUrl(state.barUrl)
+      }
+    })
+
+    const unsubscribeProjects = window.panelApi.onProjectsChanged(setProjects)
+    const unsubscribeHistory = window.panelApi.onHistoryUpdated(setHistory)
+    const unsubscribeNavigation = window.panelApi.onPaneNavigation((state) => {
+      if (isCommittedPageUrl(state.barUrl)) {
+        setCommittedUrl(state.barUrl)
+      }
+    })
+    const unsubscribeHide = window.panelApi.onHide(() => {
+      if (rootRef.current?.contains(document.activeElement)) {
+        window.panelApi.reportFocusOnClose()
+      }
+    })
+
+    return () => {
+      unsubscribeProjects()
+      unsubscribeHistory()
+      unsubscribeNavigation()
+      unsubscribeHide()
+    }
+  }, [])
 
   const focusHistoryHeading = useCallback(() => {
     historyHeadingRef.current?.focus()
@@ -70,12 +87,28 @@ export function Sidebar({
     historyRowRefs.current[index]?.focus()
   }, [])
 
+  const handleProjectActivate = useCallback(
+    (project: Project) => {
+      if (project.url === committedUrl) return
+      onAction({ type: 'navigate', url: project.url })
+    },
+    [committedUrl, onAction]
+  )
+
+  const handleHistoryActivate = useCallback(
+    (entry: HistoryEntry) => {
+      if (entry.url === committedUrl) return
+      onAction({ type: 'navigate', url: entry.url })
+    },
+    [committedUrl, onAction]
+  )
+
   const handleHistoryDelete = useCallback(
     async (entry: HistoryEntry) => {
       const removedIndex = history.findIndex((item) => item.url === entry.url)
       if (removedIndex < 0) return
 
-      await onHistoryDelete(entry)
+      await window.panelApi.deleteHistoryEntry(entry.url)
 
       const nextCount = history.length - 1
       const nextFocusIndex = resolveFocusIndexAfterRemoval(removedIndex, nextCount)
@@ -87,39 +120,37 @@ export function Sidebar({
         focusHistoryRow(nextFocusIndex)
       })
     },
-    [focusHistoryHeading, focusHistoryRow, history, onHistoryDelete]
+    [focusHistoryHeading, focusHistoryRow, history]
   )
 
   const handleHistoryClear = useCallback(async () => {
-    await onHistoryClear()
+    await window.panelApi.clearHistory()
     window.requestAnimationFrame(() => {
       focusHistoryHeading()
     })
-  }, [focusHistoryHeading, onHistoryClear])
+  }, [focusHistoryHeading])
 
   return (
     <aside
       id="sidebar"
-      ref={sidebarRef}
+      ref={rootRef}
       data-testid="sidebar"
-      data-sidebar-open={isOpen ? 'true' : 'false'}
-      data-sidebar-transitioning={isTransitioning ? 'true' : 'false'}
-      aria-hidden={!isOpen}
+      data-sidebar-open="true"
+      data-sidebar-transitioning="false"
       className={cn(
-        'flex h-full shrink-0 flex-col overflow-hidden border-r border-white/10 bg-black/20 backdrop-blur-2xl',
-        isTransitioning && 'pointer-events-none',
-        !isOpen && 'pointer-events-none'
+        ' bg-background box-border flex h-screen min-h-screen shrink-0 flex-col overflow-hidden border-r border-white/10 text-foreground'
       )}
-      style={{
-        width: isOpen ? SIDEBAR_WIDTH_PX : 0,
-        paddingTop: TOOLBAR_HEIGHT_PX,
-        transition: `width ${SIDEBAR_TRANSITION_MS}ms ease`
-      }}
+      style={{ width: SIDEBAR_WIDTH_PX }}
     >
-      <div className="flex min-h-0 flex-1 flex-col" style={{ width: SIDEBAR_WIDTH_PX }}>
-        <TooltipProvider>
-          <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-4">
-            <Accordion multiple defaultValue={['projects', 'history']} className="gap-0">
+      <div
+        className="relative z-[1] flex min-h-0 flex-1 flex-col"
+        style={{ width: SIDEBAR_WIDTH_PX }}
+      >
+        <nav
+            className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-4"
+            style={{ paddingTop: TOOLBAR_HEIGHT_PX }}
+          >
+            <Accordion multiple defaultValue={['projects', 'history']} className="gap-0  ">
               <AccordionItem value="projects" className="mb-6 border-0">
                 <AccordionTrigger className={sidebarSectionTriggerClassName}>
                   Projects
@@ -136,10 +167,7 @@ export function Sidebar({
                           <ProjectRow
                             project={project}
                             isActive={project.url === committedUrl}
-                            onActivate={(entry) => {
-                              if (entry.url === committedUrl) return
-                              onProjectActivate(entry)
-                            }}
+                            onActivate={handleProjectActivate}
                           />
                         </li>
                       ))}
@@ -147,6 +175,7 @@ export function Sidebar({
                   )}
                 </AccordionContent>
               </AccordionItem>
+
               <AccordionItem value="history" className="border-0">
                 <div className="mb-2 flex items-center justify-between gap-2 px-2">
                   <div className="min-w-0 flex-1">
@@ -185,10 +214,7 @@ export function Sidebar({
                             rowRef={(node) => {
                               historyRowRefs.current[index] = node
                             }}
-                            onActivate={(item) => {
-                              if (item.url === committedUrl) return
-                              onHistoryActivate(item)
-                            }}
+                            onActivate={handleHistoryActivate}
                             onDelete={(item) => void handleHistoryDelete(item)}
                           />
                         </li>
@@ -198,8 +224,7 @@ export function Sidebar({
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
-          </nav>
-        </TooltipProvider>
+        </nav>
       </div>
       <ClearHistoryDialog
         open={clearDialogOpen}

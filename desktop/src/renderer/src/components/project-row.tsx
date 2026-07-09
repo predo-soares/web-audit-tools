@@ -1,4 +1,5 @@
-import { Globe } from 'lucide-react'
+import { Globe02Icon } from '@hugeicons/core-free-icons'
+import { Icon } from '@renderer/components/ui/icon'
 import { useState } from 'react'
 import type { Project } from '../../../shared/project'
 import { cn } from '@renderer/lib/utils'
@@ -31,7 +32,7 @@ export function ProjectRow({ project, isActive = false, onActivate }: ProjectRow
           onError={() => setFaviconFailed(true)}
         />
       ) : (
-        <Globe aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+        <Icon aria-hidden icon={Globe02Icon} className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
       )}
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{project.name}</span>

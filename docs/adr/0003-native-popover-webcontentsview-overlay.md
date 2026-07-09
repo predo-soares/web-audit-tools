@@ -1,7 +1,7 @@
 # 0003 — Native popover via WebContentsView overlay
 
 Date: 2026-07-07
-Status: accepted
+Status: superseded by [0006](./0006-panel-manager-native-overlay.md)
 
 ## Context
 

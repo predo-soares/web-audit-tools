@@ -3,6 +3,7 @@ import {
   evaluateInPane,
   fixtureUrl,
   getMirrorFailureLogs,
+  getToolbarPage,
   launchApp,
   navigateTo,
   waitForAllPanes,
@@ -37,7 +38,8 @@ test('clicking a link inside one pane navigates only that pane and updates the U
       expect(text).toBe('Flow page A')
     }
 
-    await expect(window.getByTestId('url-input')).toHaveValue(/\/flow-b/)
+    const toolbar = await getToolbarPage(window)
+    await expect(toolbar.getByTestId('url-input')).toHaveValue(/\/flow-b/)
   } finally {
     await close()
   }
@@ -122,7 +124,8 @@ test('history.back() inside a pane returns only that pane to the previous URL an
       expect(text).toBe('Flow page A')
     }
 
-    await expect(window.getByTestId('url-input')).toHaveValue(/\/flow-a/)
+    const toolbar = await getToolbarPage(window)
+    await expect(toolbar.getByTestId('url-input')).toHaveValue(/\/flow-a/)
   } finally {
     await close()
   }
@@ -230,7 +233,7 @@ test('semantic click sync mirrors the same button with native input and no echo'
   }
 })
 
-test('semantic click sync mirrors link navigation and obeys the sync toggle', async ({
+test('semantic click sync does not mirror link navigation across panes', async ({
   fixturePort
 }) => {
   const { window, close } = await launchApp()
@@ -238,7 +241,8 @@ test('semantic click sync mirrors link navigation and obeys the sync toggle', as
     await navigateTo(window, fixtureUrl(fixturePort, '/semantic-click'))
     await waitForAllPanes(window)
 
-    await window.getByTestId('sync-toggle').click()
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('sync-toggle').click()
     await evaluateInPane(window, 'iphone', `document.getElementById('semantic-primary')?.click()`)
     await window.waitForTimeout(300)
 
@@ -251,11 +255,18 @@ test('semantic click sync mirrors link navigation and obeys the sync toggle', as
       expect(count).toBe('0')
     }
 
-    await window.getByTestId('sync-toggle').click()
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('sync-toggle').click()
     await evaluateInPane(window, 'iphone', `document.getElementById('semantic-link')?.click()`)
+    await waitForPaneElement(window, 'iphone', 'semantic-destination')
 
-    for (const paneId of ['iphone', 'ipad', 'desktop'] as const) {
-      await waitForPaneElement(window, paneId, 'semantic-destination')
+    for (const paneId of ['ipad', 'desktop'] as const) {
+      const stillOnSource = await evaluateInPane<boolean>(
+        window,
+        paneId,
+        `!!document.getElementById('semantic-primary')`
+      )
+      expect(stillOnSource).toBe(true)
     }
   } finally {
     await close()
@@ -526,7 +537,8 @@ test('sync toggle disables value sync', async ({ fixturePort }) => {
     await waitForAllPanes(window)
 
     // Disable sync
-    await window.getByTestId('sync-toggle').click()
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('sync-toggle').click()
 
     await evaluateInPane(window, 'iphone', `
       var el = document.getElementById('text-field');

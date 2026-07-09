@@ -13,14 +13,19 @@ const controlBase =
 const iconBase =
   'pointer-events-none size-1.5 opacity-0 transition-opacity duration-100 group-hover/window-controls:opacity-100'
 
-export function WindowControls(): React.JSX.Element {
-  const focused = useWindowFocus()
+export function WindowControls({
+  usePanelApi = false
+}: {
+  usePanelApi?: boolean
+}): React.JSX.Element {
+  const focused = useWindowFocus(usePanelApi)
   const [fullscreen, setFullscreen] = useState(false)
+  const windowApi = usePanelApi ? window.panelApi : window.api
 
   useEffect(() => {
-    void window.api.isWindowFullscreen().then(setFullscreen)
-    return window.api.onWindowFullscreenChanged(setFullscreen)
-  }, [])
+    void windowApi.isWindowFullscreen().then(setFullscreen)
+    return windowApi.onWindowFullscreenChanged(setFullscreen)
+  }, [windowApi])
 
   return (
     <div className="group/window-controls flex items-center gap-1.5" data-focused={focused}>
@@ -32,7 +37,7 @@ export function WindowControls(): React.JSX.Element {
           focused ? 'bg-[#FF0B18]' : 'bg-[#cecece] dark:bg-[#5c5c5c]'
         )}
         aria-label="Close window"
-        onClick={() => void window.api.closeWindow()}
+        onClick={() => void windowApi.closeWindow()}
       >
         <span className={iconBase}>
           <CloseWindowIcon />
@@ -46,7 +51,7 @@ export function WindowControls(): React.JSX.Element {
           focused ? 'bg-[#FFC700]' : 'bg-[#cecece] dark:bg-[#5c5c5c]'
         )}
         aria-label="Minimize window"
-        onClick={() => void window.api.minimizeWindow()}
+        onClick={() => void windowApi.minimizeWindow()}
       >
         <span className={iconBase}>
           <MinimizeWindowIcon />
@@ -60,7 +65,7 @@ export function WindowControls(): React.JSX.Element {
           focused ? 'bg-[#00C847]' : 'bg-[#cecece] dark:bg-[#5c5c5c]'
         )}
         aria-label={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-        onClick={() => void window.api.toggleMaximizeWindow()}
+        onClick={() => void windowApi.toggleMaximizeWindow()}
       >
         <span className={iconBase}>
           <ExpandWindowIcon />

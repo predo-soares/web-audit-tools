@@ -1,20 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { computePopoverBounds, crossAxisX } from '../../src/main/popover-placement'
+import { computePanelBounds, crossAxisX } from '../../src/main/panel-placement'
 
-describe('computePopoverBounds', () => {
+describe('computePanelBounds', () => {
   const anchor = { x: 900, y: 20, width: 28, height: 28 }
 
-  it('aligns the popover end edge with the anchor end edge below the trigger', () => {
-    const popoverSize = { width: 128, height: 200 }
-    const bounds = computePopoverBounds(anchor, popoverSize, 'bottom', 1200, 800, 'end')
+  it('aligns the panel end edge with the anchor end edge below the trigger', () => {
+    const panelSize = { width: 128, height: 200 }
+    const { bounds } = computePanelBounds(anchor, panelSize, 'bottom', 1200, 800, 'end')
 
-    expect(bounds.x).toBe(crossAxisX(anchor, popoverSize.width, 'end'))
+    expect(bounds.x).toBe(crossAxisX(anchor, panelSize.width, 'end'))
     expect(bounds.y).toBe(56)
     expect(bounds.x + bounds.width).toBe(anchor.x + anchor.width)
   })
 
   it('flips to top when bottom placement overflows vertically', () => {
-    const bounds = computePopoverBounds(
+    const { bounds, placement } = computePanelBounds(
       { x: 900, y: 760, width: 28, height: 28 },
       { width: 128, height: 200 },
       'bottom',
@@ -23,6 +23,7 @@ describe('computePopoverBounds', () => {
       'end'
     )
 
+    expect(placement).toBe('top')
     expect(bounds.y).toBe(552)
     expect(bounds.x + bounds.width).toBe(928)
   })

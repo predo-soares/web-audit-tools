@@ -2,16 +2,16 @@ import { BrowserWindow, ipcMain } from 'electron'
 import { normalizeUrl } from '../shared/url'
 import type { ElementFingerprint } from '../shared/element-mirror'
 import type { NewProjectInput } from '../shared/project'
-import type { PopoverAction, PopoverOpenOptions } from '../shared/popover-types'
+import type { PanelAction, PanelId, PanelOpenOptions } from '../shared/panel-types'
 import type { PaneMount, PaneId, Size, ThemePreference } from '../shared/types'
 import type { PaneManager } from './pane-manager'
-import type { PopoverManager } from './popover-manager'
+import type { PanelManager } from './panel-manager'
 import type { HistoryStore } from './history-store'
 import type { ProjectStore } from './project-store'
 
 export function registerIpcHandlers(
   paneManager: PaneManager,
-  popoverManager: PopoverManager,
+  panelManager: PanelManager,
   projectStore: ProjectStore,
   historyStore: HistoryStore
 ): void {
@@ -58,6 +58,18 @@ export function registerIpcHandlers(
 
   ipcMain.handle('preview:reload', async () => {
     await paneManager.reloadAll()
+  })
+
+  ipcMain.handle('preview:stop', () => {
+    paneManager.stopLoadingAll()
+  })
+
+  ipcMain.handle('preview:screenshot', async (event, paneId: PaneId) => {
+    const parentWindow = BrowserWindow.fromWebContents(event.sender)
+    if (!parentWindow) {
+      return { saved: false }
+    }
+    return paneManager.savePaneScreenshot(paneId, parentWindow)
   })
 
   ipcMain.handle('preview:go-back', async () => {
@@ -119,8 +131,109 @@ export function registerIpcHandlers(
     return paneManager.getLoadingStates()
   })
 
-  ipcMain.handle('pane:set-visible', (_event, visible: boolean) => {
-    paneManager.setPanesVisible(visible)
+  ipcMain.handle('panel:open', async (_event, options: PanelOpenOptions) => {
+    await panelManager.open(options)
+  })
+
+  ipcMain.handle('panel:close', (_event, panelId: PanelId) => {
+    panelManager.close(panelId)
+  })
+
+  ipcMain.handle('panel:get-open', () => {
+    return panelManager.getOpenPanelIds()
+  })
+
+  ipcMain.on('panel:size', (event, size: Size) => {
+    const panelId = panelManager.getPanelIdForWebContents(event.sender)
+    if (!panelId) return
+    panelManager.handleSizeReport(panelId, size)
+  })
+
+  ipcMain.on('panel:exit-complete', (event) => {
+    const panelId = panelManager.getPanelIdForWebContents(event.sender)
+    if (!panelId) return
+    panelManager.handleExitComplete(panelId)
+  })
+
+  ipcMain.on('panel:focus-on-close', (event) => {
+    const panelId = panelManager.getPanelIdForWebContents(event.sender)
+    if (!panelId) return
+    panelManager.handleFocusOnClose(panelId)
+  })
+
+  ipcMain.on('panel:ready', (event) => {
+    const panelId = panelManager.getPanelIdForWebContents(event.sender)
+    if (!panelId) return
+    panelManager.handleRendererReady(panelId)
+  })
+
+  ipcMain.on('panel:action', (event, action: PanelAction) => {
+    const panelId = panelManager.getPanelIdForWebContents(event.sender)
+    if (!panelId) return
+
+    if (action.type === 'set-zoom' || action.type === 'set-theme' || action.type === 'fit-zoom') {
+      void panelManager.handleAction(panelId, action)
+      return
+    }
+
+    if (action.type === 'toggle-sidebar') {
+      const mainWindow = BrowserWindow.getAllWindows()[0]
+      if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+        mainWindow.webContents.send('panel:toggle-sidebar')
+      }
+      return
+    }
+
+    if (action.type === 'go-back') {
+      void paneManager.goBack()
+      return
+    }
+
+    if (action.type === 'go-forward') {
+      void paneManager.goForward()
+      return
+    }
+
+    if (action.type === 'reload') {
+      void paneManager.reloadAll()
+      return
+    }
+
+    if (action.type === 'stop-loading') {
+      paneManager.stopLoadingAll()
+      return
+    }
+
+    if (action.type === 'set-sync-enabled') {
+      paneManager.setSyncEnabled(action.enabled)
+      return
+    }
+
+    if (action.type === 'navigate') {
+      void paneManager.navigateAll(normalizeUrl(action.url))
+      return
+    }
+
+    if (action.type === 'delete-history') {
+      historyStore.remove(action.url)
+      return
+    }
+
+    if (action.type === 'clear-history') {
+      historyStore.clear()
+      return
+    }
+
+    if (action.type === 'toggle-project') {
+      projectStore.toggle(
+        {
+          name: action.name,
+          url: action.url,
+          faviconUrl: action.faviconUrl
+        },
+        action.pageTitle
+      )
+    }
   })
 
   ipcMain.handle('history:list', () => {
@@ -145,28 +258,6 @@ export function registerIpcHandlers(
 
   ipcMain.handle('e2e:get-sync-trace-logs', () => {
     return paneManager.getSyncTraceLogs()
-  })
-
-  ipcMain.handle('popover:open', async (_event, options: PopoverOpenOptions) => {
-    await popoverManager.open(options)
-  })
-
-  ipcMain.handle('popover:close', () => {
-    popoverManager.close()
-  })
-
-  ipcMain.handle('popover:get-open-panel', () => {
-    return popoverManager.getOpenPanelId()
-  })
-
-  ipcMain.on('popover:size', (event, size: Size) => {
-    if (!popoverManager.isOverlayWebContents(event.sender)) return
-    popoverManager.handleSizeReport(size)
-  })
-
-  ipcMain.on('popover:action', (event, action: PopoverAction) => {
-    if (!popoverManager.isOverlayWebContents(event.sender)) return
-    void popoverManager.handleAction(action)
   })
 
   ipcMain.handle('projects:list', () => {

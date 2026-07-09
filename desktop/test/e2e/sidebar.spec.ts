@@ -5,6 +5,8 @@ import {
   evaluateInPane,
   expectSidebarOpen,
   fixtureUrl,
+  getSidebarPage,
+  getToolbarPage,
   historyRowTestId,
   launchApp,
   launchAppReady,
@@ -19,7 +21,8 @@ test('first launch opens the sidebar by default', async () => {
 
   try {
     await expectSidebarOpen(window, true)
-    await expect(window.getByTestId('sidebar-toggle')).toHaveAttribute('aria-expanded', 'true')
+    const toolbar = await getToolbarPage(window)
+    await expect(toolbar.getByTestId('sidebar-toggle')).toHaveAttribute('aria-expanded', 'true')
   } finally {
     await close()
   }
@@ -31,9 +34,10 @@ test('sidebar toggles from the toolbar button and keyboard shortcut', async () =
   try {
     await expectSidebarOpen(window, true)
 
-    await window.getByTestId('sidebar-toggle').click()
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('sidebar-toggle').click()
     await expectSidebarOpen(window, false)
-    await expect(window.getByTestId('sidebar-toggle')).toHaveAttribute('aria-expanded', 'false')
+    await expect(toolbar.getByTestId('sidebar-toggle')).toHaveAttribute('aria-expanded', 'false')
 
     await window.keyboard.press(sidebarToggleShortcut())
     await expectSidebarOpen(window, true)
@@ -54,14 +58,16 @@ test('closing the sidebar returns focus to the toggle when focus was inside it',
     const url = fixtureUrl(fixturePort, '/strict-headers')
     await navigateToCommitted(window, url)
 
-    const historyRow = window.getByTestId(historyRowTestId(url))
+    const sidebar = await getSidebarPage(window)
+    const historyRow = sidebar.getByTestId(historyRowTestId(url))
     await historyRow.focus()
     await expect(historyRow).toBeFocused()
 
-    await window.getByTestId('sidebar-toggle').click()
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('sidebar-toggle').click()
     await waitForSidebarSettled(window)
 
-    await expect(window.getByTestId('sidebar-toggle')).toBeFocused()
+    await expect(toolbar.getByTestId('sidebar-toggle')).toBeFocused()
   } finally {
     await close()
   }
@@ -81,7 +87,8 @@ test('revisiting a page bumps it to the top of history without duplicating', asy
     await navigateToCommitted(window, secondUrl)
     await navigateToCommitted(window, firstUrl)
 
-    const historyRows = window.locator(
+    const sidebar = await getSidebarPage(window)
+    const historyRows = sidebar.locator(
       'button[data-testid^="history-row-"]:not([data-testid$="-menu"]):not([data-testid$="-delete"])'
     )
     await expect(historyRows).toHaveCount(2)
@@ -99,7 +106,8 @@ test('clicking the active history row is a no-op', async ({ fixturePort }) => {
     const url = fixtureUrl(fixturePort, '/strict-headers')
     await navigateToCommitted(window, url)
 
-    const historyRow = window.getByTestId(historyRowTestId(url))
+    const sidebar = await getSidebarPage(window)
+    const historyRow = sidebar.getByTestId(historyRowTestId(url))
     await expect(historyRow).toHaveAttribute('data-history-active', 'true')
 
     const before = await evaluateInPane<string>(
@@ -110,7 +118,8 @@ test('clicking the active history row is a no-op', async ({ fixturePort }) => {
 
     await historyRow.click()
 
-    await expect(window.getByTestId('url-input')).toHaveValue(url)
+    const toolbar = await getToolbarPage(window)
+    await expect(toolbar.getByTestId('url-input')).toHaveValue(url)
     const after = await evaluateInPane<string>(
       window,
       'iphone',
@@ -129,8 +138,10 @@ test('clicking the active project row is a no-op', async ({ fixturePort }) => {
     const url = fixtureUrl(fixturePort, '/strict-headers')
     await navigateToCommitted(window, url)
 
-    await window.getByTestId('save-project').click()
-    const projectRow = window.locator('[data-testid^="project-row-"]').first()
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('save-project').click()
+    const sidebar = await getSidebarPage(window)
+    const projectRow = sidebar.locator('[data-testid^="project-row-"]').first()
     await expect(projectRow).toBeVisible()
 
     const before = await evaluateInPane<string>(
@@ -141,7 +152,7 @@ test('clicking the active project row is a no-op', async ({ fixturePort }) => {
 
     await projectRow.click()
 
-    await expect(window.getByTestId('url-input')).toHaveValue(url)
+    await expect(toolbar.getByTestId('url-input')).toHaveValue(url)
     const after = await evaluateInPane<string>(
       window,
       'iphone',
@@ -164,26 +175,28 @@ test('history rows support keyboard activation and overflow delete', async ({ fi
     await navigateToCommitted(window, firstUrl)
     await navigateToCommitted(window, secondUrl)
 
-    const firstRow = window.getByTestId(historyRowTestId(firstUrl))
+    const sidebar = await getSidebarPage(window)
+    const firstRow = sidebar.getByTestId(historyRowTestId(firstUrl))
     await firstRow.focus()
     await window.keyboard.press('Enter')
     await waitForAllPanes(window)
-    await expect(window.getByTestId('url-input')).toHaveValue(firstUrl)
-    await expect(window.getByTestId(historyRowTestId(firstUrl))).toHaveAttribute(
+    const toolbar = await getToolbarPage(window)
+    await expect(toolbar.getByTestId('url-input')).toHaveValue(firstUrl)
+    await expect(sidebar.getByTestId(historyRowTestId(firstUrl))).toHaveAttribute(
       'data-history-active',
       'true'
     )
 
     await navigateToCommitted(window, secondUrl)
 
-    const menuButton = window.getByTestId(`${historyRowTestId(firstUrl)}-menu`)
+    const menuButton = sidebar.getByTestId(`${historyRowTestId(firstUrl)}-menu`)
     await menuButton.focus()
     await window.keyboard.press('Enter')
-    await window.getByTestId(`${historyRowTestId(firstUrl)}-delete`).click()
+    await sidebar.getByTestId(`${historyRowTestId(firstUrl)}-delete`).click()
 
-    await expect(window.getByTestId(historyRowTestId(firstUrl))).toHaveCount(0)
-    await expect(window.getByTestId('url-input')).toHaveValue(secondUrl)
-    await expect(window.getByTestId(historyRowTestId(secondUrl))).toBeFocused()
+    await expect(sidebar.getByTestId(historyRowTestId(firstUrl))).toHaveCount(0)
+    await expect(toolbar.getByTestId('url-input')).toHaveValue(secondUrl)
+    await expect(sidebar.getByTestId(historyRowTestId(secondUrl))).toBeFocused()
   } finally {
     await close()
   }
@@ -198,15 +211,17 @@ test('clearing history empties the list, keeps the page open, and restores focus
     const url = fixtureUrl(fixturePort, '/strict-headers')
     await navigateToCommitted(window, url)
 
-    await window.getByTestId('history-clear-all').click()
-    await expect(window.getByTestId('clear-history-dialog')).toBeVisible()
-    await window.getByTestId('clear-history-confirm').click()
+    const sidebar = await getSidebarPage(window)
+    await sidebar.getByTestId('history-clear-all').click()
+    await expect(sidebar.getByTestId('clear-history-dialog')).toBeVisible()
+    await sidebar.getByTestId('clear-history-confirm').click()
 
     await expect(
-      window.locator('button[data-testid^="history-row-"]:not([data-testid$="-menu"])')
+      sidebar.locator('button[data-testid^="history-row-"]:not([data-testid$="-menu"])')
     ).toHaveCount(0)
-    await expect(window.getByTestId('url-input')).toHaveValue(url)
-    await expect(window.getByTestId('history-heading')).toBeFocused()
+    const toolbar = await getToolbarPage(window)
+    await expect(toolbar.getByTestId('url-input')).toHaveValue(url)
+    await expect(sidebar.getByTestId('history-heading')).toBeFocused()
   } finally {
     await close()
   }
@@ -221,12 +236,14 @@ test('sidebar state, projects, and history survive app restart', async ({ fixtur
     await navigateToCommitted(firstLaunch.window, firstUrl)
     await navigateToCommitted(firstLaunch.window, secondUrl)
 
-    await firstLaunch.window.getByTestId('save-project').click()
+    const firstToolbar = await getToolbarPage(firstLaunch.window)
+    await firstToolbar.getByTestId('save-project').click()
+    const firstSidebar = await getSidebarPage(firstLaunch.window)
     await expect(
-      firstLaunch.window.locator('[data-testid^="project-row-"]').getByText(secondUrl)
+      firstSidebar.locator('[data-testid^="project-row-"]').getByText(secondUrl)
     ).toBeVisible()
 
-    await firstLaunch.window.getByTestId('sidebar-toggle').click()
+    await firstToolbar.getByTestId('sidebar-toggle').click()
     await expectSidebarOpen(firstLaunch.window, false)
 
     await firstLaunch.close({ deleteUserData: false })
@@ -234,13 +251,17 @@ test('sidebar state, projects, and history survive app restart', async ({ fixtur
     const secondLaunch = await launchApp(firstLaunch.userDataDir)
     try {
       await expectSidebarOpen(secondLaunch.window, false)
+      const secondToolbar = await getToolbarPage(secondLaunch.window)
+      await secondToolbar.getByTestId('sidebar-toggle').click()
+      await expectSidebarOpen(secondLaunch.window, true)
+      const secondSidebar = await getSidebarPage(secondLaunch.window)
       await expect(
-        secondLaunch.window.locator('[data-testid^="project-row-"]').getByText(secondUrl)
+        secondSidebar.locator('[data-testid^="project-row-"]').getByText(secondUrl)
       ).toBeVisible({ timeout: 15_000 })
-      await expect(secondLaunch.window.getByTestId(historyRowTestId(secondUrl))).toBeVisible({
+      await expect(secondSidebar.getByTestId(historyRowTestId(secondUrl))).toBeVisible({
         timeout: 15_000
       })
-      await expect(secondLaunch.window.getByTestId(historyRowTestId(firstUrl))).toBeVisible()
+      await expect(secondSidebar.getByTestId(historyRowTestId(firstUrl))).toBeVisible()
     } finally {
       await secondLaunch.close()
       rmSync(firstLaunch.userDataDir, { recursive: true, force: true })

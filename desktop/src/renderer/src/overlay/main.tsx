@@ -2,10 +2,10 @@ import '../assets/main.css'
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { OverlayApp } from './overlay-app'
+import { PanelHost } from './panel-host'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <OverlayApp />
+    <PanelHost />
   </StrictMode>
 )

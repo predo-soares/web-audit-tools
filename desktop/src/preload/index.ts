@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { HistoryEntry } from '../shared/history'
-import type { PopoverAction, PopoverOpenOptions } from '../shared/popover-types'
+import type { PanelAction, PanelId, PanelOpenOptions } from '../shared/panel-types'
 import type { NewProjectInput, Project } from '../shared/project'
 import type { MirrorFailureLog } from '../shared/element-mirror'
 import type { PaneMount, PaneId, PaneNavigationState, ThemePreference } from '../shared/types'
@@ -16,6 +16,8 @@ export interface PreviewApi {
   mountPane: (paneId: PaneId, mount: PaneMount) => Promise<void>
   navigate: (url: string) => Promise<string>
   reload: () => Promise<void>
+  stopLoading: () => Promise<void>
+  savePaneScreenshot: (paneId: PaneId) => Promise<{ saved: boolean; filePath?: string }>
   goBack: () => Promise<void>
   goForward: () => Promise<void>
   getNavigationState: () => Promise<PaneNavigationState>
@@ -24,16 +26,21 @@ export interface PreviewApi {
   getSyncEnabled: () => Promise<boolean>
   setPaneThemePreference: (preference: ThemePreference) => Promise<ThemePreference>
   getLoadingStates: () => Promise<Record<PaneId, boolean>>
-  setPanesVisible: (visible: boolean) => Promise<void>
   listHistory: () => Promise<HistoryEntry[]>
   deleteHistoryEntry: (url: string) => Promise<void>
   clearHistory: () => Promise<void>
-  openNativePopover: (options: PopoverOpenOptions) => Promise<void>
-  closeNativePopover: () => Promise<void>
-  getOpenNativePopoverPanel: () => Promise<PopoverOpenOptions['panelId'] | null>
-  onPopoverAction: (callback: (action: PopoverAction) => void) => () => void
-  onPopoverClosed: (callback: () => void) => () => void
-  onPopoverThemeChanged: (callback: (preference: ThemePreference) => void) => () => void
+  openPanel: (options: PanelOpenOptions) => Promise<void>
+  closePanel: (panelId: PanelId) => Promise<void>
+  getOpenPanels: () => Promise<PanelId[]>
+  onPanelAction: (callback: (action: PanelAction) => void) => () => void
+  onPanelClosed: (callback: (panelId: PanelId) => void) => () => void
+  onPanelThemeChanged: (callback: (preference: ThemePreference) => void) => () => void
+  onPanelTransition: (
+    callback: (state: { panelId: PanelId; transitioning: boolean }) => void
+  ) => () => void
+  onPanelLayoutSettled: (callback: (panelId: PanelId) => void) => () => void
+  onPanelFocusSidebarToggle: (callback: () => void) => () => void
+  onPanelToggleSidebar: (callback: () => void) => () => void
   onPaneLoading: (callback: (state: { paneId: PaneId; loading: boolean }) => void) => () => void
   onPaneNavigation: (callback: (state: PaneNavigationState) => void) => () => void
   listProjects: () => Promise<Project[]>
@@ -66,6 +73,8 @@ const api: PreviewApi = {
   mountPane: (paneId, mount) => ipcRenderer.invoke('pane:mount', paneId, mount),
   navigate: (url) => ipcRenderer.invoke('preview:navigate', url),
   reload: () => ipcRenderer.invoke('preview:reload'),
+  stopLoading: () => ipcRenderer.invoke('preview:stop'),
+  savePaneScreenshot: (paneId) => ipcRenderer.invoke('preview:screenshot', paneId),
   goBack: () => ipcRenderer.invoke('preview:go-back'),
   goForward: () => ipcRenderer.invoke('preview:go-forward'),
   getNavigationState: () => ipcRenderer.invoke('preview:navigation-state'),
@@ -75,29 +84,53 @@ const api: PreviewApi = {
   setPaneThemePreference: (preference) =>
     ipcRenderer.invoke('pane-theme:set-preference', preference),
   getLoadingStates: () => ipcRenderer.invoke('pane:loading-states'),
-  setPanesVisible: (visible) => ipcRenderer.invoke('pane:set-visible', visible),
   listHistory: () => ipcRenderer.invoke('history:list'),
   deleteHistoryEntry: (url) => ipcRenderer.invoke('history:delete', url),
   clearHistory: () => ipcRenderer.invoke('history:clear'),
-  openNativePopover: (options) => ipcRenderer.invoke('popover:open', options),
-  closeNativePopover: () => ipcRenderer.invoke('popover:close'),
-  getOpenNativePopoverPanel: () => ipcRenderer.invoke('popover:get-open-panel'),
-  onPopoverAction: (callback) => {
-    const listener = (_event: Electron.IpcRendererEvent, action: PopoverAction): void =>
+  openPanel: (options) => ipcRenderer.invoke('panel:open', options),
+  closePanel: (panelId) => ipcRenderer.invoke('panel:close', panelId),
+  getOpenPanels: () => ipcRenderer.invoke('panel:get-open'),
+  onPanelAction: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, action: PanelAction): void =>
       callback(action)
-    ipcRenderer.on('popover:action', listener)
-    return () => ipcRenderer.removeListener('popover:action', listener)
+    ipcRenderer.on('panel:action', listener)
+    return () => ipcRenderer.removeListener('panel:action', listener)
   },
-  onPopoverClosed: (callback) => {
-    const listener = (): void => callback()
-    ipcRenderer.on('popover:closed', listener)
-    return () => ipcRenderer.removeListener('popover:closed', listener)
+  onPanelClosed: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, panelId: PanelId): void =>
+      callback(panelId)
+    ipcRenderer.on('panel:closed', listener)
+    return () => ipcRenderer.removeListener('panel:closed', listener)
   },
-  onPopoverThemeChanged: (callback) => {
+  onPanelThemeChanged: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, preference: ThemePreference): void =>
       callback(preference)
-    ipcRenderer.on('popover:theme-changed', listener)
-    return () => ipcRenderer.removeListener('popover:theme-changed', listener)
+    ipcRenderer.on('panel:theme-changed', listener)
+    return () => ipcRenderer.removeListener('panel:theme-changed', listener)
+  },
+  onPanelTransition: (callback) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      state: { panelId: PanelId; transitioning: boolean }
+    ): void => callback(state)
+    ipcRenderer.on('panel:transition', listener)
+    return () => ipcRenderer.removeListener('panel:transition', listener)
+  },
+  onPanelLayoutSettled: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, panelId: PanelId): void =>
+      callback(panelId)
+    ipcRenderer.on('panel:layout-settled', listener)
+    return () => ipcRenderer.removeListener('panel:layout-settled', listener)
+  },
+  onPanelFocusSidebarToggle: (callback) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('panel:focus-sidebar-toggle', listener)
+    return () => ipcRenderer.removeListener('panel:focus-sidebar-toggle', listener)
+  },
+  onPanelToggleSidebar: (callback) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('panel:toggle-sidebar', listener)
+    return () => ipcRenderer.removeListener('panel:toggle-sidebar', listener)
   },
   onPaneLoading: (callback) => {
     const listener = (

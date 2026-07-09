@@ -3,7 +3,8 @@ import { Input } from '@renderer/components/ui/input'
 import { Button } from '@renderer/components/ui/button'
 import { SaveProjectButton } from '@renderer/components/save-project-button'
 import { cn } from '@renderer/lib/utils'
-import { Globe, RefreshCw } from 'lucide-react'
+import { Globe02Icon, RefreshCw, StopIcon } from '@hugeicons/core-free-icons'
+import { Icon } from '@renderer/components/ui/icon'
 
 interface UrlBarProps {
   value: string
@@ -12,6 +13,8 @@ interface UrlBarProps {
   onChange: (url: string) => void
   onNavigate: (url: string) => void
   onRefresh: () => void
+  onStop: () => void
+  loading?: boolean
   disabled?: boolean
   canSaveProject: boolean
   isSavedProject: boolean
@@ -27,6 +30,8 @@ export function UrlBar({
   onChange,
   onNavigate,
   onRefresh,
+  onStop,
+  loading = false,
   disabled,
   canSaveProject,
   isSavedProject,
@@ -73,8 +78,9 @@ export function UrlBar({
             }}
           />
         ) : (
-          <Globe
-            aria-hidden="true"
+          <Icon
+            aria-hidden
+            icon={Globe02Icon}
             className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-4 -translate-y-1/2 text-muted-foreground"
           />
         )}
@@ -96,7 +102,7 @@ export function UrlBar({
           </span>
         ) : null}
         <SaveProjectButton
-          disabled={!canSaveProject || Boolean(disabled)}
+          disabled={!canSaveProject}
           isSaved={isSavedProject}
           suggestedName={saveSuggestedName}
           onSave={onSaveProject}
@@ -106,13 +112,13 @@ export function UrlBar({
           type="button"
           variant="ghost"
           size="icon-sm"
-          data-testid="url-refresh"
-          aria-label="Refresh"
+          data-testid={loading ? 'url-stop' : 'url-refresh'}
+          aria-label={loading ? 'Stop loading' : 'Refresh'}
           className="absolute top-1/2 right-1 z-10 -translate-y-1/2 text-muted-foreground"
-          onClick={() => void onRefresh()}
-          disabled={disabled}
+          onClick={() => void (loading ? onStop() : onRefresh())}
+          disabled={disabled && !loading}
         >
-          <RefreshCw />
+          <Icon icon={loading ? StopIcon : RefreshCw} />
         </Button>
       </div>
       <button type="submit" data-testid="url-submit" className="sr-only" disabled={disabled}>

@@ -5,7 +5,7 @@ import icon from '../../resources/icon.png?asset'
 import { HistoryStore } from './history-store'
 import { registerIpcHandlers } from './ipc'
 import { PaneManager } from './pane-manager'
-import { PopoverManager } from './popover-manager'
+import { PanelManager } from './panel-manager'
 import { ProjectStore } from './project-store'
 
 // E2E runs get an isolated profile so parallel/leftover instances never share
@@ -16,7 +16,7 @@ if (process.env.E2E_USER_DATA_DIR) {
 }
 
 const paneManager = new PaneManager()
-const popoverManager = new PopoverManager(paneManager)
+const panelManager = new PanelManager(paneManager)
 const projectStore = new ProjectStore()
 const historyStore = new HistoryStore()
 
@@ -53,12 +53,16 @@ function createWindow(): BrowserWindow {
 
   const sendWindowFocusState = (): void => {
     if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
-    mainWindow.webContents.send('window:focus-changed', mainWindow.isFocused())
+    const focused = mainWindow.isFocused()
+    mainWindow.webContents.send('window:focus-changed', focused)
+    panelManager.notifyToolbarPanel('window:focus-changed', focused)
   }
 
   const sendWindowFullscreenState = (): void => {
     if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
-    mainWindow.webContents.send('window:fullscreen-changed', mainWindow.isFullScreen())
+    const fullscreen = mainWindow.isFullScreen()
+    mainWindow.webContents.send('window:fullscreen-changed', fullscreen)
+    panelManager.notifyToolbarPanel('window:fullscreen-changed', fullscreen)
   }
 
   mainWindow.on('focus', sendWindowFocusState)
@@ -75,7 +79,7 @@ function createWindow(): BrowserWindow {
   mainWindow.once('close', () => {
     projectStore.destroy()
     historyStore.destroy()
-    popoverManager.destroy()
+    panelManager.destroy()
     paneManager.destroy()
   })
 
@@ -85,7 +89,10 @@ function createWindow(): BrowserWindow {
   })
 
   paneManager.initialize(mainWindow)
-  popoverManager.initialize(mainWindow)
+  panelManager.initialize(mainWindow)
+  paneManager.setOverlayBroadcast((channel, ...args) => {
+    panelManager.notifyToolbarPanel(channel, ...args)
+  })
   paneManager.setHistoryHooks({
     onVisitCommitted: ({ url, title, faviconUrl }) => {
       historyStore.logVisit(url, title, faviconUrl)
@@ -94,14 +101,16 @@ function createWindow(): BrowserWindow {
       historyStore.refreshMetadata(url, title, faviconUrl)
     }
   })
-  registerIpcHandlers(paneManager, popoverManager, projectStore, historyStore)
+  registerIpcHandlers(paneManager, panelManager, projectStore, historyStore)
   projectStore.setOnChange((projects) => {
     if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
     mainWindow.webContents.send('projects:changed', projects)
+    panelManager.notifyToolbarPanel('projects:changed', projects)
   })
   historyStore.setOnChange((entries) => {
     if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
     mainWindow.webContents.send('history:updated', entries)
+    panelManager.notifyToolbarPanel('history:updated', entries)
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {

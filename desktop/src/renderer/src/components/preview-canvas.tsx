@@ -1,43 +1,40 @@
-import { useCallback, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { PANE_IDS } from '../../../shared/device-presets'
 import { CANVAS_GAP, clampZoom, DEFAULT_ZOOM } from '../../../shared/mockup-layout'
-import { TOOLBAR_HEIGHT_PX } from '../../../shared/sidebar'
-import type { HistoryEntry } from '../../../shared/history'
-import { isCommittedPageUrl } from '../../../shared/project'
+import { SIDEBAR_WIDTH_PX, TOOLBAR_HEIGHT_PX } from '../../../shared/sidebar'
 import type { PaneId } from '../../../shared/types'
-import type { Project } from '../../../shared/project'
-import { Sidebar } from '@renderer/components/sidebar'
 import { DevicePane } from '@renderer/components/device-pane'
+import { CANVAS_GLASS_SURFACE_CLASS } from '@renderer/lib/glass-surface'
+import { cn } from '@renderer/lib/utils'
 import { PreviewCanvasContext } from '@renderer/context/preview-canvas-context'
+import { useSidebar } from '@renderer/context/sidebar-context'
+import { isCommittedPageUrl } from '../../../shared/project'
 
 interface PreviewCanvasProps {
   loadingStates: Record<PaneId, boolean>
-  navigating: boolean
-  projects: Project[]
-  history: HistoryEntry[]
   committedUrl: string
-  onProjectActivate: (project: Project) => void
-  onHistoryActivate: (entry: HistoryEntry) => void
-  onHistoryDelete: (entry: HistoryEntry) => Promise<void>
-  onHistoryClear: () => Promise<void>
-  toolbar: ReactNode
+  activePane: PaneId | null
 }
 
 export function PreviewCanvas({
   loadingStates,
-  navigating,
-  projects,
-  history,
   committedUrl,
-  onProjectActivate,
-  onHistoryActivate,
-  onHistoryDelete,
-  onHistoryClear,
-  toolbar
+  activePane
 }: PreviewCanvasProps): React.JSX.Element {
   const [zoom, setZoomState] = useState(DEFAULT_ZOOM)
+  const { isOpen: sidebarOpen, isTransitioning: sidebarTransitioning } = useSidebar()
+  const sidebarOffset = sidebarOpen || sidebarTransitioning ? SIDEBAR_WIDTH_PX : 0
   const hasPreview =
-    navigating || isCommittedPageUrl(committedUrl) || Object.values(loadingStates).some(Boolean)
+    isCommittedPageUrl(committedUrl) || Object.values(loadingStates).some(Boolean)
+
+  useEffect(() => {
+    const unsubscribeAction = window.api.onPanelAction((action) => {
+      if (action.type === 'set-zoom') {
+        setZoomState(clampZoom(action.zoom))
+      }
+    })
+    return unsubscribeAction
+  }, [])
 
   const setZoom = useCallback((nextZoom: number) => {
     setZoomState(clampZoom(nextZoom))
@@ -57,38 +54,27 @@ export function PreviewCanvas({
   return (
     <PreviewCanvasContext.Provider value={{ zoom, setZoom, adjustZoom }}>
       <div className="relative h-screen overflow-hidden bg-transparent text-foreground">
-        {toolbar}
-        <div className="flex h-full">
-          <Sidebar
-            projects={projects}
-            history={history}
-            committedUrl={committedUrl}
-            onProjectActivate={onProjectActivate}
-            onHistoryActivate={onHistoryActivate}
-            onHistoryDelete={onHistoryDelete}
-            onHistoryClear={onHistoryClear}
-          />
-          <div
-            data-canvas-viewport
-            className="relative min-h-0 min-w-0 flex-1 overflow-auto bg-black/50 backdrop-blur-sm [background-image:radial-gradient(circle_at_center,_rgba(255,255,255,0.06)_1px,_transparent_1px)] [background-size:20px_20px]"
-            style={{ paddingTop: TOOLBAR_HEIGHT_PX }}
-            onWheel={handleWheel}
-            data-testid="preview-canvas"
-          >
-            <div className="flex w-max min-w-full items-start justify-center py-6">
-              <div
-                className="flex items-start px-8"
-                style={{ gap: CANVAS_GAP, zoom }}
-              >
-                {PANE_IDS.map((paneId) => (
-                  <DevicePane
-                    key={paneId}
-                    paneId={paneId}
-                    active={hasPreview}
-                    loading={loadingStates[paneId]}
-                  />
-                ))}
-              </div>
+        <div
+          data-canvas-viewport
+          className={cn('box-border h-screen overflow-auto', CANVAS_GLASS_SURFACE_CLASS)}
+          style={{
+            paddingTop: TOOLBAR_HEIGHT_PX,
+            paddingLeft: sidebarOffset
+          }}
+          onWheel={handleWheel}
+          data-testid="preview-canvas"
+        >
+          <div className="flex min-h-full w-max min-w-full items-start justify-center py-6">
+            <div className="flex items-start px-8" style={{ gap: CANVAS_GAP, zoom }}>
+              {PANE_IDS.map((paneId) => (
+                <DevicePane
+                  key={paneId}
+                  paneId={paneId}
+                  active={hasPreview}
+                  isFocusedPane={activePane === paneId}
+                  loading={loadingStates[paneId]}
+                />
+              ))}
             </div>
           </div>
         </div>

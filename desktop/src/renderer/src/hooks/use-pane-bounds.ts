@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import { getMockupDimensions } from '../../../shared/mockup-layout'
-import { LAYOUT_SETTLED_EVENT } from '@renderer/context/sidebar-context'
+import { SIDEBAR_TRANSITION_MS } from '../../../shared/sidebar'
+import { LAYOUT_SETTLED_EVENT, useSidebar } from '@renderer/context/sidebar-context'
 import { usePreviewCanvas } from '@renderer/context/preview-canvas-context'
 import type { Bounds, PaneId } from '../../../shared/types'
 
@@ -10,6 +11,7 @@ export function usePaneBounds(
   enabled = true
 ): (node: HTMLDivElement | null) => void {
   const { zoom } = usePreviewCanvas()
+  const { isOpen: sidebarOpen, isTransitioning: sidebarTransitioning } = useSidebar()
   const elementRef = useRef<HTMLDivElement | null>(null)
   const observerRef = useRef<ResizeObserver | null>(null)
   const frameRefs = useRef<number[]>([])
@@ -31,8 +33,6 @@ export function usePaneBounds(
       width: dimensions.screenWidth * zoom,
       height: dimensions.screenHeight * zoom
     }
-    const viewport = element.closest('[data-canvas-viewport]')
-    const canvasTop = Math.round(viewport?.getBoundingClientRect().top ?? 0)
     void window.api.mountPane(paneId, {
       screenBounds: bounds,
       logicalSize: {
@@ -40,8 +40,7 @@ export function usePaneBounds(
         height: dimensions.screenHeight
       },
       cornerRadius,
-      zoom,
-      canvasTop
+      zoom
     })
   }, [cornerRadius, enabled, paneId, zoom])
 
@@ -83,7 +82,24 @@ export function usePaneBounds(
   useLayoutEffect(() => {
     if (!enabled) return
     scheduleReport()
-  }, [enabled, scheduleReport])
+  }, [enabled, scheduleReport, sidebarOpen, sidebarTransitioning])
+
+  useEffect(() => {
+    if (!enabled || !sidebarTransitioning) return
+
+    let frameId = 0
+    const startedAt = performance.now()
+
+    const tick = (now: number): void => {
+      reportBounds()
+      if (now - startedAt < SIDEBAR_TRANSITION_MS + 32) {
+        frameId = requestAnimationFrame(tick)
+      }
+    }
+
+    frameId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frameId)
+  }, [enabled, reportBounds, sidebarTransitioning])
 
   useEffect(() => {
     if (!enabled) return

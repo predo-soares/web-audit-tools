@@ -25,6 +25,16 @@ interface RuntimeEvaluateResponse {
   exceptionDetails?: unknown
 }
 
+interface CaptureScreenshotResponse {
+  data?: string
+}
+
+function isNavigationAborted(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const record = error as { code?: string | number; errno?: number }
+  return record.code === 'ERR_ABORTED' || record.errno === -3 || record.code === -3
+}
+
 interface ResolvedClickPoint {
   matched: boolean
   x?: number
@@ -82,7 +92,7 @@ export class WebContentsViewEngine implements EngineView {
 
   mount(mount: PaneMount): void {
     const previousBounds = this.screenBounds
-    const { screenBounds, logicalSize, cornerRadius, zoom, canvasTop } = mount
+    const { screenBounds, logicalSize, cornerRadius, zoom } = mount
     const sizeChanged =
       !previousBounds ||
       Math.round(previousBounds.width) !== Math.round(screenBounds.width) ||
@@ -96,20 +106,11 @@ export class WebContentsViewEngine implements EngineView {
     this.screenBounds = screenBounds
     this.logicalSize = logicalSize
 
-    // Clip native view to the canvas area so it never overlaps the toolbar.
-    // WebContentsViews are OS-level surfaces that paint above the renderer
-    // regardless of CSS z-index, so clipping must happen here in native bounds.
-    const nativeY = Math.max(Math.round(screenBounds.y), canvasTop)
-    const nativeHeight = Math.max(
-      0,
-      Math.round(screenBounds.height) - (nativeY - Math.round(screenBounds.y))
-    )
-
     this.view.setBounds({
       x: Math.round(screenBounds.x),
-      y: nativeY,
+      y: Math.round(screenBounds.y),
       width: Math.round(screenBounds.width),
-      height: nativeHeight
+      height: Math.round(screenBounds.height)
     })
     this.view.setBorderRadius(Math.max(0, Math.round(cornerRadius)))
     if (zoom !== this.zoom || sizeChanged || logicalSizeChanged) {
@@ -119,11 +120,85 @@ export class WebContentsViewEngine implements EngineView {
     }
   }
 
-  async navigate(url: string): Promise<void> {
+  stop(): void {
+    if (this.webContents.isDestroyed()) return
     if (this.webContents.isLoading()) {
       this.webContents.stop()
     }
-    await this.webContents.loadURL(url)
+  }
+
+  async captureScreenshot(): Promise<Buffer> {
+    if (!this.profile) {
+      throw new Error(`[pane:${this.paneId}] captureScreenshot called before setDevice`)
+    }
+
+    const logicalSize = this.logicalSize ?? {
+      width: this.profile.width,
+      height: this.profile.height
+    }
+
+    const savedZoom = this.zoom
+    const savedScreenBounds = this.screenBounds ? { ...this.screenBounds } : null
+
+    try {
+      // enableDeviceEmulation fits the page into the native view bounds. For a
+      // full-resolution export, render at 1:1 inside bounds that match the
+      // logical viewport, then capture at deviceScaleFactor via CDP.
+      this.zoom = 1
+      if (savedScreenBounds) {
+        this.view.setBounds({
+          x: Math.round(savedScreenBounds.x),
+          y: Math.round(savedScreenBounds.y),
+          width: logicalSize.width,
+          height: logicalSize.height
+        })
+      }
+      this.applyDeviceEmulation()
+      await this.waitForPaint()
+
+      await this.ensureDebugger()
+
+      const response = (await this.webContents.debugger.sendCommand('Page.captureScreenshot', {
+        format: 'png',
+        fromSurface: true,
+        optimizeForSpeed: false,
+        captureBeyondViewport: false,
+        clip: {
+          x: 0,
+          y: 0,
+          width: logicalSize.width,
+          height: logicalSize.height,
+          scale: this.profile.deviceScaleFactor
+        }
+      })) as CaptureScreenshotResponse
+
+      if (!response.data) {
+        throw new Error(`[pane:${this.paneId}] Page.captureScreenshot returned no data`)
+      }
+
+      return Buffer.from(response.data, 'base64')
+    } finally {
+      if (savedScreenBounds) {
+        this.view.setBounds({
+          x: Math.round(savedScreenBounds.x),
+          y: Math.round(savedScreenBounds.y),
+          width: Math.round(savedScreenBounds.width),
+          height: Math.round(savedScreenBounds.height)
+        })
+      }
+      this.zoom = savedZoom
+      this.applyDeviceEmulation()
+    }
+  }
+
+  async navigate(url: string): Promise<void> {
+    this.stop()
+    try {
+      await this.webContents.loadURL(url)
+    } catch (error) {
+      if (isNavigationAborted(error)) return
+      throw error
+    }
     await this.applyThemePreference()
     // Re-apply after every load: enableDeviceEmulation can be silently ignored
     // when the renderer is still initialising, so the initial call in setDevice
@@ -170,7 +245,12 @@ export class WebContentsViewEngine implements EngineView {
 
   async resolveClickPoint(
     fingerprint: ElementFingerprint
-  ): Promise<{ x: number; y: number } | { handled: true } | { skipDispatch: true; navigateTo: string } | null> {
+  ): Promise<
+    | { dispatched: true }
+    | { handled: true }
+    | { skipDispatch: true; navigateTo: string }
+    | null
+  > {
     try {
       await this.ensureDebugger()
       const response = (await this.webContents.debugger.sendCommand('Runtime.evaluate', {
@@ -205,7 +285,8 @@ export class WebContentsViewEngine implements EngineView {
       if (value.handled) return { handled: true }
       if (value.skipDispatch && value.navigateTo) return { skipDispatch: true, navigateTo: value.navigateTo }
       if (typeof value.x !== 'number' || typeof value.y !== 'number') return null
-      return { x: value.x, y: value.y }
+      this.dispatchClick(value.x, value.y)
+      return { dispatched: true }
     } catch (error) {
       syncTrace('click:resolution-error', { paneId: this.paneId, error: String(error) })
       console.error(`[pane:${this.paneId}] click resolution failed:`, error)
@@ -334,6 +415,13 @@ export class WebContentsViewEngine implements EngineView {
       }
     }
     this.webContents.close()
+  }
+
+  private async waitForPaint(): Promise<void> {
+    if (this.webContents.isDestroyed()) return
+    await this.webContents.executeJavaScript(
+      `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`
+    )
   }
 
   private applyDeviceEmulation(): void {

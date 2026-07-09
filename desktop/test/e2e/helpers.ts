@@ -70,19 +70,61 @@ function waitForExit(child: ChildProcess, timeoutMs: number): Promise<boolean> {
   })
 }
 
-export async function getOverlayPage(window: Page): Promise<Page> {
+export async function getToolbarPage(window: Page): Promise<Page> {
   const context = window.context()
   const started = Date.now()
   while (Date.now() - started < 10_000) {
-    const overlay = context.pages().find((page) => page.url().includes('overlay.html'))
-    if (overlay) {
-      await overlay.waitForLoadState('domcontentloaded')
-      return overlay
+    for (const page of context.pages()) {
+      if (!page.url().includes('overlay.html')) continue
+      if ((await page.getByTestId('toolbar').count()) > 0) {
+        await page.waitForLoadState('domcontentloaded')
+        return page
+      }
     }
     await new Promise((resolve) => setTimeout(resolve, 100))
   }
   throw new Error(
-    `Overlay page not found. Pages: ${context.pages().map((page) => page.url()).join(', ')}`
+    `Toolbar overlay page not found. Pages: ${context.pages().map((page) => page.url()).join(', ')}`
+  )
+}
+
+export async function getOverlayPage(window: Page): Promise<Page> {
+  return getPopoverOverlayPage(window)
+}
+
+export async function getPopoverOverlayPage(window: Page): Promise<Page> {
+  const context = window.context()
+  const started = Date.now()
+  while (Date.now() - started < 10_000) {
+    for (const page of context.pages()) {
+      if (!page.url().includes('overlay.html')) continue
+      if ((await page.getByTestId('toolbar-custom-popover').count()) > 0) {
+        await page.waitForLoadState('domcontentloaded')
+        return page
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  throw new Error(
+    `Popover overlay page not found. Pages: ${context.pages().map((page) => page.url()).join(', ')}`
+  )
+}
+
+export async function getSidebarPage(window: Page): Promise<Page> {
+  const context = window.context()
+  const started = Date.now()
+  while (Date.now() - started < 10_000) {
+    for (const page of context.pages()) {
+      if (!page.url().includes('overlay.html')) continue
+      if ((await page.getByTestId('sidebar').count()) > 0) {
+        await page.waitForLoadState('domcontentloaded')
+        return page
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  throw new Error(
+    `Sidebar overlay page not found. Pages: ${context.pages().map((page) => page.url()).join(', ')}`
   )
 }
 
@@ -171,7 +213,8 @@ export async function launchApp(existingUserDataDir?: string): Promise<LaunchedA
     }
 
     await window.waitForLoadState('domcontentloaded')
-    await window.getByTestId('url-input').waitFor({ state: 'visible', timeout: 15_000 })
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('url-input').waitFor({ state: 'visible', timeout: 15_000 })
 
     return { window, userDataDir, close }
   } catch (error) {
@@ -181,7 +224,8 @@ export async function launchApp(existingUserDataDir?: string): Promise<LaunchedA
 }
 
 export async function navigateTo(window: Page, address: string): Promise<void> {
-  const input = window.getByTestId('url-input')
+  const toolbar = await getToolbarPage(window)
+  const input = toolbar.getByTestId('url-input')
   await input.fill(address)
   await input.press('Enter')
 }
@@ -195,8 +239,10 @@ export async function launchAppReady(existingUserDataDir?: string): Promise<Laun
 export async function navigateToCommitted(window: Page, address: string): Promise<void> {
   await navigateTo(window, address)
   await waitForAllPanes(window)
-  await expect(window.getByTestId('url-input')).toHaveValue(address, { timeout: 30_000 })
-  await expect(window.getByTestId(historyRowTestId(address))).toBeVisible({ timeout: 30_000 })
+  const toolbar = await getToolbarPage(window)
+  await expect(toolbar.getByTestId('url-input')).toHaveValue(address, { timeout: 30_000 })
+  const sidebar = await getSidebarPage(window)
+  await expect(sidebar.getByTestId(historyRowTestId(address))).toBeVisible({ timeout: 30_000 })
 }
 
 export async function clearHistoryViaApi(window: Page): Promise<void> {
@@ -265,14 +311,14 @@ export function sidebarToggleShortcut(): string {
 
 export async function waitForSidebarSettled(window: Page): Promise<void> {
   await window.waitForFunction(() => {
-    const sidebar = document.querySelector('[data-testid="sidebar"]')
-    return sidebar?.getAttribute('data-sidebar-transitioning') === 'false'
+    const state = document.querySelector('[data-testid="sidebar-state"]')
+    return state?.getAttribute('data-sidebar-transitioning') === 'false'
   })
 }
 
 export async function expectSidebarOpen(window: Page, open: boolean): Promise<void> {
   await waitForSidebarSettled(window)
-  await expect(window.getByTestId('sidebar')).toHaveAttribute(
+  await expect(window.getByTestId('sidebar-state')).toHaveAttribute(
     'data-sidebar-open',
     open ? 'true' : 'false'
   )

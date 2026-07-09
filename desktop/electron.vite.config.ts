@@ -17,7 +17,7 @@ export default defineConfig({
         input: {
           index: resolve('src/preload/index.ts'),
           'pane-preload': resolve('src/preload/pane-preload.ts'),
-          'popover-preload': resolve('src/preload/popover-preload.ts')
+          'panel-preload': resolve('src/preload/panel-preload.ts')
         }
       }
     }

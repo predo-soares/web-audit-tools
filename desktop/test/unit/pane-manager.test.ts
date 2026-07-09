@@ -14,7 +14,7 @@ function createMockEngine() {
   return {
     resolveClickPoint: vi.fn<
       () => Promise<
-        | { x: number; y: number }
+        | { dispatched: true }
         | { handled: true }
         | { skipDispatch: true; navigateTo: string }
         | null
@@ -62,7 +62,7 @@ function createPaneManagerWithEngines() {
 describe('PaneManager syncClick stale guards', () => {
   it('drops a resolved click when the target engine changes before dispatch', async () => {
     const { paneManager, ipad, desktop } = createPaneManagerWithEngines()
-    const deferred = createDeferred<{ x: number; y: number } | null>()
+    const deferred = createDeferred<{ dispatched: true } | null>()
     ipad.resolveClickPoint.mockReturnValue(deferred.promise)
     desktop.resolveClickPoint.mockResolvedValue(null)
 
@@ -72,7 +72,7 @@ describe('PaneManager syncClick stale guards', () => {
     ;(paneManager as any).engines.set('ipad', replacementIpad)
     ;(paneManager as any).bumpPaneInteractionEpoch('ipad')
 
-    deferred.resolve({ x: 40, y: 80 })
+    deferred.resolve({ dispatched: true })
     await sync
 
     expect(ipad.dispatchClick).not.toHaveBeenCalled()
@@ -81,7 +81,7 @@ describe('PaneManager syncClick stale guards', () => {
 
   it('drops a resolved click when the target document changes before dispatch', async () => {
     const { paneManager, ipad, desktop } = createPaneManagerWithEngines()
-    const deferred = createDeferred<{ x: number; y: number } | null>()
+    const deferred = createDeferred<{ dispatched: true } | null>()
     ipad.resolveClickPoint.mockReturnValue(deferred.promise)
     desktop.resolveClickPoint.mockResolvedValue(null)
 
@@ -89,7 +89,7 @@ describe('PaneManager syncClick stale guards', () => {
 
     ;(paneManager as any).bumpPaneInteractionEpoch('ipad')
 
-    deferred.resolve({ x: 120, y: 240 })
+    deferred.resolve({ dispatched: true })
     await sync
 
     expect(ipad.dispatchClick).not.toHaveBeenCalled()
@@ -97,12 +97,12 @@ describe('PaneManager syncClick stale guards', () => {
 
   it('keeps normal click replay when the target engine and document stay stable', async () => {
     const { paneManager, ipad, desktop } = createPaneManagerWithEngines()
-    ipad.resolveClickPoint.mockResolvedValue({ x: 10, y: 20 })
+    ipad.resolveClickPoint.mockResolvedValue({ dispatched: true })
     desktop.resolveClickPoint.mockResolvedValue(null)
 
     await paneManager.syncClick('iphone', createFingerprint())
 
-    expect(ipad.dispatchClick).toHaveBeenCalledWith(10, 20)
+    expect(ipad.resolveClickPoint).toHaveBeenCalled()
   })
 
   it('suppresses a click echo that fires while the target click is being resolved', async () => {
@@ -234,6 +234,42 @@ describe('PaneManager scroll sync', () => {
     expect(iphone.syncScroll).not.toHaveBeenCalled()
     expect(ipad.syncScroll).not.toHaveBeenCalled()
     expect(desktop.syncScroll).not.toHaveBeenCalled()
+  })
+
+  it('does not broadcast source-pane scroll while a mirrored click is in flight', async () => {
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithEngines()
+    const deferred = createDeferred<{ dispatched: true } | null>()
+    ipad.resolveClickPoint.mockReturnValue(deferred.promise)
+    desktop.resolveClickPoint.mockResolvedValue(null)
+
+    const sync = paneManager.syncClick('iphone', createFingerprint())
+    await paneManager.syncScroll('iphone', 0.5, false)
+
+    expect(ipad.syncScroll).not.toHaveBeenCalled()
+    expect(desktop.syncScroll).not.toHaveBeenCalled()
+
+    deferred.resolve({ dispatched: true })
+    await sync
+    expect(ipad.resolveClickPoint).toHaveBeenCalled()
+  })
+
+  it('skips mirrored navigation links so only the source pane navigates', async () => {
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithEngines()
+    ipad.resolveClickPoint.mockResolvedValue({
+      skipDispatch: true,
+      navigateTo: 'http://127.0.0.1:4173/semantic-destination'
+    })
+    desktop.resolveClickPoint.mockResolvedValue({
+      skipDispatch: true,
+      navigateTo: 'http://127.0.0.1:4173/semantic-destination'
+    })
+
+    await paneManager.syncClick('iphone', createFingerprint())
+
+    expect(ipad.navigate).not.toHaveBeenCalled()
+    expect(desktop.navigate).not.toHaveBeenCalled()
+    expect(ipad.dispatchClick).not.toHaveBeenCalled()
+    expect(desktop.dispatchClick).not.toHaveBeenCalled()
   })
 })
 

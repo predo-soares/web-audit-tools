@@ -3,6 +3,8 @@ import { rmSync } from 'fs'
 import {
   evaluateInPane,
   fixtureUrl,
+  getSidebarPage,
+  getToolbarPage,
   launchApp,
   navigateTo,
   waitForAllPanes
@@ -18,15 +20,17 @@ test('saving a project persists it and clicking navigates all panes', async ({ f
     await navigateTo(window, firstUrl)
     await waitForAllPanes(window)
 
-    await expect(window.getByTestId('save-project')).toBeEnabled()
-    await window.getByTestId('save-project').click()
+    const toolbar = await getToolbarPage(window)
+    await expect(toolbar.getByTestId('save-project')).toBeEnabled()
+    await toolbar.getByTestId('save-project').click()
 
-    await expect(window.locator('[data-testid^="project-row-"]').getByText(firstUrl)).toBeVisible()
+    const sidebar = await getSidebarPage(window)
+    await expect(sidebar.locator('[data-testid^="project-row-"]').getByText(firstUrl)).toBeVisible()
 
     await navigateTo(window, secondUrl)
     await waitForAllPanes(window)
 
-    await window.locator('[data-testid^="project-row-"]').getByText(firstUrl).click()
+    await sidebar.locator('[data-testid^="project-row-"]').getByText(firstUrl).click()
     await waitForAllPanes(window)
 
     for (const paneId of ['iphone', 'ipad', 'desktop'] as const) {
@@ -46,14 +50,17 @@ test('projects survive app restart', async ({ fixturePort }) => {
     await navigateTo(firstLaunch.window, firstUrl)
     await waitForAllPanes(firstLaunch.window)
 
-    await firstLaunch.window.getByTestId('save-project').click()
-    await expect(firstLaunch.window.locator('[data-testid^="project-row-"]').getByText(firstUrl)).toBeVisible()
+    const firstToolbar = await getToolbarPage(firstLaunch.window)
+    await firstToolbar.getByTestId('save-project').click()
+    const firstSidebar = await getSidebarPage(firstLaunch.window)
+    await expect(firstSidebar.locator('[data-testid^="project-row-"]').getByText(firstUrl)).toBeVisible()
 
     await firstLaunch.close({ deleteUserData: false })
 
     const secondLaunch = await launchApp(firstLaunch.userDataDir)
     try {
-      await expect(secondLaunch.window.locator('[data-testid^="project-row-"]').getByText(firstUrl)).toBeVisible({
+      const secondSidebar = await getSidebarPage(secondLaunch.window)
+      await expect(secondSidebar.locator('[data-testid^="project-row-"]').getByText(firstUrl)).toBeVisible({
         timeout: 15_000
       })
     } finally {
@@ -76,12 +83,14 @@ test('save uses last committed page while navigation is loading', async ({ fixtu
     await navigateTo(window, firstUrl)
     await waitForAllPanes(window)
 
-    await window.getByTestId('url-input').fill(secondUrl)
-    await window.getByTestId('url-submit').click()
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('url-input').fill(secondUrl)
+    await toolbar.getByTestId('url-submit').click()
 
-    await window.getByTestId('save-project').click()
+    await toolbar.getByTestId('save-project').click()
 
-    await expect(window.locator('[data-testid^="project-row-"]').getByText(firstUrl)).toBeVisible()
+    const sidebar = await getSidebarPage(window)
+    await expect(sidebar.locator('[data-testid^="project-row-"]').getByText(firstUrl)).toBeVisible()
     await waitForAllPanes(window)
   } finally {
     await close()
@@ -97,8 +106,10 @@ test('save-project toggles the current project and keeps only one saved row per 
     await navigateTo(window, url)
     await waitForAllPanes(window)
 
-    const saveButton = window.getByTestId('save-project')
-    const projectRows = window.locator('[data-testid^="project-row-"]')
+    const toolbar = await getToolbarPage(window)
+    const saveButton = toolbar.getByTestId('save-project')
+    const sidebar = await getSidebarPage(window)
+    const projectRows = sidebar.locator('[data-testid^="project-row-"]')
 
     await saveButton.click()
     await expect(projectRows).toHaveCount(1)

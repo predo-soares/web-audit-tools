@@ -1,5 +1,6 @@
-import { Star } from 'lucide-react'
+import { StarIcon } from '@hugeicons/core-free-icons'
 import { buttonVariants } from '@renderer/components/ui/button'
+import { Icon } from '@renderer/components/ui/icon'
 import { cn } from '@renderer/lib/utils'
 
 interface SaveProjectButtonProps {
@@ -23,7 +24,7 @@ export function SaveProjectButton({
       data-testid="save-project"
       className={cn(
         buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
-        'hover:bg-transparent active:bg-transparent aria-pressed:bg-transparent',
+        'hover:bg-transparent active:bg-transparent',
         isSaved ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
         className
       )}
@@ -32,7 +33,11 @@ export function SaveProjectButton({
       disabled={disabled}
       onClick={() => onSave(suggestedName)}
     >
-      <Star aria-hidden="true" className={cn('size-4 transition-colors', isSaved && 'fill-current')} />
+      <Icon
+        aria-hidden
+        icon={StarIcon}
+        className={cn('size-4 transition-colors', isSaved && '[&_svg]:fill-current')}
+      />
     </button>
   )
 }

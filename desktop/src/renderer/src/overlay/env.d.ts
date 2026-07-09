@@ -1,8 +1,8 @@
-import type { PopoverOverlayApi } from '../../preload/popover-preload'
+import type { PanelOverlayApi } from '../../preload/panel-preload'
 
 declare global {
   interface Window {
-    popoverApi: PopoverOverlayApi
+    panelApi: PanelOverlayApi
   }
 }
 

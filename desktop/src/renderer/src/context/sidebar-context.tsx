@@ -3,14 +3,11 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useRef,
   useState,
   type ReactNode
 } from 'react'
-import {
-  SIDEBAR_STORAGE_KEY,
-  SIDEBAR_TRANSITION_MS
-} from '../../../shared/sidebar'
+import { SIDEBAR_STORAGE_KEY, SIDEBAR_WIDTH_PX } from '../../../shared/sidebar'
+import { usePanel } from '@renderer/hooks/use-panel'
 
 export const LAYOUT_SETTLED_EVENT = 'audit-screens:layout-settled'
 
@@ -33,54 +30,75 @@ const SidebarContext = createContext<SidebarContextValue | null>(null)
 export function SidebarProvider({ children }: { children: ReactNode }): React.JSX.Element {
   const [isOpen, setIsOpen] = useState(readStoredSidebarOpen)
   const [isTransitioning, setIsTransitioning] = useState(false)
-  const sidebarRef = useRef<HTMLElement | null>(null)
-  const toggleButtonRef = useRef<HTMLButtonElement | null>(null)
-  const transitionTimeoutRef = useRef<number | null>(null)
 
   const persistOpen = useCallback((open: boolean) => {
     window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(open))
   }, [])
 
-  const finishTransition = useCallback(() => {
-    setIsTransitioning(false)
-    void window.api.setPanesVisible(true)
-    window.dispatchEvent(new Event(LAYOUT_SETTLED_EVENT))
-  }, [])
+  usePanel('sidebar-left', {
+    mode: 'docked',
+    open: isOpen,
+    edge: 'left',
+    width: SIDEBAR_WIDTH_PX
+  })
 
-  const startTransition = useCallback(
-    (nextOpen: boolean) => {
-      if (transitionTimeoutRef.current !== null) {
-        window.clearTimeout(transitionTimeoutRef.current)
-        transitionTimeoutRef.current = null
-      }
+  useEffect(() => {
+    const unsubscribeTransition = window.api.onPanelTransition((state) => {
+      if (state.panelId !== 'sidebar-left') return
+      setIsTransitioning(state.transitioning)
+    })
+    const unsubscribeSettled = window.api.onPanelLayoutSettled((panelId) => {
+      if (panelId !== 'sidebar-left') return
+      setIsTransitioning(false)
+      window.dispatchEvent(new Event(LAYOUT_SETTLED_EVENT))
+    })
+    const unsubscribeClosed = window.api.onPanelClosed((panelId) => {
+      if (panelId !== 'sidebar-left') return
+      setIsOpen(false)
+      persistOpen(false)
+    })
+    const unsubscribeToggle = window.api.onPanelToggleSidebar(() => {
+      setIsOpen((current) => {
+        const next = !current
+        if (!next) {
+          setIsTransitioning(true)
+        }
+        persistOpen(next)
+        return next
+      })
+    })
 
-      if (!nextOpen && sidebarRef.current?.contains(document.activeElement)) {
-        toggleButtonRef.current?.focus()
-      }
-
-      setIsTransitioning(true)
-      void window.api.setPanesVisible(false)
-      setIsOpen(nextOpen)
-      persistOpen(nextOpen)
-
-      transitionTimeoutRef.current = window.setTimeout(() => {
-        transitionTimeoutRef.current = null
-        finishTransition()
-      }, SIDEBAR_TRANSITION_MS)
-    },
-    [finishTransition, persistOpen]
-  )
+    return () => {
+      unsubscribeTransition()
+      unsubscribeSettled()
+      unsubscribeClosed()
+      unsubscribeToggle()
+    }
+  }, [persistOpen])
 
   const toggle = useCallback(() => {
-    startTransition(!isOpen)
-  }, [isOpen, startTransition])
+    setIsOpen((current) => {
+      const next = !current
+      if (!next) {
+        setIsTransitioning(true)
+      }
+      persistOpen(next)
+      return next
+    })
+  }, [persistOpen])
 
   const setOpen = useCallback(
     (open: boolean) => {
-      if (open === isOpen) return
-      startTransition(open)
+      setIsOpen((current) => {
+        if (current === open) return current
+        if (!open) {
+          setIsTransitioning(true)
+        }
+        persistOpen(open)
+        return open
+      })
     },
-    [isOpen, startTransition]
+    [persistOpen]
   )
 
   useEffect(() => {
@@ -94,14 +112,6 @@ export function SidebarProvider({ children }: { children: ReactNode }): React.JS
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [toggle])
 
-  useEffect(() => {
-    return () => {
-      if (transitionTimeoutRef.current !== null) {
-        window.clearTimeout(transitionTimeoutRef.current)
-      }
-    }
-  }, [])
-
   return (
     <SidebarContext.Provider
       value={{
@@ -111,32 +121,22 @@ export function SidebarProvider({ children }: { children: ReactNode }): React.JS
         setOpen
       }}
     >
-      <SidebarInternalsContext.Provider value={{ sidebarRef, toggleButtonRef }}>
+      <div
+        data-testid="sidebar-state"
+        data-sidebar-open={isOpen ? 'true' : 'false'}
+        data-sidebar-transitioning={isTransitioning ? 'true' : 'false'}
+        className="contents"
+      >
         {children}
-      </SidebarInternalsContext.Provider>
+      </div>
     </SidebarContext.Provider>
   )
 }
-
-interface SidebarInternals {
-  sidebarRef: React.RefObject<HTMLElement | null>
-  toggleButtonRef: React.RefObject<HTMLButtonElement | null>
-}
-
-const SidebarInternalsContext = createContext<SidebarInternals | null>(null)
 
 export function useSidebar(): SidebarContextValue {
   const context = useContext(SidebarContext)
   if (!context) {
     throw new Error('useSidebar must be used within SidebarProvider')
-  }
-  return context
-}
-
-export function useSidebarInternals(): SidebarInternals {
-  const context = useContext(SidebarInternalsContext)
-  if (!context) {
-    throw new Error('useSidebarInternals must be used within SidebarProvider')
   }
   return context
 }

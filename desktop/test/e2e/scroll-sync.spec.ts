@@ -2,6 +2,7 @@ import { test, expect } from './fixtures'
 import {
   evaluateInPane,
   fixtureUrl,
+  getToolbarPage,
   launchApp,
   navigateTo,
   waitForAllPanes
@@ -46,7 +47,8 @@ test('toggling scroll sync off and on changes scroll coupling', async ({ fixture
     await navigateTo(window, fixtureUrl(fixturePort, '/long-scroll'))
     await waitForAllPanes(window)
 
-    await window.getByTestId('sync-toggle').click()
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('sync-toggle').click()
 
     await evaluateInPane(
       window,
@@ -61,7 +63,8 @@ test('toggling scroll sync off and on changes scroll coupling', async ({ fixture
     const ipadRatioOff = await evaluateInPane<number>(window, 'ipad', `window.reportScrollRatio()`)
     expect(ipadRatioOff).toBeLessThan(0.05)
 
-    await window.getByTestId('sync-toggle').click()
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('sync-toggle').click()
 
     await evaluateInPane(
       window,

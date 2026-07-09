@@ -1,4 +1,4 @@
-import { DEVICE_PRESETS } from './device-presets'
+import { DEVICE_PRESETS, PANE_IDS } from './device-presets'
 import type { PaneId } from './types'
 
 export const DEFAULT_ZOOM = 0.75
@@ -6,6 +6,8 @@ export const MIN_ZOOM = 0.1
 export const MAX_ZOOM = 1.5
 export const ZOOM_STEP = 0.05
 export const CANVAS_GAP = 32
+export const CANVAS_PADDING_X = 64
+export const CANVAS_PADDING_Y = 48
 
 interface MockupChrome {
   bezelX: number
@@ -84,5 +86,23 @@ export function getScaledScreenCornerRadius(paneId: PaneId, zoom: number): numbe
 
 export function clampZoom(zoom: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom))
+}
+
+export function getCanvasContentSize(): { width: number; height: number } {
+  const dimensions = PANE_IDS.map((paneId) => getMockupDimensions(paneId))
+  const width =
+    dimensions.reduce((sum, dimension) => sum + dimension.frameWidth, 0) +
+    CANVAS_GAP * (PANE_IDS.length - 1)
+  const height = Math.max(...dimensions.map((dimension) => dimension.frameHeight))
+
+  return { width, height }
+}
+
+export function computeFitZoom(viewportWidth: number, viewportHeight: number): number {
+  const { width, height } = getCanvasContentSize()
+  const zoomX = (viewportWidth - CANVAS_PADDING_X) / width
+  const zoomY = (viewportHeight - CANVAS_PADDING_Y) / height
+
+  return clampZoom(Math.min(zoomX, zoomY))
 }
 

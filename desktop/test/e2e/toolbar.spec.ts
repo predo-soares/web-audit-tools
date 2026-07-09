@@ -3,6 +3,7 @@ import {
   evaluateInPane,
   fixtureUrl,
   getOverlayPage,
+  getToolbarPage,
   launchApp,
   navigateTo,
   waitForPaneElement
@@ -12,21 +13,18 @@ test('toolbar menus stay non-modal and keep the app visible', async () => {
   const { window, close } = await launchApp()
 
   try {
-    await window.getByTestId('zoom-combobox-trigger').click()
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('zoom-combobox-trigger').click()
     const overlay = await getOverlayPage(window)
     await expect(overlay.getByTestId('toolbar-custom-popover').getByText('100%')).toBeVisible()
-    await expect(window.getByTestId('url-input')).toBeVisible()
+    await expect(toolbar.getByTestId('url-input')).toBeVisible()
 
     await window.keyboard.press('Escape')
     await expect(overlay.getByTestId('toolbar-custom-popover')).toBeHidden()
 
-    await window.getByTestId('theme-preferences-trigger').click()
-    await expect(overlay.getByTestId('toolbar-custom-popover').getByText('Theme')).toBeVisible()
-    await expect(overlay.getByTestId('toolbar-custom-popover').getByText('System')).toBeVisible()
-    await expect(window.getByTestId('url-input')).toBeVisible()
-
-    await overlay.getByTestId('toolbar-custom-popover').getByText('Dark').click()
-    await expect(overlay.getByTestId('toolbar-custom-popover')).toBeHidden()
+    const themeToggle = toolbar.getByTestId('theme-toggle')
+    await themeToggle.click()
+    await themeToggle.click()
     await expect(
       evaluateInPane<boolean>(
         window,
@@ -46,8 +44,9 @@ test('toolbar back and forward navigate the active pane history', async ({ fixtu
     await navigateTo(window, fixtureUrl(fixturePort, '/flow-a'))
     await waitForPaneElement(window, 'iphone', 'flow-a')
 
-    await expect(window.getByTestId('toolbar-back')).toBeDisabled()
-    await expect(window.getByTestId('toolbar-forward')).toBeDisabled()
+    const toolbar = await getToolbarPage(window)
+    await expect(toolbar.getByTestId('toolbar-back')).toBeDisabled()
+    await expect(toolbar.getByTestId('toolbar-forward')).toBeDisabled()
 
     await evaluateInPane(
       window,
@@ -55,18 +54,18 @@ test('toolbar back and forward navigate the active pane history', async ({ fixtu
       `document.getElementById('flow-link')?.click()`
     )
     await waitForPaneElement(window, 'iphone', 'flow-b')
-    await expect(window.getByTestId('url-input')).toHaveValue(/\/flow-b/)
-    await expect(window.getByTestId('toolbar-back')).toBeEnabled()
-    await expect(window.getByTestId('toolbar-forward')).toBeDisabled()
+    await expect(toolbar.getByTestId('url-input')).toHaveValue(/\/flow-b/)
+    await expect(toolbar.getByTestId('toolbar-back')).toBeEnabled()
+    await expect(toolbar.getByTestId('toolbar-forward')).toBeDisabled()
 
-    await window.getByTestId('toolbar-back').click()
+    await toolbar.getByTestId('toolbar-back').click()
     await waitForPaneElement(window, 'iphone', 'flow-a')
-    await expect(window.getByTestId('url-input')).toHaveValue(/\/flow-a/)
-    await expect(window.getByTestId('toolbar-forward')).toBeEnabled()
+    await expect(toolbar.getByTestId('url-input')).toHaveValue(/\/flow-a/)
+    await expect(toolbar.getByTestId('toolbar-forward')).toBeEnabled()
 
-    await window.getByTestId('toolbar-forward').click()
+    await toolbar.getByTestId('toolbar-forward').click()
     await waitForPaneElement(window, 'iphone', 'flow-b')
-    await expect(window.getByTestId('url-input')).toHaveValue(/\/flow-b/)
+    await expect(toolbar.getByTestId('url-input')).toHaveValue(/\/flow-b/)
   } finally {
     await close()
   }
@@ -88,7 +87,8 @@ test('toolbar back keyboard shortcut navigates the active pane', async ({ fixtur
 
     await window.keyboard.press('Meta+[')
     await waitForPaneElement(window, 'iphone', 'flow-a')
-    await expect(window.getByTestId('url-input')).toHaveValue(/\/flow-a/)
+    const toolbar = await getToolbarPage(window)
+    await expect(toolbar.getByTestId('url-input')).toHaveValue(/\/flow-a/)
   } finally {
     await close()
   }

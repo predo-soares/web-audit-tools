@@ -5,6 +5,7 @@ import {
   formatSyncTraceForDiag,
   getMirrorFailureLogs,
   getSyncTraceLogs,
+  getToolbarPage,
   launchApp,
   navigateTo,
   waitForAllPanes
@@ -26,7 +27,10 @@ test('diag: link navigation sync', async ({ fixturePort }) => {
     await waitForAllPanes(window)
     // sync starts enabled; ensure it is on (same as real test after second toggle)
     const enabled = await window.evaluate(() => window.api.getSyncEnabled())
-    if (!enabled) await window.getByTestId('sync-toggle').click()
+    if (!enabled) {
+      const toolbar = await getToolbarPage(window)
+      await toolbar.getByTestId('sync-toggle').click()
+    }
     await evaluateInPane(window, 'iphone', `document.getElementById('semantic-link')?.click()`)
     await window.waitForTimeout(800)
     await dumpDiagnostics(window, 'link navigation (sync on)')

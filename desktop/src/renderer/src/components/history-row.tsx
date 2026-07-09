@@ -1,4 +1,5 @@
-import { Globe, MoreHorizontal, Trash2 } from 'lucide-react'
+import { Delete02Icon, Globe02Icon, MoreHorizontalIcon } from '@hugeicons/core-free-icons'
+import { Icon } from '@renderer/components/ui/icon'
 import { useState } from 'react'
 import type { HistoryEntry } from '../../../shared/history'
 import { suggestProjectName } from '../../../shared/project'
@@ -8,7 +9,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@renderer/components/ui/dropdown-menu'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip'
 import { cn } from '@renderer/lib/utils'
 
 interface HistoryRowProps {
@@ -42,44 +42,36 @@ export function HistoryRow({
         !isActive && 'hover:bg-white/10 focus-within:bg-white/10'
       )}
     >
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <button
-              ref={rowRef}
-              type="button"
-              data-testid={historyRowTestId(entry.url)}
-              data-history-active={isActive ? 'true' : 'false'}
-              className={cn(
-                'flex min-w-0 flex-1 items-start gap-2 rounded-md px-2 py-2 text-left transition-colors focus-visible:outline-none'
-              )}
-              onClick={() => onActivate(entry)}
-            >
-              {entry.faviconUrl && !faviconFailed ? (
-                <img
-                  src={entry.faviconUrl}
-                  alt=""
-                  aria-hidden="true"
-                  className="mt-0.5 size-4 shrink-0 rounded-sm"
-                  onError={() => setFaviconFailed(true)}
-                />
-              ) : (
-                <Globe
-                  aria-hidden="true"
-                  className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                />
-              )}
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">{title}</span>
-                <span className="block truncate text-xs text-muted-foreground">{entry.url}</span>
-              </span>
-            </button>
-          }
-        />
-        <TooltipContent side="bottom" align="start" sideOffset={8} className="max-w-sm break-all">
-          <div className="text-background/80  truncate">{entry.url}</div>
-        </TooltipContent>
-      </Tooltip>
+      <button
+        ref={rowRef}
+        type="button"
+        data-testid={historyRowTestId(entry.url)}
+        data-history-active={isActive ? 'true' : 'false'}
+        className={cn(
+          'flex min-w-0 flex-1 items-start gap-2 rounded-md px-2 py-2 text-left transition-colors focus-visible:outline-none'
+        )}
+        onClick={() => onActivate(entry)}
+      >
+        {entry.faviconUrl && !faviconFailed ? (
+          <img
+            src={entry.faviconUrl}
+            alt=""
+            aria-hidden="true"
+            className="mt-0.5 size-4 shrink-0 rounded-sm"
+            onError={() => setFaviconFailed(true)}
+          />
+        ) : (
+          <Icon
+            aria-hidden
+            icon={Globe02Icon}
+            className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+          />
+        )}
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium">{title}</span>
+          <span className="block truncate text-xs text-muted-foreground">{entry.url}</span>
+        </span>
+      </button>
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger
           render={
@@ -95,7 +87,7 @@ export function HistoryRow({
               )}
               onClick={(event) => event.stopPropagation()}
             >
-              <MoreHorizontal aria-hidden="true" className="size-4" />
+              <Icon aria-hidden icon={MoreHorizontalIcon} className="size-4" />
             </button>
           }
         />
@@ -105,7 +97,7 @@ export function HistoryRow({
             data-testid={`${historyRowTestId(entry.url)}-delete`}
             onClick={() => onDelete(entry)}
           >
-            <Trash2 />
+            <Icon icon={Delete02Icon} />
             Delete
           </DropdownMenuItem>
         </DropdownMenuContent>

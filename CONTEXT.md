@@ -14,11 +14,15 @@ A macOS desktop tool for previewing a website across multiple device viewports s
 - **Echo ledger** — the single record of "this pane is about to report an event we caused" (`createEchoLedger` in `desktop/src/main/echo-ledger.ts`). Mirrored clicks and submits are trusted native input, so target panes re-report them; broadcast scrolls likewise come back as scroll reports. Sync paths call `expect(pane, kind)` before applying a mirrored action and `isEcho(pane, kind)` on every incoming event; per-kind semantics (1s TTL for click/submit so a mirrored action that never fired can't swallow a later real one, one-shot flags for scroll) are implementation, not interface.
 - **Interactive ancestor** — the nearest self-or-ancestor element that is actually interactive (`a`, `button`, form controls, interactive ARIA roles, tabbable). Interactions are fingerprinted against it, not the raw event target — clicking an icon inside a button means the button.
 - **EngineView** — the abstraction a pane renders through. First and only backend today: Electron `WebContentsView` (Chromium). Designed so future backends (native WKWebView overlay, streamed Playwright WebKit/Firefox) plug in without rearchitecting.
-- **Native popover** — floating UI that must paint above device panes. Rendered in a dedicated overlay view stacked above pane views inside the main window (not DOM/CSS in the shell renderer — device panes are OS-level surfaces that ignore z-index).
-- **Popover panel** — the typed content inside a native popover (e.g. zoom picker, theme picker), identified by `panelId`.
+- **Panel** — native translucent UI surface (`WebContentsView`) that paints above device panes. Managed by `PanelManager`; one lazy view per visible panel with tight bounds. Default glass styling matches the canvas. Modes: `anchored` (toolbar popovers) or `docked` (sidebar).
+- **Panel view** — the React content inside a Panel (e.g. zoom picker, theme picker, sidebar), registered by `panelId`.
 - **Active pane** — the device pane the toolbar reflects: last to navigate in-page or last to receive focus. URL bar, title, and favicon track the active pane. Toolbar back/forward operate on its per-pane browser history stack only. When no pane is active yet (e.g. after URL-bar navigation only), **desktop** is the fallback target.
 - **Pane navigation** — back/forward within one device pane's Chromium session history (`webContents.goBack()` / `goForward()`). Distinct from **visit history** (sidebar log of committed URLs).
 - **Visit history** — sidebar list of URLs the user has loaded (`HistoryStore`). Choosing an entry navigates all panes to that URL; it is not the same as browser back/forward.
+- **Agent handoff** — moving what the human is currently observing in the app into a coding agent's working context. The handoff is the agentic product job; multi-device preview is the surface where the observation happens.
+- **Observed context** — the current evidence available from the device panes for an agent handoff: visible page state, pane metadata, and runtime signals such as console or network failures.
+- **Snapshot** — a user-initiated moment-in-time capture of observed context. A snapshot is one way to perform an agent handoff; live agent access to observed context does not have to create a snapshot.
+- **Capture bundle** — a persisted snapshot artifact intended for agent consumption. Its entrypoint is an agent-readable context document, with supporting assets such as pane screenshots and raw evidence files.
 
 ## Architecture (decided — see docs/adr/)
 

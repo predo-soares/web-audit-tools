@@ -1,4 +1,5 @@
-import { session, type BrowserWindow, type WebContents } from 'electron'
+import { dialog, session, type BrowserWindow, type WebContents } from 'electron'
+import { writeFile } from 'fs/promises'
 import { DEVICE_PRESETS, PANE_IDS } from '../shared/device-presets'
 import type { ElementFingerprint } from '../shared/element-mirror'
 import type { PaneId, PaneMount, PaneNavigationState, ThemePreference } from '../shared/types'
@@ -9,6 +10,20 @@ import { summarizeFingerprint, syncTrace, getSyncTraceLogs } from './sync-trace'
 import { getPanePreloadPath, WebContentsViewEngine } from './web-contents-view-engine'
 
 const SHARED_PARTITION = 'persist:audit-screens-preview'
+
+export interface ScreenshotResult {
+  saved: boolean
+  filePath?: string
+}
+
+function screenshotDefaultName(paneId: PaneId): string {
+  const slug = DEVICE_PRESETS[paneId].name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+  return `${slug}-${stamp}.png`
+}
 export interface NavigationHistoryHooks {
   onVisitCommitted?: (state: {
     url: string
@@ -45,12 +60,26 @@ export class PaneManager {
   private destroyed = false
   private readonly childViewStackListeners = new Set<() => void>()
   private historyHooks: NavigationHistoryHooks | null = null
+  private overlayBroadcast: ((channel: string, ...args: unknown[]) => void) | null = null
   private pendingVisitUrl: string | null = null
   private pendingVisitFailed = false
   private pendingVisitInPage = false
+  private activeClickMirrors = 0
+  private clickMirrorCooldownUntil = 0
 
   setHistoryHooks(hooks: NavigationHistoryHooks | null): void {
     this.historyHooks = hooks
+  }
+
+  setOverlayBroadcast(handler: (channel: string, ...args: unknown[]) => void): void {
+    this.overlayBroadcast = handler
+  }
+
+  private broadcastRendererEvent(channel: string, ...args: unknown[]): void {
+    const mainWindow = this.mainWindow
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
+    mainWindow.webContents.send(channel, ...args)
+    this.overlayBroadcast?.(channel, ...args)
   }
 
   onChildViewStackChanged(listener: () => void): () => void {
@@ -108,6 +137,45 @@ export class PaneManager {
     this.markPendingVisit(url, false)
     this.emitNavigationState()
     await Promise.all(PANE_IDS.map((paneId) => this.getEngine(paneId).navigate(url)))
+  }
+
+  stopLoadingAll(): void {
+    for (const paneId of PANE_IDS) {
+      this.pendingProgrammaticNavigation.delete(paneId)
+      this.pendingHistoryNavigation.delete(paneId)
+      this.getEngine(paneId).stop()
+    }
+  }
+
+  async savePaneScreenshot(
+    paneId: PaneId,
+    parentWindow: BrowserWindow
+  ): Promise<ScreenshotResult> {
+    await this.deviceReady
+
+    const { activePane } = this.tracker.getSnapshot()
+    if (activePane !== paneId) {
+      return { saved: false }
+    }
+
+    const trackedUrl = this.tracker.getPaneUrl(paneId)
+    if (!trackedUrl || trackedUrl === 'about:blank') {
+      return { saved: false }
+    }
+
+    const png = await this.getEngine(paneId).captureScreenshot()
+    const { canceled, filePath } = await dialog.showSaveDialog(parentWindow, {
+      title: 'Save screenshot',
+      defaultPath: screenshotDefaultName(paneId),
+      filters: [{ name: 'PNG Image', extensions: ['png'] }]
+    })
+
+    if (canceled || !filePath) {
+      return { saved: false }
+    }
+
+    await writeFile(filePath, png)
+    return { saved: true, filePath }
   }
 
   async reloadAll(): Promise<void> {
@@ -214,82 +282,85 @@ export class PaneManager {
       return
     }
 
-    await Promise.all(
-      PANE_IDS.map(async (targetId) => {
-        if (targetId === paneId) return
+    this.activeClickMirrors += 1
+    try {
+      await Promise.all(
+        PANE_IDS.map(async (targetId) => {
+          if (targetId === paneId) return
 
-        const engine = this.getEngine(targetId)
-        const epochBeforeResolution = this.getPaneInteractionEpoch(targetId)
+          const engine = this.getEngine(targetId)
+          const epochBeforeResolution = this.getPaneInteractionEpoch(targetId)
 
-        // Prevent the scrollIntoView inside resolveClickPoint from
-        // being broadcast as a real scroll to other panes.
-        this.echoLedger.expect(targetId, 'scroll')
+          // Prevent the scrollIntoView inside resolveClickPoint from
+          // being broadcast as a real scroll to other panes.
+          this.echoLedger.expect(targetId, 'scroll')
 
-        const clickExpectation = this.echoLedger.expect(targetId, 'click')
-        const resolution = await engine.resolveClickPoint(fingerprint)
-        const epochAfterResolution = this.getPaneInteractionEpoch(targetId)
-        const engineStale = engine !== this.engines.get(targetId)
-        const epochStale = epochBeforeResolution !== epochAfterResolution
+          const clickExpectation = this.echoLedger.expect(targetId, 'click')
+          const resolution = await engine.resolveClickPoint(fingerprint)
+          const epochAfterResolution = this.getPaneInteractionEpoch(targetId)
+          const engineStale = engine !== this.engines.get(targetId)
+          const epochStale = epochBeforeResolution !== epochAfterResolution
 
-        const isHandled = resolution !== null && 'handled' in resolution
-        const isLinkNav = resolution !== null && 'skipDispatch' in resolution
-        syncTrace('click:target-resolved', {
-          sourcePane: paneId,
-          targetPane: targetId,
-          epochBefore: epochBeforeResolution,
-          epochAfter: epochAfterResolution,
-          engineStale,
-          epochStale,
-          resolution: resolution
-            ? isHandled
-              ? { matched: true, handled: true }
-              : isLinkNav
-                ? { matched: true, skipDispatch: true }
-                : { matched: true, x: (resolution as { x: number; y: number }).x, y: (resolution as { x: number; y: number }).y }
-            : { matched: false }
-        })
+          const isHandled = resolution !== null && 'handled' in resolution
+          const isLinkNav = resolution !== null && 'skipDispatch' in resolution
+          const isDispatched = resolution !== null && 'dispatched' in resolution
+          syncTrace('click:target-resolved', {
+            sourcePane: paneId,
+            targetPane: targetId,
+            epochBefore: epochBeforeResolution,
+            epochAfter: epochAfterResolution,
+            engineStale,
+            epochStale,
+            resolution: resolution
+              ? isHandled
+                ? { matched: true, handled: true }
+                : isLinkNav
+                  ? { matched: true, skipDispatch: true }
+                  : isDispatched
+                    ? { matched: true, dispatched: true }
+                    : { matched: false }
+              : { matched: false }
+          })
 
-        if (!resolution) {
-          clickExpectation.revoke()
-          return
-        }
-        if (engineStale) {
-          clickExpectation.revoke()
-          syncTrace('click:skipped-stale-engine', { targetPane: targetId })
-          return
-        }
-        if (epochStale) {
-          clickExpectation.revoke()
-          syncTrace('click:skipped-stale-epoch', { targetPane: targetId, epochBefore: epochBeforeResolution, epochAfter: epochAfterResolution })
-          return
-        }
-
-        // Navigation links are synced by navigating the target pane to the
-        // destination URL directly. This keeps activePane on the source pane
-        // and prevents the target pane's browser history from diverging.
-        if (isLinkNav) {
-          const { navigateTo } = resolution as { skipDispatch: true; navigateTo: string }
-          syncTrace('click:link-nav', { targetPane: targetId, navigateTo })
-          clickExpectation.revoke()
-          if (!this.pendingProgrammaticNavigation.has(targetId)) {
-            this.pendingProgrammaticNavigation.add(targetId)
-            this.tracker.didNavigate(targetId, navigateTo, { inPage: false, isProgrammatic: true })
-            void this.getEngine(targetId).navigate(navigateTo)
+          if (!resolution) {
+            clickExpectation.revoke()
+            return
           }
-          return
-        }
+          if (engineStale) {
+            clickExpectation.revoke()
+            syncTrace('click:skipped-stale-engine', { targetPane: targetId })
+            return
+          }
+          if (epochStale) {
+            clickExpectation.revoke()
+            syncTrace('click:skipped-stale-epoch', { targetPane: targetId, epochBefore: epochBeforeResolution, epochAfter: epochAfterResolution })
+            return
+          }
 
-        if (isHandled) {
-          syncTrace('click:js-handled', { targetPane: targetId })
-          clickExpectation.revoke()
-          return
-        }
+          if (isLinkNav) {
+            syncTrace('click:link-skipped', { targetPane: targetId })
+            clickExpectation.revoke()
+            return
+          }
 
-        const coords = resolution as { x: number; y: number }
-        syncTrace('click:dispatching', { targetPane: targetId, x: coords.x, y: coords.y })
-        engine.dispatchClick(coords.x, coords.y)
-      })
-    )
+          if (isHandled) {
+            syncTrace('click:js-handled', { targetPane: targetId })
+            clickExpectation.revoke()
+            return
+          }
+
+          if (isDispatched) {
+            syncTrace('click:dispatching', { targetPane: targetId })
+            return
+          }
+        })
+      )
+    } finally {
+      this.activeClickMirrors -= 1
+      if (this.activeClickMirrors === 0) {
+        this.clickMirrorCooldownUntil = Date.now() + 250
+      }
+    }
   }
 
   async syncValue(sourcePaneId: PaneId, fingerprint: ElementFingerprint, value: string): Promise<void> {
@@ -391,6 +462,10 @@ export class PaneManager {
     // pending scroll-echo expectation for it.
     const isEcho = this.echoLedger.isEcho(paneId, 'scroll')
     if (programmatic || isEcho) return
+
+    // A source-pane scroll from an in-flight mirrored click must not move
+    // target panes before their replayed click lands.
+    if (this.activeClickMirrors > 0 || Date.now() < this.clickMirrorCooldownUntil) return
 
     const targets = PANE_IDS.filter((targetId) => targetId !== paneId)
     for (const targetId of targets) {
@@ -551,10 +626,7 @@ export class PaneManager {
 
   private setPaneLoading(paneId: PaneId, loading: boolean): void {
     this.loadingState.set(paneId, loading)
-    const mainWindow = this.mainWindow
-    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
-
-    mainWindow.webContents.send('pane:loading', {
+    this.broadcastRendererEvent('pane:loading', {
       paneId,
       loading
     })
@@ -584,23 +656,6 @@ export class PaneManager {
 
       this.markPendingVisit(url, inPage)
       this.emitNavigationState()
-
-      // Keep all panes at the same URL when a pane navigates via user action
-      // (link click, toolbar back/forward, history.back() in JS, etc.).
-      // In-page navigations (hash changes) are excluded — those are replayed
-      // via the normal click path.
-      if (!inPage && this.syncEnabled) {
-        for (const targetId of PANE_IDS) {
-          if (targetId === paneId) continue
-          // Skip panes already being navigated (from syncClick or syncSubmit).
-          if (this.pendingProgrammaticNavigation.has(targetId)) continue
-          // Skip panes already at the destination (e.g. after a synced submit).
-          if (this.tracker.getPaneUrl(targetId) === url) continue
-          this.pendingProgrammaticNavigation.add(targetId)
-          this.tracker.didNavigate(targetId, url, { inPage: false, isProgrammatic: true })
-          void this.getEngine(targetId).navigate(url)
-        }
-      }
     }
 
     webContents.on('did-navigate', (_event, url) => handleNavigation(url, false))
@@ -653,10 +708,7 @@ export class PaneManager {
   }
 
   private emitNavigationState(): void {
-    const mainWindow = this.mainWindow
-    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
-
-    mainWindow.webContents.send('pane:navigation', this.getNavigationState())
+    this.broadcastRendererEvent('pane:navigation', this.getNavigationState())
   }
 
   private markPendingVisit(url: string, inPage: boolean): void {

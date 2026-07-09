@@ -28,7 +28,6 @@ export interface PaneMount {
   logicalSize: Size
   cornerRadius: number
   zoom: number
-  canvasTop: number
 }
 
 export interface PaneLoadingState {

@@ -1,6 +1,7 @@
 import { Accordion as AccordionPrimitive } from '@base-ui/react/accordion'
 import { motion, useReducedMotion } from 'motion/react'
-import { ChevronDownIcon, ChevronUpIcon } from 'lucide-react'
+import { ArrowDown01Icon, ArrowUp01Icon } from '@hugeicons/core-free-icons'
+import { Icon } from '@renderer/components/ui/icon'
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 
 import { cn } from '@renderer/lib/utils'
@@ -39,19 +40,11 @@ function Accordion({ className, ...props }: AccordionPrimitive.Root.Props) {
 
 function AccordionItem({ className, ...props }: AccordionPrimitive.Item.Props) {
   return (
-    <AccordionPrimitive.Item
-      data-slot="accordion-item"
-      className={cn('not-last:border-b', className)}
-      {...props}
-    />
+    <AccordionPrimitive.Item data-slot="accordion-item" className={cn('', className)} {...props} />
   )
 }
 
-function AccordionTrigger({
-  className,
-  children,
-  ...props
-}: AccordionPrimitive.Trigger.Props) {
+function AccordionTrigger({ className, children, ...props }: AccordionPrimitive.Trigger.Props) {
   return (
     <AccordionPrimitive.Header className="flex">
       <AccordionPrimitive.Trigger
@@ -63,11 +56,13 @@ function AccordionTrigger({
         {...props}
       >
         {children}
-        <ChevronDownIcon
+        <Icon
+          icon={ArrowDown01Icon}
           data-slot="accordion-trigger-icon"
           className="pointer-events-none shrink-0 group-aria-expanded/accordion-trigger:hidden"
         />
-        <ChevronUpIcon
+        <Icon
+          icon={ArrowUp01Icon}
           data-slot="accordion-trigger-icon"
           className="pointer-events-none hidden shrink-0 group-aria-expanded/accordion-trigger:inline"
         />

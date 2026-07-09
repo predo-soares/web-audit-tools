@@ -5,11 +5,15 @@ import { cn } from '@renderer/lib/utils'
 import { useSidebar } from '@renderer/context/sidebar-context'
 import { usePaneBounds } from '@renderer/hooks/use-pane-bounds'
 import { usePreviewCanvas } from '@renderer/context/preview-canvas-context'
-import { Loader2 } from 'lucide-react'
+import { Loading03Icon, Camera01Icon } from '@hugeicons/core-free-icons'
+import { Icon } from '@renderer/components/ui/icon'
+import { Button } from '@renderer/components/ui/button'
+import { useCallback } from 'react'
 
 interface DevicePaneProps {
   paneId: PaneId
   active: boolean
+  isFocusedPane: boolean
   loading: boolean
 }
 
@@ -19,7 +23,12 @@ const FRAME_STYLES: Record<PaneId, string> = {
   desktop: 'rounded-xl shadow-lg shadow-black/30'
 }
 
-export function DevicePane({ paneId, active, loading }: DevicePaneProps): React.JSX.Element {
+export function DevicePane({
+  paneId,
+  active,
+  isFocusedPane,
+  loading
+}: DevicePaneProps): React.JSX.Element {
   const { zoom } = usePreviewCanvas()
   const { isTransitioning } = useSidebar()
   const profile = DEVICE_PRESETS[paneId]
@@ -27,6 +36,10 @@ export function DevicePane({ paneId, active, loading }: DevicePaneProps): React.
   const { chrome } = dimensions
   const cornerRadius = getScaledScreenCornerRadius(paneId, zoom)
   const setBoundsRef = usePaneBounds(paneId, cornerRadius, active)
+
+  const handleScreenshot = useCallback(() => {
+    void window.api.savePaneScreenshot(paneId)
+  }, [paneId])
 
   return (
     <div
@@ -38,17 +51,43 @@ export function DevicePane({ paneId, active, loading }: DevicePaneProps): React.
     >
       <div className="flex shrink-0 items-center justify-between gap-2 px-1">
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium">{profile.name}</p>
+          <div className="flex min-w-0 items-center gap-2">
+            <p className="truncate text-sm font-medium">{profile.name}</p>
+            {isFocusedPane ? (
+              <span
+                className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium tracking-wide text-primary uppercase"
+                data-testid={`pane-active-indicator-${paneId}`}
+              >
+                Active
+              </span>
+            ) : null}
+          </div>
           <p className="text-xs text-muted-foreground">
             {profile.width}×{profile.height} @ {profile.deviceScaleFactor}x
           </p>
         </div>
-        {loading ? (
-          <Loader2
-            className="size-4 shrink-0 animate-spin text-muted-foreground"
-            data-testid={`pane-loading-${paneId}`}
-          />
-        ) : null}
+        <div className="flex shrink-0 items-center gap-1">
+          {loading ? (
+            <Icon
+              icon={Loading03Icon}
+              className="size-4 shrink-0 animate-spin text-muted-foreground"
+              data-testid={`pane-loading-${paneId}`}
+            />
+          ) : null}
+          {isFocusedPane && active ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              data-testid={`pane-screenshot-${paneId}`}
+              aria-label="Save screenshot"
+              disabled={loading}
+              onClick={handleScreenshot}
+            >
+              <Icon icon={Camera01Icon} />
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       <div

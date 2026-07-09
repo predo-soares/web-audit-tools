@@ -14,7 +14,12 @@ export interface EngineView {
   syncScroll(ratio: number): Promise<void>
   resolveClickPoint(
     fingerprint: ElementFingerprint
-  ): Promise<{ x: number; y: number } | { handled: true } | { skipDispatch: true; navigateTo: string } | null>
+  ): Promise<
+    | { dispatched: true }
+    | { handled: true }
+    | { skipDispatch: true; navigateTo: string }
+    | null
+  >
   applyValue(fingerprint: ElementFingerprint, payload: ValueSyncPayload): Promise<void>
   submitForm(fingerprint: ElementFingerprint): Promise<void>
   getMirrorFailureLogs(): MirrorFailureLog[]
