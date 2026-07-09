@@ -68,7 +68,7 @@ export function UrlBar({
             src={faviconUrl}
             alt=""
             aria-hidden="true"
-            className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-4 -translate-y-1/2 rounded-sm"
+            className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 rounded-sm"
             onLoad={() => {
               console.debug('[favicon]', JSON.stringify({ action: 'url-bar:load', faviconUrl }))
             }}
@@ -84,7 +84,7 @@ export function UrlBar({
           <Icon
             aria-hidden
             icon={Globe02Icon}
-            className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-4 -translate-y-1/2 text-muted-foreground"
+            className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 text-muted-foreground"
           />
         )}
         <Input
@@ -114,14 +114,14 @@ export function UrlBar({
         <Button
           type="button"
           variant="ghost"
-          size="icon-sm"
+          size="icon-xs"
           data-testid={loading ? 'url-stop' : 'url-refresh'}
           aria-label={loading ? 'Stop loading' : 'Refresh'}
           className=" text-muted-foreground"
           onClick={() => void (loading ? onStop() : onRefresh())}
           disabled={disabled && !loading}
         >
-          <Icon icon={loading ? StopIcon : RefreshCw} />
+          <Icon icon={loading ? StopIcon : RefreshCw} size={14} />
         </Button>
       </div>
       <button type="submit" data-testid="url-submit" className="sr-only" disabled={disabled}>

@@ -23,7 +23,7 @@ export function SaveProjectButton({
       type="button"
       data-testid="save-project"
       className={cn(
-        buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
+        buttonVariants({ variant: 'ghost', size: 'icon-xs' }),
         'hover:bg-transparent active:bg-transparent',
         isSaved ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
         className
@@ -36,7 +36,7 @@ export function SaveProjectButton({
       <Icon
         aria-hidden
         icon={StarIcon}
-        className={cn('size-4 transition-colors', isSaved && '[&_svg]:fill-current')}
+        className={cn('size-3.5 transition-colors', isSaved && '[&_svg]:fill-current')}
       />
     </button>
   )

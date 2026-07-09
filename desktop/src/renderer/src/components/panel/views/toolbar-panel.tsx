@@ -303,14 +303,14 @@ export function ToolbarPanel(): React.JSX.Element {
           ref={toggleButtonRef}
           type="button"
           data-testid="sidebar-toggle"
-          className={cn(buttonVariants({ variant: 'ghost', size: 'icon-sm' }), 'ml-1')}
+          className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }), 'ml-1')}
           aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
           aria-expanded={sidebarOpen}
           aria-controls="sidebar"
           aria-keyshortcuts="Meta+B"
           onClick={toggleSidebar}
         >
-          <Icon icon={PanelLeftIcon} />
+          <Icon icon={PanelLeftIcon} size={14} />
         </button>
       </div>
       <div
@@ -327,24 +327,24 @@ export function ToolbarPanel(): React.JSX.Element {
           <button
             type="button"
             data-testid="toolbar-back"
-            className={cn(buttonVariants({ variant: 'ghost', size: 'icon-sm' }))}
+            className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }))}
             aria-label="Back"
             aria-keyshortcuts="Meta+["
             disabled={!canGoBack || navigating}
             onClick={() => void window.panelApi.goBack()}
           >
-            <Icon icon={ArrowLeft01Icon} />
+            <Icon icon={ArrowLeft01Icon} size={14} />
           </button>
           <button
             type="button"
             data-testid="toolbar-forward"
-            className={cn(buttonVariants({ variant: 'ghost', size: 'icon-sm' }))}
+            className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }))}
             aria-label="Forward"
             aria-keyshortcuts="Meta+]"
             disabled={!canGoForward || navigating}
             onClick={() => void window.panelApi.goForward()}
           >
-            <Icon icon={ArrowRight01Icon} />
+            <Icon icon={ArrowRight01Icon} size={14} />
           </button>
           <UrlBar
             value={url}
@@ -372,28 +372,28 @@ export function ToolbarPanel(): React.JSX.Element {
         <button
           ref={zoomTriggerRef}
           type="button"
-          className={cn(buttonVariants({ variant: 'ghost', size: 'icon-sm' }))}
+          className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }))}
           aria-label={`Zoom level ${zoomPercent}%`}
           data-testid="zoom-combobox-trigger"
           aria-expanded={isZoomOpen}
           onClick={toggleZoomPopover}
         >
-          <Icon icon={ZoomInAreaIcon} />
+          <Icon icon={ZoomInAreaIcon} size={14} />
         </button>
         <button
           type="button"
-          className={cn(buttonVariants({ variant: 'ghost', size: 'icon-sm' }))}
+          className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }))}
           data-testid="theme-toggle"
           aria-label={THEME_LABEL[themePreference]}
           onClick={toggleThemePreference}
         >
-          <Icon icon={THEME_ICON[themePreference]} />
+          <Icon icon={THEME_ICON[themePreference]} size={14} />
         </button>
         <button
           type="button"
           data-testid="diagnostics-toggle"
           className={cn(
-            buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
+            buttonVariants({ variant: 'ghost', size: 'icon-xs' }),
             'relative'
           )}
           aria-label={
@@ -408,7 +408,7 @@ export function ToolbarPanel(): React.JSX.Element {
           aria-keyshortcuts="Meta+Alt+J"
           onClick={toggleDiagnostics}
         >
-          <Icon icon={SourceCodeIcon} />
+          <Icon icon={SourceCodeIcon} size={14} />
           {showProblemBadge ? (
             <span
               data-testid="diagnostics-problem-badge"
@@ -421,14 +421,18 @@ export function ToolbarPanel(): React.JSX.Element {
         <button
           type="button"
           data-testid="sync-toggle"
-          className={buttonVariants({ variant: 'ghost', size: 'icon-sm' })}
+          className={buttonVariants({ variant: 'ghost', size: 'icon-xs' })}
           onClick={() => {
             void window.panelApi.setSyncEnabled(!syncEnabled).then(setSyncEnabled)
           }}
           aria-label={syncEnabled ? 'Disable interaction sync' : 'Enable interaction sync'}
           aria-pressed={syncEnabled}
         >
-          {syncEnabled ? <Icon icon={Link01Icon} /> : <Icon icon={Unlink01Icon} />}
+          {syncEnabled ? (
+            <Icon icon={Link01Icon} size={14} />
+          ) : (
+            <Icon icon={Unlink01Icon} size={14} />
+          )}
         </button>
       </div>
     </header>
