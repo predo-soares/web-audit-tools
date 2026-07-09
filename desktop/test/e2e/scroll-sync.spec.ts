@@ -63,7 +63,6 @@ test('toggling scroll sync off and on changes scroll coupling', async ({ fixture
     const ipadRatioOff = await evaluateInPane<number>(window, 'ipad', `window.reportScrollRatio()`)
     expect(ipadRatioOff).toBeLessThan(0.05)
 
-    const toolbar = await getToolbarPage(window)
     await toolbar.getByTestId('sync-toggle').click()
 
     await evaluateInPane(
