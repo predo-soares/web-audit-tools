@@ -48,13 +48,47 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
         <button id="emit-console-error" data-testid="emit-console-error" type="button">
           Emit console error
         </button>
+        <button id="emit-fetch-ok" data-testid="emit-fetch-ok" type="button">
+          Fetch 200
+        </button>
+        <button id="emit-fetch-404" data-testid="emit-fetch-404" type="button">
+          Fetch 404
+        </button>
+        <button id="emit-fetch-fail" data-testid="emit-fetch-fail" type="button">
+          Fetch load failure
+        </button>
         <script>
           document.getElementById('emit-console-error').addEventListener('click', function () {
             console.error('fixture-runtime-error', 'deliberate test error');
           });
+          document.getElementById('emit-fetch-ok').addEventListener('click', function () {
+            void fetch('/runtime-evidence/api/ok');
+          });
+          document.getElementById('emit-fetch-404').addEventListener('click', function () {
+            void fetch('/runtime-evidence/api/missing');
+          });
+          document.getElementById('emit-fetch-fail').addEventListener('click', function () {
+            void fetch('/runtime-evidence/api/fail');
+          });
         </script>
       </body></html>`
     )
+    return
+  }
+
+  if (pathname === '/runtime-evidence/api/ok') {
+    sendJson(res, { ok: true })
+    return
+  }
+
+  if (pathname === '/runtime-evidence/api/missing') {
+    res.writeHead(404, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ error: 'not found' }))
+    return
+  }
+
+  if (pathname === '/runtime-evidence/api/fail') {
+    req.socket.destroy()
     return
   }
 

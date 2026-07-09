@@ -15,8 +15,9 @@ import {
 } from '../shared/element-mirror'
 import { DEFAULT_ZOOM } from '../shared/mockup-layout'
 import { normalizeUrl } from '../shared/url'
-import type { ConsoleEvidenceEntry } from '../shared/runtime-evidence'
+import type { ConsoleEvidenceEntry, NetworkEvidenceEntry } from '../shared/runtime-evidence'
 import { enableConsoleEvidenceCapture } from './console-evidence-capture'
+import { enableNetworkEvidenceCapture } from './network-evidence-capture'
 import type { EngineView, ValueSyncPayload } from './engine-view'
 import { syncTrace } from './sync-trace'
 
@@ -66,8 +67,13 @@ export class WebContentsViewEngine implements EngineView {
   private mirrorFailureLogs: MirrorFailureLog[] = []
   private runtimeEvidencePush: ((entry: Omit<ConsoleEvidenceEntry, 'id' | 'timestamp'>) => void) | null =
     null
+  private runtimeNetworkPush:
+    | ((entry: Omit<NetworkEvidenceEntry, 'id' | 'timestamp' | 'failed'> &
+        Partial<Pick<NetworkEvidenceEntry, 'failed'>>) => void)
+    | null = null
   private disposeConsoleCapture: (() => void) | null = null
-  private consoleCapturePromise: Promise<void> | null = null
+  private disposeNetworkCapture: (() => void) | null = null
+  private runtimeCapturePromise: Promise<void> | null = null
 
   constructor(
     readonly paneId: PaneId,
@@ -89,7 +95,9 @@ export class WebContentsViewEngine implements EngineView {
       this.debuggerAttached = false
       this.disposeConsoleCapture?.()
       this.disposeConsoleCapture = null
-      this.consoleCapturePromise = null
+      this.disposeNetworkCapture?.()
+      this.disposeNetworkCapture = null
+      this.runtimeCapturePromise = null
       console.error(`[pane:${paneId}] debugger detached: ${reason}`)
     })
 
@@ -206,7 +214,7 @@ export class WebContentsViewEngine implements EngineView {
       throw error
     }
     await this.applyThemePreference()
-    void this.ensureConsoleCapture()
+    void this.ensureRuntimeEvidenceCapture()
     // Re-apply after every load: enableDeviceEmulation can be silently ignored
     // when the renderer is still initialising, so the initial call in setDevice
     // may not take. After a completed load the WebContents is always ready.
@@ -243,7 +251,7 @@ export class WebContentsViewEngine implements EngineView {
     this.webContents.setZoomFactor(1)
     this.applyDeviceEmulation()
     await this.applyThemePreference()
-    void this.ensureConsoleCapture()
+    void this.ensureRuntimeEvidenceCapture()
   }
 
   async setThemePreference(preference: ThemePreference): Promise<void> {
@@ -307,34 +315,48 @@ export class WebContentsViewEngine implements EngineView {
     console.debug('[mirror-failure]', JSON.stringify(log))
   }
 
-  bindRuntimeEvidence(
-    push: (entry: Omit<ConsoleEvidenceEntry, 'id' | 'timestamp'>) => void
-  ): void {
-    this.runtimeEvidencePush = push
-    void this.ensureConsoleCapture()
+  bindRuntimeEvidence(handlers: {
+    pushConsole: (entry: Omit<ConsoleEvidenceEntry, 'id' | 'timestamp'>) => void
+    pushNetwork: (
+      entry: Omit<NetworkEvidenceEntry, 'id' | 'timestamp' | 'failed'> &
+        Partial<Pick<NetworkEvidenceEntry, 'failed'>>
+    ) => void
+  }): void {
+    this.runtimeEvidencePush = handlers.pushConsole
+    this.runtimeNetworkPush = handlers.pushNetwork
+    void this.ensureRuntimeEvidenceCapture()
   }
 
-  private async ensureConsoleCapture(): Promise<void> {
-    if (!this.runtimeEvidencePush || this.disposeConsoleCapture) return
-    if (this.consoleCapturePromise) {
-      await this.consoleCapturePromise
+  private async ensureRuntimeEvidenceCapture(): Promise<void> {
+    if (!this.runtimeEvidencePush || !this.runtimeNetworkPush) return
+    if (this.disposeConsoleCapture && this.disposeNetworkCapture) return
+    if (this.runtimeCapturePromise) {
+      await this.runtimeCapturePromise
       return
     }
 
-    this.consoleCapturePromise = (async () => {
+    this.runtimeCapturePromise = (async () => {
       try {
         await this.ensureDebugger()
-        this.disposeConsoleCapture = await enableConsoleEvidenceCapture(
-          this.webContents,
-          (entry) => this.runtimeEvidencePush?.(entry)
-        )
+        if (!this.disposeConsoleCapture) {
+          this.disposeConsoleCapture = await enableConsoleEvidenceCapture(
+            this.webContents,
+            (entry) => this.runtimeEvidencePush?.(entry)
+          )
+        }
+        if (!this.disposeNetworkCapture) {
+          this.disposeNetworkCapture = await enableNetworkEvidenceCapture(
+            this.webContents,
+            (entry) => this.runtimeNetworkPush?.(entry)
+          )
+        }
       } catch (error) {
-        console.error(`[pane:${this.paneId}] console evidence capture failed:`, error)
-        this.consoleCapturePromise = null
+        console.error(`[pane:${this.paneId}] runtime evidence capture failed:`, error)
+        this.runtimeCapturePromise = null
       }
     })()
 
-    await this.consoleCapturePromise
+    await this.runtimeCapturePromise
   }
 
   async applyValue(fingerprint: ElementFingerprint, payload: ValueSyncPayload): Promise<void> {
@@ -446,8 +468,11 @@ export class WebContentsViewEngine implements EngineView {
 
     this.disposeConsoleCapture?.()
     this.disposeConsoleCapture = null
-    this.consoleCapturePromise = null
+    this.disposeNetworkCapture?.()
+    this.disposeNetworkCapture = null
+    this.runtimeCapturePromise = null
     this.runtimeEvidencePush = null
+    this.runtimeNetworkPush = null
 
     if (this.debuggerAttached && this.webContents.debugger.isAttached()) {
       try {

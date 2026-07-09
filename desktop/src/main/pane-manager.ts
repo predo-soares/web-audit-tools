@@ -224,7 +224,7 @@ export class PaneManager {
   getRuntimeEvidenceSnapshot(): RuntimeEvidenceSnapshot {
     const paneId = this.resolveActivePaneForEvidence()
     const buffer = this.runtimeEvidence.get(paneId)
-    return buffer?.snapshot(paneId) ?? { paneId, console: [], problemCount: 0 }
+    return buffer?.snapshot(paneId) ?? { paneId, console: [], network: [], problemCount: 0 }
   }
 
   private resolveActivePaneForEvidence(): PaneId {
@@ -630,9 +630,15 @@ export class PaneManager {
     const engine = new WebContentsViewEngine(paneId, this.getSharedSession(), getPanePreloadPath())
     const evidenceBuffer = createRuntimeEvidenceBuffer()
     this.runtimeEvidence.set(paneId, evidenceBuffer)
-    engine.bindRuntimeEvidence((entry) => {
-      evidenceBuffer.pushConsole(entry)
-      this.notifyRuntimeEvidenceChanged(paneId)
+    engine.bindRuntimeEvidence({
+      pushConsole: (entry) => {
+        evidenceBuffer.pushConsole(entry)
+        this.notifyRuntimeEvidenceChanged(paneId)
+      },
+      pushNetwork: (entry) => {
+        evidenceBuffer.pushNetwork(entry)
+        this.notifyRuntimeEvidenceChanged(paneId)
+      }
     })
     this.engines.set(paneId, engine)
     this.bumpPaneInteractionEpoch(paneId)

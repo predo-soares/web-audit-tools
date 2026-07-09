@@ -37,10 +37,50 @@ describe('runtime evidence buffer', () => {
     const buffer = createRuntimeEvidenceBuffer()
 
     buffer.pushConsole({ level: 'error', message: 'before' })
+    buffer.pushNetwork({
+      method: 'GET',
+      url: 'http://localhost/ok',
+      path: '/ok',
+      status: 200,
+      failed: false
+    })
     buffer.clearConsole()
 
     expect(buffer.getConsole()).toEqual([])
     expect(buffer.getConsoleProblemCount()).toBe(0)
+    expect(buffer.getNetwork()).toHaveLength(1)
+  })
+
+  it('evicts the oldest network entry when the cap is exceeded', () => {
+    const buffer = createRuntimeEvidenceBuffer({
+      networkCap: 2,
+      now: () => 1000
+    })
+
+    buffer.pushNetwork({ method: 'GET', url: 'http://localhost/one', path: '/one', failed: false })
+    buffer.pushNetwork({ method: 'GET', url: 'http://localhost/two', path: '/two', failed: false })
+    buffer.pushNetwork({ method: 'GET', url: 'http://localhost/three', path: '/three', failed: false })
+
+    expect(buffer.getNetwork().map((entry) => entry.path)).toEqual(['/two', '/three'])
+  })
+
+  it('counts network problems for failures and HTTP status >= 400', () => {
+    const buffer = createRuntimeEvidenceBuffer()
+
+    buffer.pushNetwork({ method: 'GET', url: 'http://localhost/ok', path: '/ok', status: 200, failed: false })
+    buffer.pushNetwork({ method: 'GET', url: 'http://localhost/missing', path: '/missing', status: 404, failed: true })
+    buffer.pushNetwork({ method: 'GET', url: 'http://localhost/fail', path: '/fail', failed: true })
+
+    expect(buffer.getNetworkProblemCount()).toBe(2)
+  })
+
+  it('aggregates console and network problems in snapshot problemCount', () => {
+    const buffer = createRuntimeEvidenceBuffer()
+
+    buffer.pushConsole({ level: 'warn', message: 'warn' })
+    buffer.pushNetwork({ method: 'GET', url: 'http://localhost/missing', path: '/missing', status: 404, failed: true })
+
+    expect(buffer.snapshot('desktop').problemCount).toBe(2)
   })
 
   it('returns an immutable snapshot for a pane', () => {
@@ -58,6 +98,7 @@ describe('runtime evidence buffer', () => {
           timestamp: 42
         })
       ],
+      network: [],
       problemCount: 1
     })
 

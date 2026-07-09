@@ -24,12 +24,30 @@ export interface ConsoleEvidenceEntry {
   stack?: string
 }
 
+export interface NetworkEvidenceEntry {
+  id: string
+  timestamp: number
+  method: string
+  url: string
+  path: string
+  status?: number
+  durationMs?: number
+  failed: boolean
+  requestHeaders?: Record<string, string>
+  responseHeaders?: Record<string, string>
+}
+
 export interface RuntimeEvidenceSnapshot {
   paneId: PaneId
   console: ConsoleEvidenceEntry[]
+  network: NetworkEvidenceEntry[]
   problemCount: number
 }
 
 export function isConsoleProblem(level: ConsoleEvidenceLevel): boolean {
   return level === 'error' || level === 'warn' || level === 'exception' || level === 'rejection'
+}
+
+export function isNetworkProblem(entry: Pick<NetworkEvidenceEntry, 'failed' | 'status'>): boolean {
+  return entry.failed || (entry.status !== undefined && entry.status >= 400)
 }
