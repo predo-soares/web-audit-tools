@@ -5,11 +5,14 @@ import {
   useState,
   type ReactNode
 } from 'react'
+import { readStoredDiagnosticsWidth, writeStoredDiagnosticsWidth } from '../../../shared/diagnostics-width'
+import { DIAGNOSTICS_DRAWER_WIDTH_PX } from '../../../shared/runtime-evidence'
 import { LAYOUT_SETTLED_EVENT } from '@renderer/context/sidebar-context'
 
 interface DiagnosticsContextValue {
   isOpen: boolean
   isTransitioning: boolean
+  width: number
 }
 
 const DiagnosticsContext = createContext<DiagnosticsContextValue | null>(null)
@@ -17,12 +20,21 @@ const DiagnosticsContext = createContext<DiagnosticsContextValue | null>(null)
 export function DiagnosticsProvider({ children }: { children: ReactNode }): React.JSX.Element {
   const [isOpen, setIsOpen] = useState(false)
   const [isTransitioning, setIsTransitioning] = useState(false)
+  const [width, setWidth] = useState(readStoredDiagnosticsWidth)
 
   useEffect(() => {
+    void window.api.getDiagnosticsWidth().then((width) => {
+      setWidth(width > 0 ? width : DIAGNOSTICS_DRAWER_WIDTH_PX)
+    })
+
     void window.api.getOpenPanels().then((openPanels) => {
       setIsOpen(openPanels.includes('diagnostics-right'))
     })
 
+    const unsubscribeWidth = window.api.onDiagnosticsWidthChanged((nextWidth) => {
+      setWidth(nextWidth)
+      writeStoredDiagnosticsWidth(nextWidth)
+    })
     const unsubscribeTransition = window.api.onPanelTransition((state) => {
       if (state.panelId !== 'diagnostics-right') return
       setIsTransitioning(state.transitioning)
@@ -42,6 +54,7 @@ export function DiagnosticsProvider({ children }: { children: ReactNode }): Reac
     })
 
     return () => {
+      unsubscribeWidth()
       unsubscribeTransition()
       unsubscribeSettled()
       unsubscribeClosed()
@@ -52,7 +65,8 @@ export function DiagnosticsProvider({ children }: { children: ReactNode }): Reac
     <DiagnosticsContext.Provider
       value={{
         isOpen,
-        isTransitioning
+        isTransitioning,
+        width
       }}
     >
       {children}

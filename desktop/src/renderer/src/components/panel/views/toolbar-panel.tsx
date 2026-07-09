@@ -2,8 +2,8 @@ import { buttonVariants } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/utils'
 import { UrlBar } from '@renderer/components/url-bar'
 import { useOverlayPanel } from '@renderer/hooks/use-overlay-panel'
-import { DIAGNOSTICS_DRAWER_WIDTH_PX } from '../../../../../shared/runtime-evidence'
 import type { RuntimeEvidenceSnapshot } from '../../../../../shared/runtime-evidence'
+import { DIAGNOSTICS_DRAWER_WIDTH_PX } from '../../../../../shared/runtime-evidence'
 import type { ThemePreference } from '../../../../../shared/types'
 import { TOOLBAR_HEIGHT_PX } from '../../../../../shared/sidebar'
 import {
@@ -84,6 +84,7 @@ export function ToolbarPanel(): React.JSX.Element {
   const [themePreference, setThemePreference] = useState<ThemePreference>(readStoredThemePreference)
   const [zoomOpen, setZoomOpen] = useState(false)
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
+  const [diagnosticsWidth, setDiagnosticsWidth] = useState(DIAGNOSTICS_DRAWER_WIDTH_PX)
   const [runtimeEvidence, setRuntimeEvidence] = useState<RuntimeEvidenceSnapshot | null>(null)
 
   const { isOpen: isZoomOpen } = useOverlayPanel(
@@ -104,7 +105,7 @@ export function ToolbarPanel(): React.JSX.Element {
     mode: 'docked',
     open: diagnosticsOpen,
     edge: 'right',
-    width: DIAGNOSTICS_DRAWER_WIDTH_PX,
+    width: diagnosticsWidth,
     onOpenChange: setDiagnosticsOpen
   })
 
@@ -134,6 +135,9 @@ export function ToolbarPanel(): React.JSX.Element {
     void window.panelApi.getOpenPanels().then((openPanels) => {
       setSidebarOpen(openPanels.includes('sidebar-left'))
       setDiagnosticsOpen(openPanels.includes('diagnostics-right'))
+    })
+    void window.panelApi.getDiagnosticsWidth().then((width) => {
+      setDiagnosticsWidth(width > 0 ? width : DIAGNOSTICS_DRAWER_WIDTH_PX)
     })
 
     const unsubscribeNavigation = window.panelApi.onPaneNavigation((state) => {
@@ -174,6 +178,7 @@ export function ToolbarPanel(): React.JSX.Element {
     const unsubscribeFocus = window.panelApi.onFocusSidebarToggle(() => {
       toggleButtonRef.current?.focus()
     })
+    const unsubscribeDiagnosticsWidth = window.panelApi.onDiagnosticsWidthChanged(setDiagnosticsWidth)
 
     return () => {
       unsubscribeNavigation()
@@ -184,6 +189,7 @@ export function ToolbarPanel(): React.JSX.Element {
       unsubscribeClosed()
       unsubscribeSettled()
       unsubscribeFocus()
+      unsubscribeDiagnosticsWidth()
     }
   }, [])
 

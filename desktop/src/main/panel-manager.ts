@@ -19,7 +19,7 @@ import {
   PANEL_STAGING_SIZE
 } from '../shared/panel-types'
 import { SIDEBAR_TRANSITION_MS, SIDEBAR_WIDTH_PX, TOOLBAR_HEIGHT_PX } from '../shared/sidebar'
-import { DIAGNOSTICS_DRAWER_WIDTH_PX } from '../shared/runtime-evidence'
+import { DIAGNOSTICS_DRAWER_WIDTH_PX, clampDiagnosticsDrawerWidth } from '../shared/runtime-evidence'
 import { computeFitZoom } from '../shared/mockup-layout'
 import type { Bounds, Size } from '../shared/types'
 import type { PaneManager } from './pane-manager'
@@ -169,10 +169,57 @@ export class PanelManager {
     const viewportWidth =
       windowWidth -
       (sidebarOpen ? SIDEBAR_WIDTH_PX : 0) -
-      (diagnosticsOpen ? DIAGNOSTICS_DRAWER_WIDTH_PX : 0)
+      (diagnosticsOpen ? this.getDiagnosticsWidth() : 0)
     const viewportHeight = windowHeight - TOOLBAR_HEIGHT_PX
 
     return computeFitZoom(viewportWidth, viewportHeight)
+  }
+
+  getDiagnosticsWidth(): number {
+    const entry = this.entries.get('diagnostics-right')
+    if (!entry) return DIAGNOSTICS_DRAWER_WIDTH_PX
+
+    const width = entry.options.width || entry.dockedWidth
+    return width > 0 ? clampDiagnosticsDrawerWidth(width) : DIAGNOSTICS_DRAWER_WIDTH_PX
+  }
+
+  handleDockedResize(panelId: PanelId, width: number, phase: 'preview' | 'commit'): void {
+    const entry = this.entries.get(panelId)
+    if (!entry?.isOpen || entry.options.mode !== 'docked') return
+
+    const clampedWidth =
+      panelId === 'diagnostics-right'
+        ? clampDiagnosticsDrawerWidth(width)
+        : Math.max(PANEL_MIN_SIZE[panelId].width, Math.round(width))
+
+    this.cancelBoundsAnimation(panelId)
+    entry.dockedWidth = clampedWidth
+    this.applyDockedBounds(panelId, clampedWidth)
+
+    if (phase !== 'commit') return
+
+    entry.options.width = clampedWidth
+    if (panelId !== 'diagnostics-right') return
+
+    this.broadcastDiagnosticsWidth(clampedWidth)
+    this.syncDiagnosticsLayout()
+  }
+
+  private broadcastDiagnosticsWidth(width: number): void {
+    const mainWindow = this.mainWindow
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
+
+    mainWindow.webContents.send('panel:diagnostics-width', width)
+    this.notifyToolbar('panel:diagnostics-width', width)
+  }
+
+  private syncDiagnosticsLayout(): void {
+    const panelId = 'diagnostics-right'
+    const mainWindow = this.mainWindow
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
+
+    mainWindow.webContents.send('panel:layout-settled', panelId)
+    this.notifyToolbar('panel:layout-settled', panelId)
   }
 
   async open(options: PanelOpenOptions): Promise<void> {
@@ -199,7 +246,12 @@ export class PanelManager {
       placement: options.placement ?? 'bottom',
       align: options.align ?? 'end',
       edge: options.edge ?? 'left',
-      width: options.width ?? SIDEBAR_WIDTH_PX
+      width:
+        panelId === 'diagnostics-right'
+          ? options.width && options.width > 0
+            ? clampDiagnosticsDrawerWidth(options.width)
+            : this.getDiagnosticsWidth()
+          : (options.width ?? SIDEBAR_WIDTH_PX)
     }
     entry.size = null
     entry.isOpen = true
@@ -221,7 +273,9 @@ export class PanelManager {
       const targetWidth =
         panelId === 'toolbar-top'
           ? TOOLBAR_HEIGHT_PX
-          : (entry.options.width ?? SIDEBAR_WIDTH_PX)
+          : panelId === 'diagnostics-right'
+            ? this.getDiagnosticsWidth()
+            : (entry.options.width ?? SIDEBAR_WIDTH_PX)
 
       if (panelId === 'toolbar-top') {
         entry.dockedWidth = targetWidth

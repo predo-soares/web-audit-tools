@@ -58,6 +58,9 @@ export interface PanelOverlayApi {
   getRuntimeEvidence: () => Promise<RuntimeEvidenceSnapshot>
   clearRuntimeEvidence: (channel: RuntimeEvidenceChannel) => Promise<RuntimeEvidenceSnapshot>
   onRuntimeEvidenceChanged: (callback: (snapshot: RuntimeEvidenceSnapshot) => void) => () => void
+  getDiagnosticsWidth: () => Promise<number>
+  resizeDockedPanel: (width: number, phase: 'preview' | 'commit') => void
+  onDiagnosticsWidthChanged: (callback: (width: number) => void) => () => void
 }
 
 const panelApi: PanelOverlayApi = {
@@ -196,6 +199,15 @@ const panelApi: PanelOverlayApi = {
       callback(snapshot)
     ipcRenderer.on('runtime-evidence:changed', listener)
     return () => ipcRenderer.removeListener('runtime-evidence:changed', listener)
+  },
+  getDiagnosticsWidth: () => ipcRenderer.invoke('panel:get-diagnostics-width'),
+  resizeDockedPanel: (width, phase) => {
+    ipcRenderer.send('panel:docked-resize', width, phase)
+  },
+  onDiagnosticsWidthChanged: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, width: number): void => callback(width)
+    ipcRenderer.on('panel:diagnostics-width', listener)
+    return () => ipcRenderer.removeListener('panel:diagnostics-width', listener)
   }
 }
 

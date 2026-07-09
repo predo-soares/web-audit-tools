@@ -55,6 +55,8 @@ export interface PreviewApi {
   getRuntimeEvidence: () => Promise<RuntimeEvidenceSnapshot>
   onRuntimeEvidenceChanged: (callback: (snapshot: RuntimeEvidenceSnapshot) => void) => () => void
   toggleDiagnosticsDrawer: () => void
+  getDiagnosticsWidth: () => Promise<number>
+  onDiagnosticsWidthChanged: (callback: (width: number) => void) => () => void
 }
 
 const api: PreviewApi = {
@@ -179,6 +181,12 @@ const api: PreviewApi = {
   },
   toggleDiagnosticsDrawer: () => {
     ipcRenderer.send('diagnostics:toggle')
+  },
+  getDiagnosticsWidth: () => ipcRenderer.invoke('panel:get-diagnostics-width'),
+  onDiagnosticsWidthChanged: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, width: number): void => callback(width)
+    ipcRenderer.on('panel:diagnostics-width', listener)
+    return () => ipcRenderer.removeListener('panel:diagnostics-width', listener)
   }
 }
 

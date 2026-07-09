@@ -155,6 +155,19 @@ export function registerIpcHandlers(
     return panelManager.getOpenPanelIds()
   })
 
+  ipcMain.handle('panel:get-diagnostics-width', () => {
+    return panelManager.getDiagnosticsWidth()
+  })
+
+  ipcMain.on(
+    'panel:docked-resize',
+    (event, width: number, phase: 'preview' | 'commit') => {
+      const panelId = panelManager.getPanelIdForWebContents(event.sender)
+      if (!panelId) return
+      panelManager.handleDockedResize(panelId, width, phase)
+    }
+  )
+
   ipcMain.on('panel:size', (event, size: Size) => {
     const panelId = panelManager.getPanelIdForWebContents(event.sender)
     if (!panelId) return

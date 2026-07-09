@@ -5,7 +5,11 @@ import type {
   RuntimeEvidenceChannel,
   RuntimeEvidenceSnapshot
 } from '../../../../../shared/runtime-evidence'
-import { DIAGNOSTICS_DRAWER_WIDTH_PX, selectPreferredDiagnosticsTab } from '../../../../../shared/runtime-evidence'
+import {
+  clampDiagnosticsDrawerWidth,
+  DIAGNOSTICS_DRAWER_WIDTH_PX,
+  selectPreferredDiagnosticsTab
+} from '../../../../../shared/runtime-evidence'
 import { TOOLBAR_HEIGHT_PX } from '../../../../../shared/sidebar'
 import { cn } from '@renderer/lib/utils'
 import { ArrowDown01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons'
@@ -68,9 +72,16 @@ const LEVEL_CLASS: Record<ConsoleEvidenceEntry['level'], string> = {
 export function DiagnosticsPanel(): React.JSX.Element {
   const listRef = useRef<HTMLDivElement>(null)
   const stickToBottomRef = useRef(true)
+  const [panelWidth, setPanelWidth] = useState(DIAGNOSTICS_DRAWER_WIDTH_PX)
   const [activeTab, setActiveTab] = useState<DiagnosticsTab>('console')
   const [evidence, setEvidence] = useState<RuntimeEvidenceSnapshot | null>(null)
   const [expandedEntryIds, setExpandedEntryIds] = useState<Set<string>>(() => new Set())
+
+  useEffect(() => {
+    void window.panelApi.getDiagnosticsWidth().then((width) => {
+      setPanelWidth(width > 0 ? width : DIAGNOSTICS_DRAWER_WIDTH_PX)
+    })
+  }, [])
 
   useEffect(() => {
     void window.panelApi.getRuntimeEvidence().then(setEvidence)
@@ -148,17 +159,54 @@ export function DiagnosticsPanel(): React.JSX.Element {
   const consoleCount = evidence?.console.length ?? 0
   const networkCount = evidence?.network.length ?? 0
 
+  const handleResizePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    const startX = event.clientX
+    const startWidth = panelWidth
+    const handle = event.currentTarget
+
+    handle.setPointerCapture(event.pointerId)
+
+    const handlePointerMove = (moveEvent: PointerEvent): void => {
+      const nextWidth = clampDiagnosticsDrawerWidth(startWidth + (startX - moveEvent.clientX))
+      setPanelWidth(nextWidth)
+      window.panelApi.resizeDockedPanel(nextWidth, 'preview')
+    }
+
+    const finishResize = (endEvent: PointerEvent): void => {
+      handle.releasePointerCapture(endEvent.pointerId)
+      const nextWidth = clampDiagnosticsDrawerWidth(startWidth + (startX - endEvent.clientX))
+      setPanelWidth(nextWidth)
+      window.panelApi.resizeDockedPanel(nextWidth, 'commit')
+      handle.removeEventListener('pointermove', handlePointerMove)
+      handle.removeEventListener('pointerup', finishResize)
+      handle.removeEventListener('pointercancel', finishResize)
+    }
+
+    handle.addEventListener('pointermove', handlePointerMove)
+    handle.addEventListener('pointerup', finishResize)
+    handle.addEventListener('pointercancel', finishResize)
+  }, [panelWidth])
+
   return (
     <aside
       id="diagnostics-drawer"
       data-testid="diagnostics-drawer"
       data-pane-id={evidence?.paneId ?? ''}
-      className="box-border flex h-screen min-h-screen shrink-0 flex-col overflow-hidden border-l border-white/10 bg-background text-foreground"
-      style={{ width: DIAGNOSTICS_DRAWER_WIDTH_PX }}
+      className="relative box-border flex h-screen min-h-screen shrink-0 flex-col overflow-hidden border-l border-white/10 bg-background text-foreground"
+      style={{ width: panelWidth }}
     >
       <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize diagnostics panel"
+        data-testid="diagnostics-resize-handle"
+        className="absolute inset-y-0 left-0 z-20 w-1 -translate-x-1/2 cursor-col-resize touch-none hover:bg-white/10 active:bg-white/15"
+        onPointerDown={handleResizePointerDown}
+      />
+      <div
         className="relative z-[1] flex min-h-0 flex-1 flex-col"
-        style={{ width: DIAGNOSTICS_DRAWER_WIDTH_PX }}
+        style={{ width: panelWidth }}
       >
         <header
           className="flex items-center gap-1 border-b border-white/10 px-2 py-2"

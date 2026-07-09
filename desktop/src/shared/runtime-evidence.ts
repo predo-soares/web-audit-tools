@@ -3,6 +3,17 @@ import type { PaneId } from './types'
 export const CONSOLE_EVIDENCE_CAP = 300
 export const NETWORK_EVIDENCE_CAP = 150
 export const DIAGNOSTICS_DRAWER_WIDTH_PX = 320
+export const DIAGNOSTICS_DRAWER_MIN_WIDTH_PX = 240
+export const DIAGNOSTICS_DRAWER_MAX_WIDTH_PX = 600
+
+export function clampDiagnosticsDrawerWidth(width: number): number {
+  return Math.round(
+    Math.min(
+      DIAGNOSTICS_DRAWER_MAX_WIDTH_PX,
+      Math.max(DIAGNOSTICS_DRAWER_MIN_WIDTH_PX, width)
+    )
+  )
+}
 
 export type RuntimeEvidenceChannel = 'console' | 'network'
 
