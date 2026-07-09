@@ -5,6 +5,7 @@ import type { NewProjectInput, Project } from '../shared/project'
 import type { MirrorFailureLog } from '../shared/element-mirror'
 import type { RuntimeEvidenceSnapshot } from '../shared/runtime-evidence'
 import type { PaneMount, PaneId, PaneNavigationState, ThemePreference } from '../shared/types'
+import type { SnapshotResult } from '../shared/snapshot'
 
 export interface PreviewApi {
   closeWindow: () => Promise<void>
@@ -57,6 +58,7 @@ export interface PreviewApi {
   toggleDiagnosticsDrawer: () => void
   getDiagnosticsWidth: () => Promise<number>
   onDiagnosticsWidthChanged: (callback: (width: number) => void) => () => void
+  takeSnapshot: () => Promise<SnapshotResult>
 }
 
 const api: PreviewApi = {
@@ -187,7 +189,8 @@ const api: PreviewApi = {
     const listener = (_event: Electron.IpcRendererEvent, width: number): void => callback(width)
     ipcRenderer.on('panel:diagnostics-width', listener)
     return () => ipcRenderer.removeListener('panel:diagnostics-width', listener)
-  }
+  },
+  takeSnapshot: () => ipcRenderer.invoke('snapshot:take')
 }
 
 contextBridge.exposeInMainWorld('api', api)

@@ -8,6 +8,20 @@ import type { PaneManager } from './pane-manager'
 import type { PanelManager } from './panel-manager'
 import type { HistoryStore } from './history-store'
 import type { ProjectStore } from './project-store'
+import { captureSnapshot, type SnapshotPort } from './snapshot-service'
+
+export function makeSnapshotPort(paneManager: PaneManager): SnapshotPort {
+  return {
+    isAnyPaneLoading: () => paneManager.isAnyPaneLoading(),
+    getActivePaneId: () => paneManager.getNavigationState().activePane,
+    getActivePaneUrl: () => paneManager.getNavigationState().barUrl || null,
+    getActivePaneTitle: () => paneManager.getNavigationState().pageTitle,
+    getLastNavTimestamp: (paneId) => paneManager.getLastNavTimestamp(paneId),
+    getRuntimeEvidenceSnapshot: () => paneManager.getRuntimeEvidenceSnapshot(),
+    captureActivePaneScreenshot: () => paneManager.captureActivePaneScreenshot(),
+    getDevContext: () => paneManager.getDevContext()
+  }
+}
 
 export function registerIpcHandlers(
   paneManager: PaneManager,
@@ -15,6 +29,10 @@ export function registerIpcHandlers(
   projectStore: ProjectStore,
   historyStore: HistoryStore
 ): void {
+  ipcMain.handle('snapshot:take', async () => {
+    return captureSnapshot(makeSnapshotPort(paneManager))
+  })
+
   ipcMain.on('diagnostics:toggle', () => {
     panelManager.notifyToolbarPanel('panel:toggle-diagnostics')
   })

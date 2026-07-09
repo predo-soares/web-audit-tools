@@ -7,10 +7,9 @@ import { isConsoleProblem, isNetworkProblem } from '../shared/runtime-evidence'
 import type { DevContext } from '../shared/dev-context'
 import type { RuntimeEvidenceSnapshot } from '../shared/runtime-evidence'
 import type { PaneId } from '../shared/types'
+import type { SnapshotResult } from '../shared/snapshot'
 
-export type SnapshotResult =
-  | { ok: true; warningCount: number }
-  | { ok: false; reason: string }
+export type { SnapshotResult }
 
 export interface SnapshotPort {
   isAnyPaneLoading(): boolean

@@ -17,6 +17,7 @@ import { WindowControls } from '@renderer/components/window-controls'
 import {
   ArrowLeft01Icon,
   ArrowRight01Icon,
+  Camera01Icon,
   Link01Icon,
   Monitor,
   Moon01Icon,
@@ -29,6 +30,7 @@ import {
 import type { IconSvgElement } from '@hugeicons/react'
 import { Icon } from '@renderer/components/ui/icon'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { SnapshotResult } from '../../../../../shared/snapshot'
 
 const THEME_STORAGE_KEY = 'audit-screens-theme-preference'
 
@@ -61,6 +63,14 @@ function nextThemePreference(current: ThemePreference): ThemePreference {
   return THEME_CYCLE[(index + 1) % THEME_CYCLE.length]
 }
 
+const SNAPSHOT_TOAST_DURATION_MS = 3500
+
+function snapshotToastMessage(result: SnapshotResult): string {
+  if (!result.ok) return result.reason === 'no-url' ? 'Nothing to capture' : 'Snapshot failed'
+  if (result.warningCount > 0) return `Snapshot copied with ${result.warningCount} pane warning(s)`
+  return 'Snapshot copied for agent'
+}
+
 export function ToolbarPanel(): React.JSX.Element {
   const toolbarRef = useRef<HTMLDivElement>(null)
   const zoomTriggerRef = useRef<HTMLButtonElement>(null)
@@ -86,6 +96,8 @@ export function ToolbarPanel(): React.JSX.Element {
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
   const [diagnosticsWidth, setDiagnosticsWidth] = useState(DIAGNOSTICS_DRAWER_WIDTH_PX)
   const [runtimeEvidence, setRuntimeEvidence] = useState<RuntimeEvidenceSnapshot | null>(null)
+  const [snapshotToast, setSnapshotToast] = useState<string | null>(null)
+  const snapshotToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { isOpen: isZoomOpen } = useOverlayPanel(
     'zoom',
@@ -283,6 +295,21 @@ export function ToolbarPanel(): React.JSX.Element {
     return unsubscribeToggleDiagnostics
   }, [toggleDiagnostics])
 
+  const showSnapshotToast = useCallback((result: SnapshotResult): void => {
+    if (snapshotToastTimerRef.current) clearTimeout(snapshotToastTimerRef.current)
+    setSnapshotToast(snapshotToastMessage(result))
+    snapshotToastTimerRef.current = setTimeout(() => setSnapshotToast(null), SNAPSHOT_TOAST_DURATION_MS)
+  }, [])
+
+  useEffect(() => {
+    return window.panelApi.onSnapshotTaken(showSnapshotToast)
+  }, [showSnapshotToast])
+
+  const handleSnapshot = useCallback(async (): Promise<void> => {
+    const result = await window.panelApi.takeSnapshot()
+    showSnapshotToast(result)
+  }, [showSnapshotToast])
+
   const toggleZoomPopover = (): void => {
     if (isZoomOpen) {
       setZoomOpen(false)
@@ -298,11 +325,19 @@ export function ToolbarPanel(): React.JSX.Element {
 
   return (
     <header
-      className="box-border flex h-full w-full items-center justify-between gap-3 bg-transparent px-4 pr-3 "
+      className="relative box-border flex h-full w-full items-center justify-between gap-3 bg-transparent px-4 pr-3 "
       style={{ height: TOOLBAR_HEIGHT_PX }}
       data-app-region="drag"
       data-testid="toolbar"
     >
+      {snapshotToast !== null && (
+        <div
+          data-testid="snapshot-toast"
+          className="pointer-events-none absolute bottom-1 left-1/2 z-50 -translate-x-1/2 rounded-md bg-popover px-3 py-1.5 text-xs text-popover-foreground shadow-md"
+        >
+          {snapshotToast}
+        </div>
+      )}
       <div className="relative z-10 flex shrink-0 items-center gap-2" data-app-region="no-drag">
         <WindowControls usePanelApi />
         <button
@@ -423,6 +458,16 @@ export function ToolbarPanel(): React.JSX.Element {
               {problemCount > 99 ? '99+' : problemCount}
             </span>
           ) : null}
+        </button>
+        <button
+          type="button"
+          data-testid="snapshot-button"
+          className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }))}
+          aria-label="Snapshot for Agent"
+          aria-keyshortcuts="Meta+Shift+S"
+          onClick={() => void handleSnapshot()}
+        >
+          <Icon icon={Camera01Icon} size={14} />
         </button>
         <button
           type="button"

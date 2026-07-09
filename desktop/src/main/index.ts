@@ -1,9 +1,10 @@
-import { app, shell, BrowserWindow, Menu } from 'electron'
+import { app, shell, BrowserWindow, Menu, globalShortcut } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { HistoryStore } from './history-store'
-import { registerIpcHandlers } from './ipc'
+import { registerIpcHandlers, makeSnapshotPort } from './ipc'
+import { captureSnapshot } from './snapshot-service'
 import { PaneManager } from './pane-manager'
 import { PanelManager } from './panel-manager'
 import { ProjectStore } from './project-store'
@@ -139,9 +140,19 @@ app.whenReady().then(() => {
 
   createWindow()
 
+  globalShortcut.register('CommandOrControl+Shift+S', () => {
+    void captureSnapshot(makeSnapshotPort(paneManager)).then((result) => {
+      panelManager.notifyToolbarPanel('snapshot:taken', result)
+    })
+  })
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+})
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll()
 })
 
 app.on('window-all-closed', () => {

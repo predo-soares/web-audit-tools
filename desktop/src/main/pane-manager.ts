@@ -49,6 +49,7 @@ export class PaneManager {
   private readonly echoLedger = createEchoLedger()
   private readonly webContentsToPane = new Map<number, PaneId>()
   private readonly loadingState = new Map<PaneId, boolean>()
+  private readonly lastNavTimestamps = new Map<PaneId, number>()
   private readonly tracker = createActivePaneTracker()
   private readonly pendingProgrammaticNavigation = new Set<PaneId>()
   // Pane last used for goBack()/goForward(). Keeps resolveNavigationPane()
@@ -590,6 +591,27 @@ export class PaneManager {
     )
   }
 
+  isAnyPaneLoading(): boolean {
+    for (const paneId of PANE_IDS) {
+      if (this.loadingState.get(paneId)) return true
+    }
+    return false
+  }
+
+  getLastNavTimestamp(paneId: PaneId): number | null {
+    return this.lastNavTimestamps.get(paneId) ?? null
+  }
+
+  async captureActivePaneScreenshot(): Promise<Buffer> {
+    await this.deviceReady
+    const paneId = this.resolveActivePaneForEvidence()
+    try {
+      return await this.getEngine(paneId).captureScreenshot()
+    } finally {
+      this.restorePaneMount(paneId)
+    }
+  }
+
   getLoadingStates(): Record<PaneId, boolean> {
     return {
       iphone: this.loadingState.get('iphone') ?? false,
@@ -757,6 +779,7 @@ export class PaneManager {
       this.pendingHistoryNavigation.delete(paneId)
 
       this.tracker.didNavigate(paneId, url, { inPage, isProgrammatic })
+      this.lastNavTimestamps.set(paneId, Date.now())
       this.maybeResolveDevContext(url)
 
       if (isProgrammatic) return
@@ -861,13 +884,6 @@ export class PaneManager {
     const { barUrl, pageTitle, faviconUrl } = this.tracker.getSnapshot()
     if (!barUrl || barUrl === 'about:blank') return
     this.historyHooks?.onMetadataUpdated?.({ url: barUrl, title: pageTitle, faviconUrl })
-  }
-
-  private isAnyPaneLoading(): boolean {
-    for (const paneId of PANE_IDS) {
-      if (this.loadingState.get(paneId)) return true
-    }
-    return false
   }
 
   private attachLoadingListeners(webContents: WebContents, paneId: PaneId): void {

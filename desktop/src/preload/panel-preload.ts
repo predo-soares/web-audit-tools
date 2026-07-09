@@ -10,6 +10,7 @@ import type {
 import type { NewProjectInput, Project } from '../shared/project'
 import type { PaneId, PaneNavigationState, Size, ThemePreference } from '../shared/types'
 import type { RuntimeEvidenceChannel, RuntimeEvidenceSnapshot } from '../shared/runtime-evidence'
+import type { SnapshotResult } from '../shared/snapshot'
 
 export interface PanelOverlayApi {
   onShow: (callback: (message: PanelShowMessage) => void) => () => void
@@ -61,6 +62,8 @@ export interface PanelOverlayApi {
   getDiagnosticsWidth: () => Promise<number>
   resizeDockedPanel: (width: number, phase: 'preview' | 'commit') => void
   onDiagnosticsWidthChanged: (callback: (width: number) => void) => () => void
+  takeSnapshot: () => Promise<SnapshotResult>
+  onSnapshotTaken: (callback: (result: SnapshotResult) => void) => () => void
 }
 
 const panelApi: PanelOverlayApi = {
@@ -208,6 +211,13 @@ const panelApi: PanelOverlayApi = {
     const listener = (_event: Electron.IpcRendererEvent, width: number): void => callback(width)
     ipcRenderer.on('panel:diagnostics-width', listener)
     return () => ipcRenderer.removeListener('panel:diagnostics-width', listener)
+  },
+  takeSnapshot: () => ipcRenderer.invoke('snapshot:take'),
+  onSnapshotTaken: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, result: SnapshotResult): void =>
+      callback(result)
+    ipcRenderer.on('snapshot:taken', listener)
+    return () => ipcRenderer.removeListener('snapshot:taken', listener)
   }
 }
 
