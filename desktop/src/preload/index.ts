@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { HistoryEntry } from '../shared/history'
 import type { PopoverAction, PopoverOpenOptions } from '../shared/popover-types'
 import type { NewProjectInput, Project } from '../shared/project'
-import type { MirrorFailureLog } from '../shared/element-fingerprint'
+import type { MirrorFailureLog } from '../shared/element-mirror'
 import type { PaneMount, PaneId, PaneNavigationState, ThemePreference } from '../shared/types'
 
 export interface PreviewApi {
@@ -42,6 +42,7 @@ export interface PreviewApi {
   onHistoryUpdated: (callback: (entries: HistoryEntry[]) => void) => () => void
   evaluateInPane: <T>(paneId: PaneId, expression: string) => Promise<T>
   getMirrorFailureLogs: () => Promise<Record<PaneId, MirrorFailureLog[]>>
+  getSyncTraceLogs: () => Promise<Array<{ ts: number; event: string; data?: Record<string, unknown> }>>
 }
 
 const api: PreviewApi = {
@@ -128,7 +129,8 @@ const api: PreviewApi = {
   },
   evaluateInPane: (paneId, expression) =>
     ipcRenderer.invoke('e2e:evaluate-in-pane', paneId, expression),
-  getMirrorFailureLogs: () => ipcRenderer.invoke('e2e:get-mirror-failure-logs')
+  getMirrorFailureLogs: () => ipcRenderer.invoke('e2e:get-mirror-failure-logs'),
+  getSyncTraceLogs: () => ipcRenderer.invoke('e2e:get-sync-trace-logs')
 }
 
 contextBridge.exposeInMainWorld('api', api)

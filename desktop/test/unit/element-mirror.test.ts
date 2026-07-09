@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import {
+import { createElementMirror, type ElementDescriptor } from '../../src/shared/element-mirror'
+
+const {
   buildElementFingerprint,
   buildElementFingerprintInContext,
   classifyMirrorFailure,
   isMachineGeneratedId,
-  resolveElementFingerprint,
-  type ElementDescriptor
-} from '../../src/shared/element-fingerprint'
+  resolveElementFingerprint
+} = createElementMirror()
 
 describe('element fingerprint', () => {
   it('builds and resolves the stable id layer first', () => {

@@ -9,24 +9,10 @@ import type {
   ThemePreference
 } from '../shared/types'
 import {
-  classifyMirrorFailure,
-  getLayerMatches,
-  matchesLayer,
-  normalizeVisibleText,
-  resolveElementFingerprint,
+  createElementMirror,
   type ElementFingerprint,
   type MirrorFailureLog
-} from '../shared/element-fingerprint'
-import {
-  describeElementInPage,
-  getDescriptorTestIdInPage,
-  getInputGroupMatchIndexInPage,
-  getStructuralPathInPage,
-  getVisibleTextInPage,
-  INTERACTIVE_SELECTOR,
-  VALUE_SYNC_SELECTOR
-} from '../shared/in-page-element-descriptor'
-import { getDescribedElementsInPage, resolveFingerprintInPage } from '../shared/in-page-element-matcher'
+} from '../shared/element-mirror'
 import { DEFAULT_ZOOM } from '../shared/mockup-layout'
 import { normalizeUrl } from '../shared/url'
 import type { EngineView, ValueSyncPayload } from './engine-view'
@@ -395,33 +381,22 @@ export class WebContentsViewEngine implements EngineView {
     }
   }
 
-  private getInPageMatcherBootstrapExpression(): string {
-    return `
-      const matchesLayer = ${matchesLayer.toString()};
-      const getLayerMatches = ${getLayerMatches.toString()};
-      const classifyMirrorFailure = ${classifyMirrorFailure.toString()};
-      const resolveElementFingerprint = ${resolveElementFingerprint.toString()};
-      const getVisibleTextInPage = ${getVisibleTextInPage.toString()};
-      const getStructuralPathInPage = ${getStructuralPathInPage.toString()};
-      const getInputGroupMatchIndexInPage = ${getInputGroupMatchIndexInPage.toString()};
-      const getDescriptorTestIdInPage = ${getDescriptorTestIdInPage.toString()};
-      const describeElementInPage = ${describeElementInPage.toString()};
-      const getDescribedElementsInPage = ${getDescribedElementsInPage.toString()};
-      const resolveFingerprintInPageShared = ${resolveFingerprintInPage.toString()};
-    `
+  // The element mirror is injected as one self-contained artifact — a single
+  // toString() of the factory the preload and unit tests also run — so the
+  // in-page copy can never drift from the compiled module (ADR 0005).
+  private getElementMirrorBootstrapExpression(): string {
+    return `const mirror = (${createElementMirror.toString()})();`
   }
 
   private getClickResolutionExpression(fingerprint: ElementFingerprint): string {
     return `
       (() => {
         const fingerprint = ${JSON.stringify(fingerprint)};
-        const normalizeVisibleText = ${normalizeVisibleText.toString()};
-        ${this.getInPageMatcherBootstrapExpression()}
-        const interactiveSelector = ${JSON.stringify(INTERACTIVE_SELECTOR)};
+        ${this.getElementMirrorBootstrapExpression()}
 
-        const elements = Array.from(document.querySelectorAll(interactiveSelector))
+        const elements = Array.from(document.querySelectorAll(mirror.interactiveSelector))
           .filter((element) => element instanceof HTMLElement && !element.disabled);
-        const match = resolveFingerprintInPageShared(fingerprint, elements, normalizeVisibleText);
+        const match = mirror.resolveFingerprint(fingerprint, elements);
 
         if (!match.element) {
           return { matched: false, failureReason: match.failureReason ?? 'not-found' };
@@ -504,11 +479,9 @@ export class WebContentsViewEngine implements EngineView {
       (() => {
         const fingerprint = ${JSON.stringify(fingerprint)};
         const payload = ${JSON.stringify(payload)};
-        const normalizeVisibleText = ${normalizeVisibleText.toString()};
-        ${this.getInPageMatcherBootstrapExpression()}
-        const interactiveSelector = ${JSON.stringify(VALUE_SYNC_SELECTOR)};
+        ${this.getElementMirrorBootstrapExpression()}
 
-        const elements = Array.from(document.querySelectorAll(interactiveSelector))
+        const elements = Array.from(document.querySelectorAll(mirror.valueSyncSelector))
           .filter(function(el) {
             if (!(el instanceof HTMLInputElement) &&
                 !(el instanceof HTMLTextAreaElement) &&
@@ -520,12 +493,21 @@ export class WebContentsViewEngine implements EngineView {
             }
             return true;
           });
-        const match = resolveFingerprintInPageShared(fingerprint, elements, normalizeVisibleText);
+        const match = mirror.resolveFingerprint(fingerprint, elements);
         if (!match.element) {
           return { matched: false, failureReason: match.failureReason ?? 'not-found' };
         }
 
         const element = match.element;
+
+        const fieldKey = JSON.stringify(fingerprint);
+        if (typeof payload.generation === 'number') {
+          window.__valueSyncGeneration = window.__valueSyncGeneration || {};
+          if ((window.__valueSyncGeneration[fieldKey] ?? 0) >= payload.generation) {
+            return { matched: true, skipped: true, reason: 'stale' };
+          }
+          window.__valueSyncGeneration[fieldKey] = payload.generation;
+        }
 
         // Suppress echo: this apply should not be re-reported
         window.__suppressValueReport = true;
@@ -548,7 +530,7 @@ export class WebContentsViewEngine implements EngineView {
           }
 
           if (!applied) {
-            setTimeout(function() { window.__suppressValueReport = false; }, 0);
+            setTimeout(function() { window.__suppressValueReport = false; }, 150);
             return { matched: false, failureReason: 'not-found' };
           }
         } else {
@@ -570,8 +552,8 @@ export class WebContentsViewEngine implements EngineView {
         element.dispatchEvent(new Event('input', { bubbles: true }));
         element.dispatchEvent(new Event('change', { bubbles: true }));
 
-        // Clear suppression after events fire
-        setTimeout(function() { window.__suppressValueReport = false; }, 0);
+        // Clear suppression after debounced input reporting window (100ms)
+        setTimeout(function() { window.__suppressValueReport = false; }, 150);
         return { matched: true };
       })();
     `
@@ -581,11 +563,10 @@ export class WebContentsViewEngine implements EngineView {
     return `
       (() => {
         const fingerprint = ${JSON.stringify(fingerprint)};
-        const normalizeVisibleText = ${normalizeVisibleText.toString()};
-        ${this.getInPageMatcherBootstrapExpression()}
+        ${this.getElementMirrorBootstrapExpression()}
 
         const forms = Array.from(document.querySelectorAll('form'));
-        const match = resolveFingerprintInPageShared(fingerprint, forms, normalizeVisibleText);
+        const match = mirror.resolveFingerprint(fingerprint, forms);
         if (!match.element || !(match.element instanceof HTMLFormElement)) {
           return { matched: false, failureReason: match.failureReason ?? 'not-found' };
         }

@@ -1,16 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import {
-  buildElementFingerprintInContext,
-  getLayerMatches,
-  normalizeVisibleText,
-  type ElementDescriptor
-} from '../shared/element-fingerprint'
-import {
-  describeElementInPage,
-  getInputGroupMatchIndexInPage,
-  INTERACTIVE_SELECTOR,
-  VALUE_SYNC_SELECTOR
-} from '../shared/in-page-element-descriptor'
+import { createElementMirror } from '../shared/element-mirror'
 import type { PaneId } from '../shared/types'
 
 function getPaneId(): PaneId {
@@ -20,13 +9,11 @@ function getPaneId(): PaneId {
 }
 
 const paneId = getPaneId()
+const mirror = createElementMirror()
+
 function findInteractiveAncestor(target: EventTarget | null): Element | null {
   if (!(target instanceof Element)) return null
-  return target.closest(INTERACTIVE_SELECTOR)
-}
-
-function describeElement(element: Element): ElementDescriptor {
-  return describeElementInPage(element, normalizeVisibleText)
+  return target.closest(mirror.interactiveSelector)
 }
 
 function isValueSyncControl(target: EventTarget | null): target is HTMLInputElement | HTMLTextAreaElement {
@@ -49,7 +36,7 @@ function isValueSyncControl(target: EventTarget | null): target is HTMLInputElem
 }
 
 function getValueSyncCandidates(): Array<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> {
-  return Array.from(document.querySelectorAll(VALUE_SYNC_SELECTOR)).filter(
+  return Array.from(document.querySelectorAll(mirror.valueSyncSelector)).filter(
     (
       el
     ): el is HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement => {
@@ -77,13 +64,6 @@ function getValueSyncCandidates(): Array<HTMLInputElement | HTMLTextAreaElement 
       return true
     }
   )
-}
-
-function buildFingerprintFromCandidates(target: Element, candidates: Element[]): ReturnType<typeof buildElementFingerprintInContext> {
-  const descriptors = candidates.map(describeElement)
-  const targetIndex = candidates.indexOf(target)
-  const descriptorForContext = targetIndex !== -1 ? descriptors[targetIndex] : describeElement(target)
-  return buildElementFingerprintInContext(descriptorForContext, descriptors, targetIndex)
 }
 
 function reportScroll(): void {
@@ -118,32 +98,15 @@ window.addEventListener(
     const interactive = findInteractiveAncestor(e.target)
     if (!interactive) return
 
-    const allInteractive = Array.from(document.querySelectorAll(INTERACTIVE_SELECTOR)).filter(
+    const allInteractive = Array.from(document.querySelectorAll(mirror.interactiveSelector)).filter(
       (el) => el instanceof HTMLElement && !(el as HTMLInputElement).disabled
     )
-    const allDescriptors = allInteractive.map(describeElement)
 
-    const interactiveIndex = allInteractive.indexOf(interactive)
-    const descriptorForContext =
-      interactiveIndex !== -1 ? allDescriptors[interactiveIndex] : describeElement(interactive)
-
-    const fingerprint = buildElementFingerprintInContext(
-      descriptorForContext,
-      allDescriptors,
-      interactiveIndex
-    )
+    const fingerprint = mirror.buildFingerprint(interactive, allInteractive, {
+      disambiguateAcrossLayers: true
+    })
     if (!fingerprint) return
-    if (fingerprint.indexAmongMatches === undefined && interactiveIndex !== -1) {
-      for (const layer of fingerprint.layers) {
-        const matchIndices = getLayerMatches(layer, allDescriptors)
-        if (matchIndices.length <= 1) continue
-        const position = matchIndices.indexOf(interactiveIndex)
-        if (position !== -1) {
-          fingerprint.indexAmongMatches = position
-          break
-        }
-      }
-    }
+
     const inputTarget =
       rawTarget instanceof HTMLInputElement
         ? rawTarget
@@ -151,7 +114,7 @@ window.addEventListener(
           ? interactive
           : null
     if (inputTarget) {
-      const duplicateIndex = getInputGroupMatchIndexInPage(inputTarget)
+      const duplicateIndex = mirror.getInputGroupMatchIndex(inputTarget)
       if (duplicateIndex !== null) {
         fingerprint.indexAmongMatches = duplicateIndex
       }
@@ -183,7 +146,8 @@ window.addEventListener(
 
     const timer = setTimeout(() => {
       inputTimers.delete(target)
-      const fingerprint = buildFingerprintFromCandidates(target, getValueSyncCandidates())
+      if ((window as Window & { __suppressValueReport?: boolean }).__suppressValueReport) return
+      const fingerprint = mirror.buildFingerprint(target, getValueSyncCandidates())
       if (!fingerprint) return
       ipcRenderer.send('pane:value', paneId, fingerprint, target.value)
     }, 100)
@@ -200,7 +164,7 @@ window.addEventListener(
     if (!(target instanceof HTMLSelectElement)) return
     if ((window as Window & { __suppressValueReport?: boolean }).__suppressValueReport) return
 
-    const fingerprint = buildFingerprintFromCandidates(target, getValueSyncCandidates())
+    const fingerprint = mirror.buildFingerprint(target, getValueSyncCandidates())
     if (!fingerprint) return
     ipcRenderer.send('pane:select', paneId, fingerprint, target.value, target.selectedIndex)
   },
@@ -215,7 +179,7 @@ window.addEventListener(
     const form = e.target
     if (!(form instanceof HTMLFormElement)) return
 
-    const fingerprint = buildFingerprintFromCandidates(form, Array.from(document.querySelectorAll('form')))
+    const fingerprint = mirror.buildFingerprint(form, Array.from(document.querySelectorAll('form')))
     if (!fingerprint) return
     ipcRenderer.send('pane:submit', paneId, fingerprint)
   },

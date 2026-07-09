@@ -1,6 +1,6 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import { normalizeUrl } from '../shared/url'
-import type { ElementFingerprint } from '../shared/element-fingerprint'
+import type { ElementFingerprint } from '../shared/element-mirror'
 import type { NewProjectInput } from '../shared/project'
 import type { PopoverAction, PopoverOpenOptions } from '../shared/popover-types'
 import type { PaneMount, PaneId, Size, ThemePreference } from '../shared/types'
@@ -141,6 +141,10 @@ export function registerIpcHandlers(
 
   ipcMain.handle('e2e:get-mirror-failure-logs', () => {
     return paneManager.getMirrorFailureLogs()
+  })
+
+  ipcMain.handle('e2e:get-sync-trace-logs', () => {
+    return paneManager.getSyncTraceLogs()
   })
 
   ipcMain.handle('popover:open', async (_event, options: PopoverOpenOptions) => {

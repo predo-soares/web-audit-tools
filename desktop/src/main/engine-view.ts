@@ -1,9 +1,10 @@
 import type { DeviceProfile, PaneMount } from '../shared/types'
-import type { ElementFingerprint, MirrorFailureLog } from '../shared/element-fingerprint'
+import type { ElementFingerprint, MirrorFailureLog } from '../shared/element-mirror'
 
 export interface ValueSyncPayload {
   value: string
   selectedIndex?: number
+  generation?: number
 }
 
 export interface EngineView {
