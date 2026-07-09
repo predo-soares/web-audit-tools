@@ -19,6 +19,7 @@ import {
   PANEL_STAGING_SIZE
 } from '../shared/panel-types'
 import { SIDEBAR_TRANSITION_MS, SIDEBAR_WIDTH_PX, TOOLBAR_HEIGHT_PX } from '../shared/sidebar'
+import { DIAGNOSTICS_DRAWER_WIDTH_PX } from '../shared/runtime-evidence'
 import { computeFitZoom } from '../shared/mockup-layout'
 import type { Bounds, Size } from '../shared/types'
 import type { PaneManager } from './pane-manager'
@@ -82,7 +83,7 @@ function computeDockedBounds(
   }
 }
 
-const ALL_PANEL_IDS: PanelId[] = ['sidebar-left', 'sidebar-right', 'toolbar-top', 'zoom']
+const ALL_PANEL_IDS: PanelId[] = ['sidebar-left', 'diagnostics-right', 'toolbar-top', 'zoom']
 
 const PANEL_Z_ORDER: PanelId[] = ALL_PANEL_IDS
 
@@ -153,7 +154,11 @@ export class PanelManager {
 
     const [windowWidth, windowHeight] = mainWindow.getContentSize()
     const sidebarOpen = this.getOpenPanelIds().includes('sidebar-left')
-    const viewportWidth = windowWidth - (sidebarOpen ? SIDEBAR_WIDTH_PX : 0)
+    const diagnosticsOpen = this.getOpenPanelIds().includes('diagnostics-right')
+    const viewportWidth =
+      windowWidth -
+      (sidebarOpen ? SIDEBAR_WIDTH_PX : 0) -
+      (diagnosticsOpen ? DIAGNOSTICS_DRAWER_WIDTH_PX : 0)
     const viewportHeight = windowHeight - TOOLBAR_HEIGHT_PX
 
     return computeFitZoom(viewportWidth, viewportHeight)
@@ -600,6 +605,13 @@ export class PanelManager {
 
   notifyToolbarPanel(channel: string, ...args: unknown[]): void {
     this.notifyToolbar(channel, ...args)
+  }
+
+  notifyOverlayPanels(channel: string, ...args: unknown[]): void {
+    for (const entry of this.entries.values()) {
+      if (entry.view.webContents.isDestroyed()) continue
+      entry.view.webContents.send(channel, ...args)
+    }
   }
 
   private applyAnchoredBounds(panelId: PanelId): void {

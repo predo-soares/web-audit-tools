@@ -131,6 +131,10 @@ export function registerIpcHandlers(
     return paneManager.getLoadingStates()
   })
 
+  ipcMain.handle('runtime-evidence:get', () => {
+    return paneManager.getRuntimeEvidenceSnapshot()
+  })
+
   ipcMain.handle('panel:open', async (_event, options: PanelOpenOptions) => {
     await panelManager.open(options)
   })
@@ -180,6 +184,14 @@ export function registerIpcHandlers(
       const mainWindow = BrowserWindow.getAllWindows()[0]
       if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
         mainWindow.webContents.send('panel:toggle-sidebar')
+      }
+      return
+    }
+
+    if (action.type === 'toggle-diagnostics') {
+      const mainWindow = BrowserWindow.getAllWindows()[0]
+      if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+        mainWindow.webContents.send('panel:toggle-diagnostics')
       }
       return
     }

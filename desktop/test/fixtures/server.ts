@@ -40,6 +40,24 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     return
   }
 
+  if (pathname === '/runtime-evidence') {
+    sendHtml(
+      res,
+      `<!doctype html><html><body>
+        <h1 id="runtime-evidence-fixture">Runtime Evidence Fixture</h1>
+        <button id="emit-console-error" data-testid="emit-console-error" type="button">
+          Emit console error
+        </button>
+        <script>
+          document.getElementById('emit-console-error').addEventListener('click', function () {
+            console.error('fixture-runtime-error', 'deliberate test error');
+          });
+        </script>
+      </body></html>`
+    )
+    return
+  }
+
   if (pathname === '/ua-sniff') {
     const mobile = isMobileUa(ua)
     sendHtml(

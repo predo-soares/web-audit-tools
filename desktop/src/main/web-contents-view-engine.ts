@@ -15,6 +15,8 @@ import {
 } from '../shared/element-mirror'
 import { DEFAULT_ZOOM } from '../shared/mockup-layout'
 import { normalizeUrl } from '../shared/url'
+import type { ConsoleEvidenceEntry } from '../shared/runtime-evidence'
+import { enableConsoleEvidenceCapture } from './console-evidence-capture'
 import type { EngineView, ValueSyncPayload } from './engine-view'
 import { syncTrace } from './sync-trace'
 
@@ -62,6 +64,10 @@ export class WebContentsViewEngine implements EngineView {
   private logicalSize: Size | null = null
   private themePreference: ThemePreference = 'system'
   private mirrorFailureLogs: MirrorFailureLog[] = []
+  private runtimeEvidencePush: ((entry: Omit<ConsoleEvidenceEntry, 'id' | 'timestamp'>) => void) | null =
+    null
+  private disposeConsoleCapture: (() => void) | null = null
+  private consoleCapturePromise: Promise<void> | null = null
 
   constructor(
     readonly paneId: PaneId,
@@ -81,6 +87,9 @@ export class WebContentsViewEngine implements EngineView {
 
     this.webContents.debugger.on('detach', (_event, reason) => {
       this.debuggerAttached = false
+      this.disposeConsoleCapture?.()
+      this.disposeConsoleCapture = null
+      this.consoleCapturePromise = null
       console.error(`[pane:${paneId}] debugger detached: ${reason}`)
     })
 
@@ -197,6 +206,7 @@ export class WebContentsViewEngine implements EngineView {
       throw error
     }
     await this.applyThemePreference()
+    void this.ensureConsoleCapture()
     // Re-apply after every load: enableDeviceEmulation can be silently ignored
     // when the renderer is still initialising, so the initial call in setDevice
     // may not take. After a completed load the WebContents is always ready.
@@ -233,6 +243,7 @@ export class WebContentsViewEngine implements EngineView {
     this.webContents.setZoomFactor(1)
     this.applyDeviceEmulation()
     await this.applyThemePreference()
+    void this.ensureConsoleCapture()
   }
 
   async setThemePreference(preference: ThemePreference): Promise<void> {
@@ -293,8 +304,37 @@ export class WebContentsViewEngine implements EngineView {
 
   logMirrorFailure(log: MirrorFailureLog): void {
     this.mirrorFailureLogs.push(log)
-    // Console only in v1 — no UI surfacing
     console.debug('[mirror-failure]', JSON.stringify(log))
+  }
+
+  bindRuntimeEvidence(
+    push: (entry: Omit<ConsoleEvidenceEntry, 'id' | 'timestamp'>) => void
+  ): void {
+    this.runtimeEvidencePush = push
+    void this.ensureConsoleCapture()
+  }
+
+  private async ensureConsoleCapture(): Promise<void> {
+    if (!this.runtimeEvidencePush || this.disposeConsoleCapture) return
+    if (this.consoleCapturePromise) {
+      await this.consoleCapturePromise
+      return
+    }
+
+    this.consoleCapturePromise = (async () => {
+      try {
+        await this.ensureDebugger()
+        this.disposeConsoleCapture = await enableConsoleEvidenceCapture(
+          this.webContents,
+          (entry) => this.runtimeEvidencePush?.(entry)
+        )
+      } catch (error) {
+        console.error(`[pane:${this.paneId}] console evidence capture failed:`, error)
+        this.consoleCapturePromise = null
+      }
+    })()
+
+    await this.consoleCapturePromise
   }
 
   async applyValue(fingerprint: ElementFingerprint, payload: ValueSyncPayload): Promise<void> {
@@ -403,6 +443,11 @@ export class WebContentsViewEngine implements EngineView {
 
   destroy(): void {
     if (this.webContents.isDestroyed()) return
+
+    this.disposeConsoleCapture?.()
+    this.disposeConsoleCapture = null
+    this.consoleCapturePromise = null
+    this.runtimeEvidencePush = null
 
     if (this.debuggerAttached && this.webContents.debugger.isAttached()) {
       try {

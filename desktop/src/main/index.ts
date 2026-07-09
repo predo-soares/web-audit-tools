@@ -91,7 +91,7 @@ function createWindow(): BrowserWindow {
   paneManager.initialize(mainWindow)
   panelManager.initialize(mainWindow)
   paneManager.setOverlayBroadcast((channel, ...args) => {
-    panelManager.notifyToolbarPanel(channel, ...args)
+    panelManager.notifyOverlayPanels(channel, ...args)
   })
   paneManager.setHistoryHooks({
     onVisitCommitted: ({ url, title, faviconUrl }) => {

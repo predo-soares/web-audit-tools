@@ -2,6 +2,7 @@ import { buttonVariants } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/utils'
 import { UrlBar } from '@renderer/components/url-bar'
 import { useOverlayPanel } from '@renderer/hooks/use-overlay-panel'
+import { DIAGNOSTICS_DRAWER_WIDTH_PX } from '../../../../../shared/runtime-evidence'
 import type { ThemePreference } from '../../../../../shared/types'
 import { TOOLBAR_HEIGHT_PX } from '../../../../../shared/sidebar'
 import {
@@ -21,6 +22,7 @@ import {
   PanelLeftIcon,
   Sun01Icon,
   Unlink01Icon,
+  SourceCodeIcon,
   ZoomInAreaIcon
 } from '@hugeicons/core-free-icons'
 import type { IconSvgElement } from '@hugeicons/react'
@@ -80,6 +82,7 @@ export function ToolbarPanel(): React.JSX.Element {
   const [zoom, setZoom] = useState(1)
   const [themePreference, setThemePreference] = useState<ThemePreference>(readStoredThemePreference)
   const [zoomOpen, setZoomOpen] = useState(false)
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
 
   const { isOpen: isZoomOpen } = useOverlayPanel(
     'zoom',
@@ -94,6 +97,15 @@ export function ToolbarPanel(): React.JSX.Element {
     },
     toolbarRef
   )
+
+  useOverlayPanel('diagnostics-right', {
+    mode: 'docked',
+    open: diagnosticsOpen,
+    edge: 'right',
+    width: DIAGNOSTICS_DRAWER_WIDTH_PX,
+    onOpenChange: setDiagnosticsOpen
+  })
+
   const zoomPercent = Math.round(zoom * 100)
 
   const anyPaneLoading = Object.values(loadingStates).some(Boolean)
@@ -118,6 +130,7 @@ export function ToolbarPanel(): React.JSX.Element {
     void window.panelApi.listProjects().then(setProjects)
     void window.panelApi.getOpenPanels().then((openPanels) => {
       setSidebarOpen(openPanels.includes('sidebar-left'))
+      setDiagnosticsOpen(openPanels.includes('diagnostics-right'))
     })
 
     const unsubscribeNavigation = window.panelApi.onPaneNavigation((state) => {
@@ -145,6 +158,9 @@ export function ToolbarPanel(): React.JSX.Element {
     const unsubscribeClosed = window.panelApi.onPanelClosed((panelId) => {
       if (panelId === 'sidebar-left') {
         setSidebarOpen(false)
+      }
+      if (panelId === 'diagnostics-right') {
+        setDiagnosticsOpen(false)
       }
     })
     const unsubscribeSettled = window.panelApi.onPanelLayoutSettled((panelId) => {
@@ -234,6 +250,10 @@ export function ToolbarPanel(): React.JSX.Element {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [toggleSidebar])
+
+  const toggleDiagnostics = useCallback((): void => {
+    setDiagnosticsOpen((current) => !current)
+  }, [])
 
   const toggleZoomPopover = (): void => {
     if (isZoomOpen) {
@@ -346,6 +366,17 @@ export function ToolbarPanel(): React.JSX.Element {
           onClick={toggleThemePreference}
         >
           <Icon icon={THEME_ICON[themePreference]} />
+        </button>
+        <button
+          type="button"
+          data-testid="diagnostics-toggle"
+          className={cn(buttonVariants({ variant: 'ghost', size: 'icon-sm' }))}
+          aria-label={diagnosticsOpen ? 'Close diagnostics drawer' : 'Open diagnostics drawer'}
+          aria-expanded={diagnosticsOpen}
+          aria-controls="diagnostics-drawer"
+          onClick={toggleDiagnostics}
+        >
+          <Icon icon={SourceCodeIcon} />
         </button>
         <button
           type="button"

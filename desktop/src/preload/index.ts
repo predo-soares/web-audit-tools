@@ -3,6 +3,7 @@ import type { HistoryEntry } from '../shared/history'
 import type { PanelAction, PanelId, PanelOpenOptions } from '../shared/panel-types'
 import type { NewProjectInput, Project } from '../shared/project'
 import type { MirrorFailureLog } from '../shared/element-mirror'
+import type { RuntimeEvidenceSnapshot } from '../shared/runtime-evidence'
 import type { PaneMount, PaneId, PaneNavigationState, ThemePreference } from '../shared/types'
 
 export interface PreviewApi {
@@ -50,6 +51,8 @@ export interface PreviewApi {
   evaluateInPane: <T>(paneId: PaneId, expression: string) => Promise<T>
   getMirrorFailureLogs: () => Promise<Record<PaneId, MirrorFailureLog[]>>
   getSyncTraceLogs: () => Promise<Array<{ ts: number; event: string; data?: Record<string, unknown> }>>
+  getRuntimeEvidence: () => Promise<RuntimeEvidenceSnapshot>
+  onRuntimeEvidenceChanged: (callback: (snapshot: RuntimeEvidenceSnapshot) => void) => () => void
 }
 
 const api: PreviewApi = {
@@ -163,7 +166,14 @@ const api: PreviewApi = {
   evaluateInPane: (paneId, expression) =>
     ipcRenderer.invoke('e2e:evaluate-in-pane', paneId, expression),
   getMirrorFailureLogs: () => ipcRenderer.invoke('e2e:get-mirror-failure-logs'),
-  getSyncTraceLogs: () => ipcRenderer.invoke('e2e:get-sync-trace-logs')
+  getSyncTraceLogs: () => ipcRenderer.invoke('e2e:get-sync-trace-logs'),
+  getRuntimeEvidence: () => ipcRenderer.invoke('runtime-evidence:get'),
+  onRuntimeEvidenceChanged: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, snapshot: RuntimeEvidenceSnapshot): void =>
+      callback(snapshot)
+    ipcRenderer.on('runtime-evidence:changed', listener)
+    return () => ipcRenderer.removeListener('runtime-evidence:changed', listener)
+  }
 }
 
 contextBridge.exposeInMainWorld('api', api)

@@ -9,6 +9,7 @@ import type {
 } from '../shared/panel-types'
 import type { NewProjectInput, Project } from '../shared/project'
 import type { PaneId, PaneNavigationState, Size, ThemePreference } from '../shared/types'
+import type { RuntimeEvidenceSnapshot } from '../shared/runtime-evidence'
 
 export interface PanelOverlayApi {
   onShow: (callback: (message: PanelShowMessage) => void) => () => void
@@ -53,6 +54,8 @@ export interface PanelOverlayApi {
   onPanelClosed: (callback: (panelId: PanelId) => void) => () => void
   onPanelLayoutSettled: (callback: (panelId: PanelId) => void) => () => void
   onFocusSidebarToggle: (callback: () => void) => () => void
+  getRuntimeEvidence: () => Promise<RuntimeEvidenceSnapshot>
+  onRuntimeEvidenceChanged: (callback: (snapshot: RuntimeEvidenceSnapshot) => void) => () => void
 }
 
 const panelApi: PanelOverlayApi = {
@@ -178,6 +181,13 @@ const panelApi: PanelOverlayApi = {
     const listener = (): void => callback()
     ipcRenderer.on('panel:focus-sidebar-toggle', listener)
     return () => ipcRenderer.removeListener('panel:focus-sidebar-toggle', listener)
+  },
+  getRuntimeEvidence: () => ipcRenderer.invoke('runtime-evidence:get'),
+  onRuntimeEvidenceChanged: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, snapshot: RuntimeEvidenceSnapshot): void =>
+      callback(snapshot)
+    ipcRenderer.on('runtime-evidence:changed', listener)
+    return () => ipcRenderer.removeListener('runtime-evidence:changed', listener)
   }
 }
 

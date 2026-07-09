@@ -1,7 +1,8 @@
 import type { ThemePreference } from './types'
 import type { Size } from './types'
+import { DIAGNOSTICS_DRAWER_WIDTH_PX } from './runtime-evidence'
 
-export type PanelId = 'zoom' | 'theme' | 'sidebar-left' | 'sidebar-right' | 'toolbar-top'
+export type PanelId = 'zoom' | 'theme' | 'sidebar-left' | 'diagnostics-right' | 'toolbar-top'
 
 export type PanelMode = 'anchored' | 'docked'
 
@@ -57,6 +58,7 @@ export type PanelAction =
   | { type: 'clear-history' }
   | { type: 'toggle-project'; name: string; url: string; faviconUrl: string | null; pageTitle: string }
   | { type: 'toggle-sidebar' }
+  | { type: 'toggle-diagnostics' }
   | { type: 'go-back' }
   | { type: 'go-forward' }
   | { type: 'reload' }
@@ -67,7 +69,7 @@ export const PANEL_MIN_SIZE: Record<PanelId, Size> = {
   zoom: { width: 144, height: 224 },
   theme: { width: 176, height: 120 },
   'sidebar-left': { width: 280, height: 400 },
-  'sidebar-right': { width: 280, height: 400 },
+  'diagnostics-right': { width: DIAGNOSTICS_DRAWER_WIDTH_PX, height: 400 },
   'toolbar-top': { width: 400, height: 52 }
 }
 

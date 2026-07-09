@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { ElementFingerprint } from '../../src/shared/element-mirror'
 import { PaneManager } from '../../src/main/pane-manager'
+import { createRuntimeEvidenceBuffer } from '../../src/main/runtime-evidence-buffer'
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
@@ -312,5 +313,26 @@ describe('PaneManager value sync', () => {
     expect(ipad.applyValue).toHaveBeenNthCalledWith(2, fingerprint, { value: 'ab', generation: 2 })
     expect(desktop.applyValue).toHaveBeenNthCalledWith(2, fingerprint, { value: 'ab', generation: 2 })
     expect(iphone.applyValue).not.toHaveBeenCalled()
+  })
+})
+
+describe('PaneManager runtime evidence', () => {
+  it('returns console evidence for the active pane', () => {
+    const paneManager = new PaneManager()
+    const iphoneBuffer = createRuntimeEvidenceBuffer()
+    const desktopBuffer = createRuntimeEvidenceBuffer()
+
+    iphoneBuffer.pushConsole({ level: 'error', message: 'iphone error' })
+    desktopBuffer.pushConsole({ level: 'error', message: 'desktop error' })
+
+    ;(paneManager as unknown as { runtimeEvidence: Map<string, ReturnType<typeof createRuntimeEvidenceBuffer>> }).runtimeEvidence.set('iphone', iphoneBuffer)
+    ;(paneManager as unknown as { runtimeEvidence: Map<string, ReturnType<typeof createRuntimeEvidenceBuffer>> }).runtimeEvidence.set('desktop', desktopBuffer)
+    ;(paneManager as unknown as { tracker: { didFocus: (paneId: string) => void } }).tracker.didFocus('iphone')
+
+    expect(paneManager.getRuntimeEvidenceSnapshot().console[0]?.message).toBe('iphone error')
+
+    ;(paneManager as unknown as { tracker: { didFocus: (paneId: string) => void } }).tracker.didFocus('desktop')
+
+    expect(paneManager.getRuntimeEvidenceSnapshot().console[0]?.message).toBe('desktop error')
   })
 })

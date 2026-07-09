@@ -12,7 +12,7 @@ const PANEL_SIZE_CLASS: Record<PanelId, string> = {
   zoom: 'h-[224px] w-36',
   theme: '',
   'sidebar-left': 'w-[280px]',
-  'sidebar-right': 'w-[280px]',
+  'diagnostics-right': 'w-[320px]',
   'toolbar-top': 'w-full'
 }
 

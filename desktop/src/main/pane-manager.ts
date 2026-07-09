@@ -3,9 +3,11 @@ import { writeFile } from 'fs/promises'
 import { DEVICE_PRESETS, PANE_IDS } from '../shared/device-presets'
 import type { ElementFingerprint } from '../shared/element-mirror'
 import type { PaneId, PaneMount, PaneNavigationState, ThemePreference } from '../shared/types'
+import type { RuntimeEvidenceSnapshot } from '../shared/runtime-evidence'
 import { createActivePaneTracker } from './active-pane-tracker'
 import { createEchoLedger } from './echo-ledger'
 import type { EngineView, ValueSyncPayload } from './engine-view'
+import { createRuntimeEvidenceBuffer, type RuntimeEvidenceBuffer } from './runtime-evidence-buffer'
 import { summarizeFingerprint, syncTrace, getSyncTraceLogs } from './sync-trace'
 import { getPanePreloadPath, WebContentsViewEngine } from './web-contents-view-engine'
 
@@ -39,6 +41,7 @@ export interface NavigationHistoryHooks {
 
 export class PaneManager {
   private readonly engines = new Map<PaneId, WebContentsViewEngine>()
+  private readonly runtimeEvidence = new Map<PaneId, RuntimeEvidenceBuffer>()
   private readonly paneInteractionEpoch = new Map<PaneId, number>()
   private readonly echoLedger = createEchoLedger()
   private readonly webContentsToPane = new Map<number, PaneId>()
@@ -216,6 +219,25 @@ export class PaneManager {
     const { canGoBack, canGoForward } = this.getNavigationCapabilities()
     const { activePane, barUrl, pageTitle, faviconUrl } = this.tracker.getSnapshot()
     return { activePane, barUrl, pageTitle, faviconUrl, canGoBack, canGoForward }
+  }
+
+  getRuntimeEvidenceSnapshot(): RuntimeEvidenceSnapshot {
+    const paneId = this.resolveActivePaneForEvidence()
+    const buffer = this.runtimeEvidence.get(paneId)
+    return buffer?.snapshot(paneId) ?? { paneId, console: [], problemCount: 0 }
+  }
+
+  private resolveActivePaneForEvidence(): PaneId {
+    return this.tracker.getSnapshot().activePane ?? 'desktop'
+  }
+
+  private notifyRuntimeEvidenceChanged(paneId: PaneId): void {
+    if (paneId !== this.resolveActivePaneForEvidence()) return
+    this.broadcastRendererEvent('runtime-evidence:changed', this.getRuntimeEvidenceSnapshot())
+  }
+
+  private emitRuntimeEvidenceIfActivePaneChanged(): void {
+    this.broadcastRendererEvent('runtime-evidence:changed', this.getRuntimeEvidenceSnapshot())
   }
 
   async goBack(): Promise<void> {
@@ -573,6 +595,7 @@ export class PaneManager {
       engine.destroy()
     }
     this.engines.clear()
+    this.runtimeEvidence.clear()
     this.webContentsToPane.clear()
     this.mainWindow = null
     this.sharedSession = null
@@ -605,6 +628,12 @@ export class PaneManager {
     restoreUrl: string | null
   ): Promise<WebContentsViewEngine> {
     const engine = new WebContentsViewEngine(paneId, this.getSharedSession(), getPanePreloadPath())
+    const evidenceBuffer = createRuntimeEvidenceBuffer()
+    this.runtimeEvidence.set(paneId, evidenceBuffer)
+    engine.bindRuntimeEvidence((entry) => {
+      evidenceBuffer.pushConsole(entry)
+      this.notifyRuntimeEvidenceChanged(paneId)
+    })
     this.engines.set(paneId, engine)
     this.bumpPaneInteractionEpoch(paneId)
     this.webContentsToPane.set(engine.webContents.id, paneId)
@@ -737,6 +766,7 @@ export class PaneManager {
 
   private emitNavigationState(): void {
     this.broadcastRendererEvent('pane:navigation', this.getNavigationState())
+    this.emitRuntimeEvidenceIfActivePaneChanged()
   }
 
   private markPendingVisit(url: string, inPage: boolean): void {
