@@ -3,6 +3,7 @@ import type { PaneId } from '../../shared/types'
 import { isCommittedPageUrl } from '../../shared/project'
 import { PreviewCanvas } from '@renderer/components/preview-canvas'
 import { ToolbarProvider } from '@renderer/context/toolbar-context'
+import { DiagnosticsProvider } from '@renderer/context/diagnostics-context'
 import { SidebarProvider } from '@renderer/context/sidebar-context'
 
 export default function App(): React.JSX.Element {
@@ -61,13 +62,15 @@ export default function App(): React.JSX.Element {
 
   return (
     <SidebarProvider>
-      <ToolbarProvider>
-        <PreviewCanvas
-          loadingStates={loadingStates}
-          committedUrl={committedUrl}
-          activePane={activePane}
-        />
-      </ToolbarProvider>
+      <DiagnosticsProvider>
+        <ToolbarProvider>
+          <PreviewCanvas
+            loadingStates={loadingStates}
+            committedUrl={committedUrl}
+            activePane={activePane}
+          />
+        </ToolbarProvider>
+      </DiagnosticsProvider>
     </SidebarProvider>
   )
 }

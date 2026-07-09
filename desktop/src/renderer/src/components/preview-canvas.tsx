@@ -7,7 +7,9 @@ import { DevicePane } from '@renderer/components/device-pane'
 import { CANVAS_GLASS_SURFACE_CLASS } from '@renderer/lib/glass-surface'
 import { cn } from '@renderer/lib/utils'
 import { PreviewCanvasContext } from '@renderer/context/preview-canvas-context'
+import { useDiagnostics } from '@renderer/context/diagnostics-context'
 import { useSidebar } from '@renderer/context/sidebar-context'
+import { DIAGNOSTICS_DRAWER_WIDTH_PX } from '../../../shared/runtime-evidence'
 import { isCommittedPageUrl } from '../../../shared/project'
 
 interface PreviewCanvasProps {
@@ -23,7 +25,10 @@ export function PreviewCanvas({
 }: PreviewCanvasProps): React.JSX.Element {
   const [zoom, setZoomState] = useState(DEFAULT_ZOOM)
   const { isOpen: sidebarOpen, isTransitioning: sidebarTransitioning } = useSidebar()
+  const { isOpen: diagnosticsOpen, isTransitioning: diagnosticsTransitioning } = useDiagnostics()
   const sidebarOffset = sidebarOpen || sidebarTransitioning ? SIDEBAR_WIDTH_PX : 0
+  const diagnosticsOffset =
+    diagnosticsOpen || diagnosticsTransitioning ? DIAGNOSTICS_DRAWER_WIDTH_PX : 0
   const hasPreview =
     isCommittedPageUrl(committedUrl) || Object.values(loadingStates).some(Boolean)
 
@@ -59,7 +64,8 @@ export function PreviewCanvas({
           className={cn('box-border h-screen overflow-auto', CANVAS_GLASS_SURFACE_CLASS)}
           style={{
             paddingTop: TOOLBAR_HEIGHT_PX,
-            paddingLeft: sidebarOffset
+            paddingLeft: sidebarOffset,
+            paddingRight: diagnosticsOffset
           }}
           onWheel={handleWheel}
           data-testid="preview-canvas"

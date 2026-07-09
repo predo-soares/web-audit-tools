@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import { getMockupDimensions } from '../../../shared/mockup-layout'
 import { SIDEBAR_TRANSITION_MS } from '../../../shared/sidebar'
+import { useDiagnostics } from '@renderer/context/diagnostics-context'
 import { LAYOUT_SETTLED_EVENT, useSidebar } from '@renderer/context/sidebar-context'
 import { usePreviewCanvas } from '@renderer/context/preview-canvas-context'
 import type { Bounds, PaneId } from '../../../shared/types'
@@ -12,6 +13,8 @@ export function usePaneBounds(
 ): (node: HTMLDivElement | null) => void {
   const { zoom } = usePreviewCanvas()
   const { isOpen: sidebarOpen, isTransitioning: sidebarTransitioning } = useSidebar()
+  const { isOpen: diagnosticsOpen, isTransitioning: diagnosticsTransitioning } = useDiagnostics()
+  const layoutTransitioning = sidebarTransitioning || diagnosticsTransitioning
   const elementRef = useRef<HTMLDivElement | null>(null)
   const observerRef = useRef<ResizeObserver | null>(null)
   const frameRefs = useRef<number[]>([])
@@ -82,10 +85,10 @@ export function usePaneBounds(
   useLayoutEffect(() => {
     if (!enabled) return
     scheduleReport()
-  }, [enabled, scheduleReport, sidebarOpen, sidebarTransitioning])
+  }, [enabled, scheduleReport, sidebarOpen, sidebarTransitioning, diagnosticsOpen, diagnosticsTransitioning])
 
   useEffect(() => {
-    if (!enabled || !sidebarTransitioning) return
+    if (!enabled || !layoutTransitioning) return
 
     let frameId = 0
     const startedAt = performance.now()
@@ -99,7 +102,7 @@ export function usePaneBounds(
 
     frameId = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frameId)
-  }, [enabled, reportBounds, sidebarTransitioning])
+  }, [enabled, layoutTransitioning, reportBounds])
 
   useEffect(() => {
     if (!enabled) return
