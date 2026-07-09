@@ -135,6 +135,10 @@ export function registerIpcHandlers(
     return paneManager.getRuntimeEvidenceSnapshot()
   })
 
+  ipcMain.handle('runtime-evidence:clear', (_event, channel: 'console' | 'network') => {
+    return paneManager.clearRuntimeEvidence(channel)
+  })
+
   ipcMain.handle('panel:open', async (_event, options: PanelOpenOptions) => {
     await panelManager.open(options)
   })
@@ -262,6 +266,10 @@ export function registerIpcHandlers(
 
   ipcMain.handle('e2e:evaluate-in-pane', async (_event, paneId: PaneId, expression: string) => {
     return paneManager.evaluateInPane(paneId, expression)
+  })
+
+  ipcMain.handle('e2e:focus-pane', (_event, paneId: PaneId) => {
+    paneManager.focusPane(paneId)
   })
 
   ipcMain.handle('e2e:get-mirror-failure-logs', () => {

@@ -3,7 +3,7 @@ import { writeFile } from 'fs/promises'
 import { DEVICE_PRESETS, PANE_IDS } from '../shared/device-presets'
 import type { ElementFingerprint } from '../shared/element-mirror'
 import type { PaneId, PaneMount, PaneNavigationState, ThemePreference } from '../shared/types'
-import type { RuntimeEvidenceSnapshot } from '../shared/runtime-evidence'
+import type { RuntimeEvidenceChannel, RuntimeEvidenceSnapshot } from '../shared/runtime-evidence'
 import { createActivePaneTracker } from './active-pane-tracker'
 import { createEchoLedger } from './echo-ledger'
 import type { EngineView, ValueSyncPayload } from './engine-view'
@@ -225,6 +225,25 @@ export class PaneManager {
     const paneId = this.resolveActivePaneForEvidence()
     const buffer = this.runtimeEvidence.get(paneId)
     return buffer?.snapshot(paneId) ?? { paneId, console: [], network: [], problemCount: 0 }
+  }
+
+  clearRuntimeEvidence(channel: RuntimeEvidenceChannel): RuntimeEvidenceSnapshot {
+    const paneId = this.resolveActivePaneForEvidence()
+    const buffer = this.runtimeEvidence.get(paneId)
+    if (buffer) {
+      if (channel === 'console') {
+        buffer.clearConsole()
+      } else {
+        buffer.clearNetwork()
+      }
+    }
+    const snapshot = this.getRuntimeEvidenceSnapshot()
+    this.broadcastRendererEvent('runtime-evidence:changed', snapshot)
+    return snapshot
+  }
+
+  focusPane(paneId: PaneId): void {
+    this.getEngine(paneId).webContents.focus()
   }
 
   private resolveActivePaneForEvidence(): PaneId {

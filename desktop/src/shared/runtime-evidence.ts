@@ -4,6 +4,8 @@ export const CONSOLE_EVIDENCE_CAP = 300
 export const NETWORK_EVIDENCE_CAP = 150
 export const DIAGNOSTICS_DRAWER_WIDTH_PX = 320
 
+export type RuntimeEvidenceChannel = 'console' | 'network'
+
 export type ConsoleEvidenceLevel =
   | 'error'
   | 'warn'

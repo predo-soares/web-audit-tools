@@ -1,20 +1,33 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
   ConsoleEvidenceEntry,
   NetworkEvidenceEntry,
+  RuntimeEvidenceChannel,
   RuntimeEvidenceSnapshot
 } from '../../../../../shared/runtime-evidence'
 import { DIAGNOSTICS_DRAWER_WIDTH_PX } from '../../../../../shared/runtime-evidence'
 import { TOOLBAR_HEIGHT_PX } from '../../../../../shared/sidebar'
 import { cn } from '@renderer/lib/utils'
+import { ArrowDown01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons'
+import { Icon } from '@renderer/components/ui/icon'
 
-type DiagnosticsTab = 'console' | 'network'
+type DiagnosticsTab = RuntimeEvidenceChannel
+
+const SCROLL_TAIL_THRESHOLD_PX = 24
 
 function formatSource(entry: ConsoleEvidenceEntry): string | null {
   if (!entry.sourceUrl) return null
   const fileName = entry.sourceUrl.split('/').pop() || entry.sourceUrl
   if (entry.line === undefined) return fileName
   return `${fileName}:${entry.line}`
+}
+
+function formatClipboardLocation(entry: ConsoleEvidenceEntry): string | null {
+  if (!entry.sourceUrl) return null
+  const parts: string[] = [entry.sourceUrl]
+  if (entry.line !== undefined) parts.push(String(entry.line))
+  if (entry.column !== undefined) parts.push(String(entry.column))
+  return parts.join(':')
 }
 
 function formatDuration(durationMs?: number): string {
@@ -29,6 +42,19 @@ function formatStatus(entry: NetworkEvidenceEntry): string {
   return String(entry.status)
 }
 
+function formatHeaders(headers?: Record<string, string>): string {
+  if (!headers) return ''
+  return Object.entries(headers)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join('\n')
+}
+
+function isScrolledToBottom(element: HTMLElement): boolean {
+  return (
+    element.scrollHeight - element.scrollTop - element.clientHeight <= SCROLL_TAIL_THRESHOLD_PX
+  )
+}
+
 const LEVEL_CLASS: Record<ConsoleEvidenceEntry['level'], string> = {
   error: 'text-destructive',
   warn: 'text-amber-500',
@@ -41,8 +67,10 @@ const LEVEL_CLASS: Record<ConsoleEvidenceEntry['level'], string> = {
 
 export function DiagnosticsPanel(): React.JSX.Element {
   const listRef = useRef<HTMLDivElement>(null)
+  const stickToBottomRef = useRef(true)
   const [activeTab, setActiveTab] = useState<DiagnosticsTab>('console')
   const [evidence, setEvidence] = useState<RuntimeEvidenceSnapshot | null>(null)
+  const [expandedEntryIds, setExpandedEntryIds] = useState<Set<string>>(() => new Set())
 
   useEffect(() => {
     void window.panelApi.getRuntimeEvidence().then(setEvidence)
@@ -62,7 +90,44 @@ export function DiagnosticsPanel(): React.JSX.Element {
     const list = listRef.current
     if (!list) return
     list.scrollTop = list.scrollHeight
-  }, [activeTab, evidence?.console.length, evidence?.network.length])
+    stickToBottomRef.current = true
+  }, [activeTab])
+
+  useEffect(() => {
+    const list = listRef.current
+    if (!list) return
+    if (!isScrolledToBottom(list)) return
+    list.scrollTop = list.scrollHeight
+    stickToBottomRef.current = true
+  }, [evidence?.console.length, evidence?.network.length])
+
+  const handleListScroll = useCallback((): void => {
+    const list = listRef.current
+    if (!list) return
+    stickToBottomRef.current = isScrolledToBottom(list)
+  }, [])
+
+  const handleClear = useCallback((channel: RuntimeEvidenceChannel): void => {
+    void window.panelApi.clearRuntimeEvidence(channel).then(setEvidence)
+  }, [])
+
+  const toggleExpanded = useCallback((entryId: string): void => {
+    setExpandedEntryIds((current) => {
+      const next = new Set(current)
+      if (next.has(entryId)) {
+        next.delete(entryId)
+      } else {
+        next.add(entryId)
+      }
+      return next
+    })
+  }, [])
+
+  const copySourceLocation = useCallback((entry: ConsoleEvidenceEntry): void => {
+    const location = formatClipboardLocation(entry)
+    if (!location) return
+    void navigator.clipboard.writeText(location)
+  }, [])
 
   const consoleCount = evidence?.console.length ?? 0
   const networkCount = evidence?.network.length ?? 0
@@ -71,6 +136,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
     <aside
       id="diagnostics-drawer"
       data-testid="diagnostics-drawer"
+      data-pane-id={evidence?.paneId ?? ''}
       className="box-border flex h-screen min-h-screen shrink-0 flex-col overflow-hidden border-l border-white/10 bg-background text-foreground"
       style={{ width: DIAGNOSTICS_DRAWER_WIDTH_PX }}
     >
@@ -122,8 +188,21 @@ export function DiagnosticsPanel(): React.JSX.Element {
               {networkCount}
             </span>
           </button>
+          <button
+            type="button"
+            data-testid={`diagnostics-clear-${activeTab}`}
+            className="ml-auto rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+            onClick={() => handleClear(activeTab)}
+          >
+            Clear
+          </button>
         </header>
-        <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto px-2 py-2 font-mono text-xs">
+        <div
+          ref={listRef}
+          data-testid="diagnostics-list"
+          className="min-h-0 flex-1 overflow-y-auto px-2 py-2 font-mono text-xs"
+          onScroll={handleListScroll}
+        >
           {activeTab === 'console' ? (
             !evidence || evidence.console.length === 0 ? (
               <p className="px-1 py-2 text-sm font-sans text-muted-foreground">
@@ -133,6 +212,8 @@ export function DiagnosticsPanel(): React.JSX.Element {
               <ul className="flex flex-col gap-1">
                 {evidence.console.map((entry) => {
                   const source = formatSource(entry)
+                  const expanded = expandedEntryIds.has(entry.id)
+                  const canExpand = Boolean(entry.stack)
                   return (
                     <li
                       key={entry.id}
@@ -140,6 +221,23 @@ export function DiagnosticsPanel(): React.JSX.Element {
                       className="rounded-md px-2 py-1.5 hover:bg-white/5"
                     >
                       <div className="flex items-start gap-2">
+                        {canExpand ? (
+                          <button
+                            type="button"
+                            data-testid="diagnostics-console-expand"
+                            aria-expanded={expanded}
+                            aria-label={expanded ? 'Collapse stack trace' : 'Expand stack trace'}
+                            className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground"
+                            onClick={() => toggleExpanded(entry.id)}
+                          >
+                            <Icon
+                              icon={expanded ? ArrowDown01Icon : ArrowRight01Icon}
+                              className="size-3"
+                            />
+                          </button>
+                        ) : (
+                          <span className="w-3 shrink-0" />
+                        )}
                         <span
                           data-testid="diagnostics-console-level"
                           className={cn('shrink-0 uppercase', LEVEL_CLASS[entry.level])}
@@ -149,7 +247,23 @@ export function DiagnosticsPanel(): React.JSX.Element {
                         <div className="min-w-0 flex-1">
                           <p className="break-words text-foreground">{entry.message}</p>
                           {source ? (
-                            <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{source}</p>
+                            <button
+                              type="button"
+                              data-testid="diagnostics-console-source-link"
+                              className="mt-0.5 block max-w-full truncate text-left text-[11px] text-sky-400 hover:underline"
+                              title={formatClipboardLocation(entry) ?? source}
+                              onClick={() => copySourceLocation(entry)}
+                            >
+                              {source}
+                            </button>
+                          ) : null}
+                          {expanded && entry.stack ? (
+                            <pre
+                              data-testid="diagnostics-console-stack"
+                              className="mt-1 whitespace-pre-wrap break-words text-[10px] text-muted-foreground"
+                            >
+                              {entry.stack}
+                            </pre>
                           ) : null}
                         </div>
                       </div>
@@ -164,46 +278,88 @@ export function DiagnosticsPanel(): React.JSX.Element {
             </p>
           ) : (
             <ul className="flex flex-col gap-1">
-              {evidence.network.map((entry) => (
-                <li
-                  key={entry.id}
-                  data-testid="diagnostics-network-entry"
-                  className={cn(
-                    'rounded-md px-2 py-1.5 hover:bg-white/5',
-                    entry.failed && 'text-destructive'
-                  )}
-                >
-                  <div className="flex items-start gap-2">
-                    <span
-                      data-testid="diagnostics-network-status"
-                      className={cn('w-10 shrink-0 tabular-nums', entry.failed && 'text-destructive')}
-                    >
-                      {formatStatus(entry)}
-                    </span>
-                    <span
-                      data-testid="diagnostics-network-method"
-                      className="w-12 shrink-0 uppercase text-muted-foreground"
-                    >
-                      {entry.method}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p
-                        data-testid="diagnostics-network-path"
-                        className="truncate text-foreground"
-                        title={entry.path}
+              {evidence.network.map((entry) => {
+                const expanded = expandedEntryIds.has(entry.id)
+                const requestHeaders = formatHeaders(entry.requestHeaders)
+                const responseHeaders = formatHeaders(entry.responseHeaders)
+                const canExpand = Boolean(requestHeaders || responseHeaders)
+                return (
+                  <li
+                    key={entry.id}
+                    data-testid="diagnostics-network-entry"
+                    className={cn(
+                      'rounded-md px-2 py-1.5 hover:bg-white/5',
+                      entry.failed && 'text-destructive'
+                    )}
+                  >
+                    <div className="flex items-start gap-2">
+                      {canExpand ? (
+                        <button
+                          type="button"
+                          data-testid="diagnostics-network-expand"
+                          aria-expanded={expanded}
+                          aria-label={expanded ? 'Collapse headers' : 'Expand headers'}
+                          className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground"
+                          onClick={() => toggleExpanded(entry.id)}
+                        >
+                          <Icon
+                            icon={expanded ? ArrowDown01Icon : ArrowRight01Icon}
+                            className="size-3"
+                          />
+                        </button>
+                      ) : (
+                        <span className="w-3 shrink-0" />
+                      )}
+                      <span
+                        data-testid="diagnostics-network-status"
+                        className={cn('w-10 shrink-0 tabular-nums', entry.failed && 'text-destructive')}
                       >
-                        {entry.path}
-                      </p>
+                        {formatStatus(entry)}
+                      </span>
+                      <span
+                        data-testid="diagnostics-network-method"
+                        className="w-12 shrink-0 uppercase text-muted-foreground"
+                      >
+                        {entry.method}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p
+                          data-testid="diagnostics-network-path"
+                          className="truncate text-foreground"
+                          title={entry.path}
+                        >
+                          {entry.path}
+                        </p>
+                        {expanded ? (
+                          <div
+                            data-testid="diagnostics-network-headers"
+                            className="mt-1 space-y-1 text-[10px] text-muted-foreground"
+                          >
+                            {requestHeaders ? (
+                              <div>
+                                <p className="font-sans font-medium text-foreground/80">Request</p>
+                                <pre className="whitespace-pre-wrap break-words">{requestHeaders}</pre>
+                              </div>
+                            ) : null}
+                            {responseHeaders ? (
+                              <div>
+                                <p className="font-sans font-medium text-foreground/80">Response</p>
+                                <pre className="whitespace-pre-wrap break-words">{responseHeaders}</pre>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                      <span
+                        data-testid="diagnostics-network-duration"
+                        className="shrink-0 tabular-nums text-muted-foreground"
+                      >
+                        {formatDuration(entry.durationMs)}
+                      </span>
                     </div>
-                    <span
-                      data-testid="diagnostics-network-duration"
-                      className="shrink-0 tabular-nums text-muted-foreground"
-                    >
-                      {formatDuration(entry.durationMs)}
-                    </span>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                )
+              })}
             </ul>
           )}
         </div>

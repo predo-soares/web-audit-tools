@@ -57,6 +57,12 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
         <button id="emit-fetch-fail" data-testid="emit-fetch-fail" type="button">
           Fetch load failure
         </button>
+        <button id="emit-many-logs" data-testid="emit-many-logs" type="button">
+          Emit many console logs
+        </button>
+        <button id="emit-throw-error" data-testid="emit-throw-error" type="button">
+          Throw uncaught error
+        </button>
         <script>
           document.getElementById('emit-console-error').addEventListener('click', function () {
             console.error('fixture-runtime-error', 'deliberate test error');
@@ -70,6 +76,14 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
           document.getElementById('emit-fetch-fail').addEventListener('click', function () {
             void fetch('/runtime-evidence/api/fail');
           });
+          document.getElementById('emit-many-logs').addEventListener('click', function () {
+            for (var i = 0; i < 30; i++) {
+              console.log('fixture-log-batch', String(i).padStart(2, '0'));
+            }
+          });
+          document.getElementById('emit-throw-error').addEventListener('click', function () {
+            throw new Error('fixture-uncaught-error');
+          });
         </script>
       </body></html>`
     )
@@ -82,7 +96,10 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
   }
 
   if (pathname === '/runtime-evidence/api/missing') {
-    res.writeHead(404, { 'Content-Type': 'application/json' })
+    res.writeHead(404, {
+      'Content-Type': 'application/json',
+      'X-Fixture-Response': 'missing-resource'
+    })
     res.end(JSON.stringify({ error: 'not found' }))
     return
   }

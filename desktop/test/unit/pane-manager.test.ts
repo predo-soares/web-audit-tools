@@ -335,4 +335,30 @@ describe('PaneManager runtime evidence', () => {
 
     expect(paneManager.getRuntimeEvidenceSnapshot().console[0]?.message).toBe('desktop error')
   })
+
+  it('clears only the requested channel for the active pane', () => {
+    const paneManager = new PaneManager()
+    const buffer = createRuntimeEvidenceBuffer()
+
+    buffer.pushConsole({ level: 'error', message: 'console error' })
+    buffer.pushNetwork({
+      method: 'GET',
+      url: 'http://localhost/missing',
+      path: '/missing',
+      status: 404,
+      failed: true
+    })
+
+    ;(paneManager as unknown as { runtimeEvidence: Map<string, ReturnType<typeof createRuntimeEvidenceBuffer>> }).runtimeEvidence.set('desktop', buffer)
+    ;(paneManager as unknown as { tracker: { didFocus: (paneId: string) => void } }).tracker.didFocus('desktop')
+
+    paneManager.clearRuntimeEvidence('console')
+
+    expect(paneManager.getRuntimeEvidenceSnapshot().console).toEqual([])
+    expect(paneManager.getRuntimeEvidenceSnapshot().network).toHaveLength(1)
+
+    paneManager.clearRuntimeEvidence('network')
+
+    expect(paneManager.getRuntimeEvidenceSnapshot().network).toEqual([])
+  })
 })

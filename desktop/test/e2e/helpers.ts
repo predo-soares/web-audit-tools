@@ -280,6 +280,15 @@ export async function waitForAllPanes(window: Page): Promise<void> {
   await waitForPaneLoad(window, 'desktop')
 }
 
+export async function focusPane(window: Page, paneId: PaneId): Promise<void> {
+  await window.evaluate(
+    async ({ paneId }) => {
+      await window.api.focusPane(paneId)
+    },
+    { paneId }
+  )
+}
+
 export async function evaluateInPane<T>(
   window: Page,
   paneId: PaneId,

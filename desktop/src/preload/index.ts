@@ -49,6 +49,7 @@ export interface PreviewApi {
   onProjectsChanged: (callback: (projects: Project[]) => void) => () => void
   onHistoryUpdated: (callback: (entries: HistoryEntry[]) => void) => () => void
   evaluateInPane: <T>(paneId: PaneId, expression: string) => Promise<T>
+  focusPane: (paneId: PaneId) => Promise<void>
   getMirrorFailureLogs: () => Promise<Record<PaneId, MirrorFailureLog[]>>
   getSyncTraceLogs: () => Promise<Array<{ ts: number; event: string; data?: Record<string, unknown> }>>
   getRuntimeEvidence: () => Promise<RuntimeEvidenceSnapshot>
@@ -165,6 +166,7 @@ const api: PreviewApi = {
   },
   evaluateInPane: (paneId, expression) =>
     ipcRenderer.invoke('e2e:evaluate-in-pane', paneId, expression),
+  focusPane: (paneId) => ipcRenderer.invoke('e2e:focus-pane', paneId),
   getMirrorFailureLogs: () => ipcRenderer.invoke('e2e:get-mirror-failure-logs'),
   getSyncTraceLogs: () => ipcRenderer.invoke('e2e:get-sync-trace-logs'),
   getRuntimeEvidence: () => ipcRenderer.invoke('runtime-evidence:get'),
