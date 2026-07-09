@@ -43,6 +43,42 @@ export function describeEngineViewContract(
       expect(harness.currentUrl()).toBe('https://example.com/')
     })
 
+    it('canGoBack is false before any navigation', () => {
+      const harness = createHarness()
+
+      expect(harness.engine.canGoBack()).toBe(false)
+      expect(harness.engine.canGoForward()).toBe(false)
+    })
+
+    it('goBack on empty history is a no-op', async () => {
+      const harness = createHarness()
+
+      expect(() => harness.engine.goBack()).not.toThrow()
+      expect(() => harness.engine.goForward()).not.toThrow()
+      expect(harness.currentUrl()).toBe(harness.engine.getCurrentUrl())
+    })
+
+    it('getCurrentUrl reflects the last committed navigation', async () => {
+      const harness = createHarness()
+
+      await harness.engine.navigate('https://example.com/one')
+
+      expect(harness.engine.getCurrentUrl()).toBe('https://example.com/one')
+      expect(harness.engine.canGoBack()).toBe(true)
+      expect(harness.engine.canGoForward()).toBe(false)
+    })
+
+    it('goBack returns the current URL to the previous entry', async () => {
+      const harness = createHarness()
+
+      await harness.engine.navigate('https://example.com/one')
+      await harness.engine.navigate('https://example.com/two')
+      harness.engine.goBack()
+
+      expect(harness.engine.getCurrentUrl()).toBe('https://example.com/one')
+      expect(harness.engine.canGoForward()).toBe(true)
+    })
+
     it('destroy is idempotent', () => {
       const harness = createHarness()
 

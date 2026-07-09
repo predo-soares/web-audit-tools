@@ -14,14 +14,15 @@ function createDeferred<T>() {
 
 function createMockEngine() {
   return {
-    resolveClickPoint: vi.fn<
-      () => Promise<
-        | { dispatched: true }
-        | { handled: true }
-        | { skipDispatch: true; navigateTo: string }
-        | null
-      >
-    >(),
+    resolveClickPoint:
+      vi.fn<
+        () => Promise<
+          | { dispatched: true }
+          | { handled: true }
+          | { skipDispatch: true; navigateTo: string }
+          | null
+        >
+      >(),
     dispatchClick: vi.fn<(x: number, y: number) => void>(),
     applyValue: vi.fn(),
     applyChecked: vi.fn(),
@@ -31,6 +32,12 @@ function createMockEngine() {
     navigate: vi.fn(),
     setDevice: vi.fn(),
     syncScroll: vi.fn(),
+    getCurrentUrl: vi.fn(() => 'https://example.com'),
+    canGoBack: vi.fn(() => false),
+    canGoForward: vi.fn(() => false),
+    goBack: vi.fn(),
+    goForward: vi.fn(),
+    getPreviousEntryUrl: vi.fn<() => string | null>(() => null),
     destroy: vi.fn(),
     webContents: {
       id: Math.floor(Math.random() * 10000),
@@ -307,8 +314,12 @@ describe('PaneManager value sync', () => {
     await paneManager.syncValue('iphone', fingerprint, 'hello')
 
     expect(iphone.calls.applyValue).toHaveLength(0)
-    expect(ipad.calls.applyValue).toEqual([{ fingerprint, payload: { value: 'hello', generation: 1 } }])
-    expect(desktop.calls.applyValue).toEqual([{ fingerprint, payload: { value: 'hello', generation: 1 } }])
+    expect(ipad.calls.applyValue).toEqual([
+      { fingerprint, payload: { value: 'hello', generation: 1 } }
+    ])
+    expect(desktop.calls.applyValue).toEqual([
+      { fingerprint, payload: { value: 'hello', generation: 1 } }
+    ])
   })
 
   it('suppresses value echo from a mirrored apply', async () => {
@@ -347,6 +358,64 @@ describe('PaneManager value sync', () => {
       payload: { value: 'ab', generation: 2 }
     })
     expect(iphone.calls.applyValue).toHaveLength(0)
+  })
+})
+
+// Navigation history routed through the EngineView seam: assertions read
+// FakeEngine-observable history state instead of Electron webContents spies.
+describe('PaneManager navigation history through the seam', () => {
+  it('goes back on the active pane and updates its current URL', async () => {
+    const { paneManager, desktop } = createPaneManagerWithFakeEngines()
+    ;(paneManager as any).tracker.didFocus('desktop')
+
+    await desktop.navigate('https://example.com/one')
+    await desktop.navigate('https://example.com/two')
+
+    await paneManager.goBack()
+
+    expect(desktop.calls.goBack).toBe(1)
+    expect(desktop.getCurrentUrl()).toBe('https://example.com/one')
+  })
+
+  it('does not go back when the pane has no back entry', async () => {
+    const { paneManager, desktop } = createPaneManagerWithFakeEngines()
+    ;(paneManager as any).tracker.didFocus('desktop')
+
+    await paneManager.goBack()
+
+    expect(desktop.calls.goBack).toBe(0)
+  })
+
+  it('goes forward after going back', async () => {
+    const { paneManager, desktop } = createPaneManagerWithFakeEngines()
+    ;(paneManager as any).tracker.didFocus('desktop')
+
+    await desktop.navigate('https://example.com/one')
+    await desktop.navigate('https://example.com/two')
+    await paneManager.goBack()
+
+    await paneManager.goForward()
+
+    expect(desktop.calls.goForward).toBe(1)
+    expect(desktop.getCurrentUrl()).toBe('https://example.com/two')
+  })
+
+  it('reports navigation capabilities from the active pane, skipping the initial about:blank entry', async () => {
+    const { paneManager, desktop } = createPaneManagerWithFakeEngines()
+    ;(paneManager as any).tracker.didFocus('desktop')
+
+    // Only the initial about:blank → first real page: canGoBack must be false
+    // because the sole previous entry is the blank initial entry.
+    await desktop.navigate('https://example.com/one')
+    expect(paneManager.getNavigationState().canGoBack).toBe(false)
+    expect(paneManager.getNavigationState().canGoForward).toBe(false)
+
+    // A second real navigation puts a meaningful (non-blank) entry behind.
+    await desktop.navigate('https://example.com/two')
+    expect(paneManager.getNavigationState().canGoBack).toBe(true)
+
+    await paneManager.goBack()
+    expect(paneManager.getNavigationState().canGoForward).toBe(true)
   })
 })
 
@@ -444,13 +513,25 @@ describe('PaneManager runtime evidence', () => {
     iphoneBuffer.pushConsole({ level: 'error', message: 'iphone error' })
     desktopBuffer.pushConsole({ level: 'error', message: 'desktop error' })
 
-    ;(paneManager as unknown as { runtimeEvidence: Map<string, ReturnType<typeof createRuntimeEvidenceBuffer>> }).runtimeEvidence.set('iphone', iphoneBuffer)
-    ;(paneManager as unknown as { runtimeEvidence: Map<string, ReturnType<typeof createRuntimeEvidenceBuffer>> }).runtimeEvidence.set('desktop', desktopBuffer)
-    ;(paneManager as unknown as { tracker: { didFocus: (paneId: string) => void } }).tracker.didFocus('iphone')
+    ;(
+      paneManager as unknown as {
+        runtimeEvidence: Map<string, ReturnType<typeof createRuntimeEvidenceBuffer>>
+      }
+    ).runtimeEvidence.set('iphone', iphoneBuffer)
+    ;(
+      paneManager as unknown as {
+        runtimeEvidence: Map<string, ReturnType<typeof createRuntimeEvidenceBuffer>>
+      }
+    ).runtimeEvidence.set('desktop', desktopBuffer)
+    ;(
+      paneManager as unknown as { tracker: { didFocus: (paneId: string) => void } }
+    ).tracker.didFocus('iphone')
 
     expect(paneManager.getRuntimeEvidenceSnapshot().console[0]?.message).toBe('iphone error')
 
-    ;(paneManager as unknown as { tracker: { didFocus: (paneId: string) => void } }).tracker.didFocus('desktop')
+    ;(
+      paneManager as unknown as { tracker: { didFocus: (paneId: string) => void } }
+    ).tracker.didFocus('desktop')
 
     expect(paneManager.getRuntimeEvidenceSnapshot().console[0]?.message).toBe('desktop error')
   })
@@ -468,8 +549,14 @@ describe('PaneManager runtime evidence', () => {
       failed: true
     })
 
-    ;(paneManager as unknown as { runtimeEvidence: Map<string, ReturnType<typeof createRuntimeEvidenceBuffer>> }).runtimeEvidence.set('desktop', buffer)
-    ;(paneManager as unknown as { tracker: { didFocus: (paneId: string) => void } }).tracker.didFocus('desktop')
+    ;(
+      paneManager as unknown as {
+        runtimeEvidence: Map<string, ReturnType<typeof createRuntimeEvidenceBuffer>>
+      }
+    ).runtimeEvidence.set('desktop', buffer)
+    ;(
+      paneManager as unknown as { tracker: { didFocus: (paneId: string) => void } }
+    ).tracker.didFocus('desktop')
 
     paneManager.clearRuntimeEvidence('console')
 

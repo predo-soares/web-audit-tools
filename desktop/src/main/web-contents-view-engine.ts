@@ -65,11 +65,13 @@ export class WebContentsViewEngine implements EngineView {
   private logicalSize: Size | null = null
   private themePreference: ThemePreference = 'system'
   private mirrorFailureLogs: MirrorFailureLog[] = []
-  private runtimeEvidencePush: ((entry: Omit<ConsoleEvidenceEntry, 'id' | 'timestamp'>) => void) | null =
-    null
+  private runtimeEvidencePush:
+    ((entry: Omit<ConsoleEvidenceEntry, 'id' | 'timestamp'>) => void) | null = null
   private runtimeNetworkPush:
-    | ((entry: Omit<NetworkEvidenceEntry, 'id' | 'timestamp' | 'failed'> &
-        Partial<Pick<NetworkEvidenceEntry, 'failed'>>) => void)
+    | ((
+        entry: Omit<NetworkEvidenceEntry, 'id' | 'timestamp' | 'failed'> &
+          Partial<Pick<NetworkEvidenceEntry, 'failed'>>
+      ) => void)
     | null = null
   private disposeConsoleCapture: (() => void) | null = null
   private disposeNetworkCapture: (() => void) | null = null
@@ -262,10 +264,7 @@ export class WebContentsViewEngine implements EngineView {
   async resolveClickPoint(
     fingerprint: ElementFingerprint
   ): Promise<
-    | { dispatched: true }
-    | { handled: true }
-    | { skipDispatch: true; navigateTo: string }
-    | null
+    { dispatched: true } | { handled: true } | { skipDispatch: true; navigateTo: string } | null
   > {
     try {
       await this.ensureDebugger()
@@ -275,8 +274,14 @@ export class WebContentsViewEngine implements EngineView {
       })) as RuntimeEvaluateResponse
 
       if (response.exceptionDetails) {
-        syncTrace('click:evaluate-exception', { paneId: this.paneId, exceptionDetails: response.exceptionDetails })
-        console.error(`[pane:${this.paneId}] click resolution evaluate failed:`, response.exceptionDetails)
+        syncTrace('click:evaluate-exception', {
+          paneId: this.paneId,
+          exceptionDetails: response.exceptionDetails
+        })
+        console.error(
+          `[pane:${this.paneId}] click resolution evaluate failed:`,
+          response.exceptionDetails
+        )
         return null
       }
       const value = response.result?.value as ResolvedClickPoint | undefined
@@ -289,17 +294,19 @@ export class WebContentsViewEngine implements EngineView {
           this.logMirrorFailure({
             fingerprint,
             paneId: this.paneId,
-            reason: value.failureReason === 'ambiguous'
-              ? 'ambiguous'
-              : value.failureReason === 'occluded'
-                ? 'occluded'
-                : 'not-found'
+            reason:
+              value.failureReason === 'ambiguous'
+                ? 'ambiguous'
+                : value.failureReason === 'occluded'
+                  ? 'occluded'
+                  : 'not-found'
           })
         }
         return null
       }
       if (value.handled) return { handled: true }
-      if (value.skipDispatch && value.navigateTo) return { skipDispatch: true, navigateTo: value.navigateTo }
+      if (value.skipDispatch && value.navigateTo)
+        return { skipDispatch: true, navigateTo: value.navigateTo }
       if (typeof value.x !== 'number' || typeof value.y !== 'number') return null
       this.dispatchClick(value.x, value.y)
       return { dispatched: true }
@@ -368,7 +375,10 @@ export class WebContentsViewEngine implements EngineView {
       })) as RuntimeEvaluateResponse
 
       if (response.exceptionDetails) {
-        console.error(`[pane:${this.paneId}] value apply evaluate failed:`, response.exceptionDetails)
+        console.error(
+          `[pane:${this.paneId}] value apply evaluate failed:`,
+          response.exceptionDetails
+        )
         return
       }
       const result = response.result?.value as ResolvedMirrorAction | undefined
@@ -461,6 +471,33 @@ export class WebContentsViewEngine implements EngineView {
         });
       })();
     `)
+  }
+
+  getCurrentUrl(): string {
+    return this.webContents.getURL()
+  }
+
+  canGoBack(): boolean {
+    return this.webContents.canGoBack()
+  }
+
+  canGoForward(): boolean {
+    return this.webContents.canGoForward()
+  }
+
+  goBack(): void {
+    this.webContents.goBack()
+  }
+
+  goForward(): void {
+    this.webContents.goForward()
+  }
+
+  getPreviousEntryUrl(): string | null {
+    const history = this.webContents.navigationHistory
+    const activeIndex = history.getActiveIndex()
+    const prevEntry = activeIndex > 0 ? history.getEntryAtIndex(activeIndex - 1) : null
+    return prevEntry?.url ?? null
   }
 
   destroy(): void {
@@ -750,7 +787,6 @@ export class WebContentsViewEngine implements EngineView {
       })();
     `
   }
-
 }
 
 export function getPanePreloadPath(): string {

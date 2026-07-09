@@ -30,8 +30,17 @@ export class FakeEngine implements EngineView {
     applyValue: [] as Array<{ fingerprint: ElementFingerprint; payload: ValueSyncPayload }>,
     submitForm: [] as ElementFingerprint[],
     dispatchClick: [] as Array<{ x: number; y: number }>,
+    goBack: 0,
+    goForward: 0,
     destroy: 0
   }
+
+  // In-memory navigation history mirroring a real pane's per-pane Chromium
+  // session history. `navigate` pushes a new entry (truncating any forward
+  // entries), while goBack/goForward move the active index without dropping
+  // entries — so canGoBack/canGoForward and getCurrentUrl stay consistent.
+  private readonly history: string[] = ['about:blank']
+  private historyIndex = 0
 
   // Simulate page-side effects a real pane would report back. Tests wire these
   // to drive echo/suppression scenarios (e.g. an applied value re-reported by
@@ -63,6 +72,10 @@ export class FakeEngine implements EngineView {
   async navigate(url: string): Promise<void> {
     this.calls.navigate.push(url)
     this.currentUrl = url
+    // Drop any forward entries, then push and land on the new entry.
+    this.history.splice(this.historyIndex + 1)
+    this.history.push(url)
+    this.historyIndex = this.history.length - 1
   }
 
   async setDevice(profile: DeviceProfile): Promise<void> {
@@ -103,6 +116,36 @@ export class FakeEngine implements EngineView {
 
   dispatchClick(x: number, y: number): void {
     this.calls.dispatchClick.push({ x, y })
+  }
+
+  getCurrentUrl(): string {
+    return this.currentUrl
+  }
+
+  canGoBack(): boolean {
+    return this.historyIndex > 0
+  }
+
+  canGoForward(): boolean {
+    return this.historyIndex < this.history.length - 1
+  }
+
+  goBack(): void {
+    this.calls.goBack += 1
+    if (this.historyIndex === 0) return
+    this.historyIndex -= 1
+    this.currentUrl = this.history[this.historyIndex] ?? this.currentUrl
+  }
+
+  goForward(): void {
+    this.calls.goForward += 1
+    if (this.historyIndex >= this.history.length - 1) return
+    this.historyIndex += 1
+    this.currentUrl = this.history[this.historyIndex] ?? this.currentUrl
+  }
+
+  getPreviousEntryUrl(): string | null {
+    return this.historyIndex > 0 ? (this.history[this.historyIndex - 1] ?? null) : null
   }
 
   destroy(): void {

@@ -30,16 +30,8 @@ function screenshotDefaultName(paneId: PaneId): string {
   return `${slug}-${stamp}.png`
 }
 export interface NavigationHistoryHooks {
-  onVisitCommitted?: (state: {
-    url: string
-    title: string
-    faviconUrl: string | null
-  }) => void
-  onMetadataUpdated?: (state: {
-    url: string
-    title: string
-    faviconUrl: string | null
-  }) => void
+  onVisitCommitted?: (state: { url: string; title: string; faviconUrl: string | null }) => void
+  onMetadataUpdated?: (state: { url: string; title: string; faviconUrl: string | null }) => void
 }
 
 export class PaneManager {
@@ -90,9 +82,15 @@ export class PaneManager {
     if (!isLocalhostUrl(url)) return
 
     this.devContextPromise = resolveDevContext(process.cwd())
-      .then((ctx) => { this.devContext = ctx })
-      .catch(() => { this.devContext = null })
-      .finally(() => { this.devContextPromise = null })
+      .then((ctx) => {
+        this.devContext = ctx
+      })
+      .catch(() => {
+        this.devContext = null
+      })
+      .finally(() => {
+        this.devContextPromise = null
+      })
   }
 
   setOverlayBroadcast(handler: (channel: string, ...args: unknown[]) => void): void {
@@ -185,10 +183,7 @@ export class PaneManager {
     }
   }
 
-  async savePaneScreenshot(
-    paneId: PaneId,
-    parentWindow: BrowserWindow
-  ): Promise<ScreenshotResult> {
+  async savePaneScreenshot(paneId: PaneId, parentWindow: BrowserWindow): Promise<ScreenshotResult> {
     await this.deviceReady
 
     const { activePane } = this.tracker.getSnapshot()
@@ -227,7 +222,7 @@ export class PaneManager {
     await Promise.all(
       PANE_IDS.map(async (paneId) => {
         const trackedUrl = this.tracker.getPaneUrl(paneId)
-        const liveUrl = this.getEngine(paneId).webContents.getURL()
+        const liveUrl = this.getEngine(paneId).getCurrentUrl()
         const url =
           trackedUrl && trackedUrl !== 'about:blank'
             ? trackedUrl
@@ -290,21 +285,21 @@ export class PaneManager {
   async goBack(): Promise<void> {
     await this.deviceReady
     const paneId = this.resolveNavigationPane()
-    const webContents = this.getEngine(paneId).webContents
-    if (!webContents.canGoBack()) return
+    const engine = this.getEngine(paneId)
+    if (!engine.canGoBack()) return
     this.historySourcePane = paneId
     this.pendingHistoryNavigation.add(paneId)
-    webContents.goBack()
+    engine.goBack()
   }
 
   async goForward(): Promise<void> {
     await this.deviceReady
     const paneId = this.resolveNavigationPane()
-    const webContents = this.getEngine(paneId).webContents
-    if (!webContents.canGoForward()) return
+    const engine = this.getEngine(paneId)
+    if (!engine.canGoForward()) return
     this.historySourcePane = paneId
     this.pendingHistoryNavigation.add(paneId)
-    webContents.goForward()
+    engine.goForward()
   }
 
   private resolveNavigationPane(): PaneId {
@@ -312,17 +307,14 @@ export class PaneManager {
   }
 
   private getNavigationCapabilities(): { canGoBack: boolean; canGoForward: boolean } {
-    const webContents = this.getEngine(this.resolveNavigationPane()).webContents
+    const engine = this.getEngine(this.resolveNavigationPane())
     // Electron counts the initial about:blank → real-page navigation as a
     // history entry, so canGoBack() is true after the very first load.
     // Only report canGoBack if there is a meaningful (non-blank) entry behind.
-    const history = webContents.navigationHistory
-    const activeIndex = history.getActiveIndex()
-    const prevEntry = activeIndex > 0 ? history.getEntryAtIndex(activeIndex - 1) : null
-    const canGoBack = webContents.canGoBack() && prevEntry?.url !== 'about:blank'
+    const canGoBack = engine.canGoBack() && engine.getPreviousEntryUrl() !== 'about:blank'
     return {
       canGoBack,
-      canGoForward: webContents.canGoForward()
+      canGoForward: engine.canGoForward()
     }
   }
 
@@ -334,7 +326,7 @@ export class PaneManager {
     await Promise.all(
       PANE_IDS.map(async (paneId) => {
         const previousEngine = this.getEngine(paneId)
-        const currentUrl = previousEngine.webContents.getURL()
+        const currentUrl = previousEngine.getCurrentUrl()
 
         try {
           mainWindow.contentView.removeChildView(previousEngine.view)
@@ -350,7 +342,10 @@ export class PaneManager {
   }
 
   async syncClick(paneId: PaneId, fingerprint: ElementFingerprint): Promise<void> {
-    syncTrace('click:received', { sourcePane: paneId, fingerprint: summarizeFingerprint(fingerprint) })
+    syncTrace('click:received', {
+      sourcePane: paneId,
+      fingerprint: summarizeFingerprint(fingerprint)
+    })
 
     // Synthetic clicks are real input events, so the target pane's preload
     // re-reports them. Consume that echo here instead of broadcasting it,
@@ -415,7 +410,11 @@ export class PaneManager {
           }
           if (epochStale) {
             clickExpectation.revoke()
-            syncTrace('click:skipped-stale-epoch', { targetPane: targetId, epochBefore: epochBeforeResolution, epochAfter: epochAfterResolution })
+            syncTrace('click:skipped-stale-epoch', {
+              targetPane: targetId,
+              epochBefore: epochBeforeResolution,
+              epochAfter: epochAfterResolution
+            })
             return
           }
 
@@ -460,8 +459,16 @@ export class PaneManager {
     }
   }
 
-  async syncValue(sourcePaneId: PaneId, fingerprint: ElementFingerprint, value: string): Promise<void> {
-    syncTrace('value:received', { sourcePane: sourcePaneId, value, fingerprint: summarizeFingerprint(fingerprint) })
+  async syncValue(
+    sourcePaneId: PaneId,
+    fingerprint: ElementFingerprint,
+    value: string
+  ): Promise<void> {
+    syncTrace('value:received', {
+      sourcePane: sourcePaneId,
+      value,
+      fingerprint: summarizeFingerprint(fingerprint)
+    })
     if (this.echoLedger.isEcho(sourcePaneId, 'value')) {
       syncTrace('value:echo-suppressed', { sourcePane: sourcePaneId })
       return
@@ -517,7 +524,10 @@ export class PaneManager {
   }
 
   async syncSubmit(sourcePaneId: PaneId, fingerprint: ElementFingerprint): Promise<void> {
-    syncTrace('submit:received', { sourcePane: sourcePaneId, fingerprint: summarizeFingerprint(fingerprint) })
+    syncTrace('submit:received', {
+      sourcePane: sourcePaneId,
+      fingerprint: summarizeFingerprint(fingerprint)
+    })
     if (this.echoLedger.isEcho(sourcePaneId, 'submit')) {
       syncTrace('submit:echo-suppressed', { sourcePane: sourcePaneId })
       return
