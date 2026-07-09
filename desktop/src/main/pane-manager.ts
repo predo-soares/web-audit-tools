@@ -1,13 +1,9 @@
 import { session, type BrowserWindow, type WebContents } from 'electron'
 import { DEVICE_PRESETS, PANE_IDS } from '../shared/device-presets'
-import {
-  createScrollSyncState,
-  handleScrollEvent,
-  setScrollSyncEnabled,
-  type ScrollSyncState
-} from '../shared/scroll-sync'
-import type { ElementFingerprint } from '../shared/element-fingerprint'
+import type { ElementFingerprint } from '../shared/element-mirror'
 import type { PaneId, PaneMount, PaneNavigationState, ThemePreference } from '../shared/types'
+import { createActivePaneTracker } from './active-pane-tracker'
+import { createEchoLedger } from './echo-ledger'
 import type { EngineView, ValueSyncPayload } from './engine-view'
 import { summarizeFingerprint, syncTrace, getSyncTraceLogs } from './sync-trace'
 import { getPanePreloadPath, WebContentsViewEngine } from './web-contents-view-engine'
@@ -27,25 +23,20 @@ export interface NavigationHistoryHooks {
 }
 
 export class PaneManager {
-  private static readonly SYNTHETIC_CLICK_TTL_MS = 1000
-  private static readonly SYNTHETIC_SUBMIT_TTL_MS = 1000
-
   private readonly engines = new Map<PaneId, WebContentsViewEngine>()
   private readonly paneInteractionEpoch = new Map<PaneId, number>()
-  private readonly syntheticClickExpiry = new Map<PaneId, number[]>()
-  private readonly syntheticSubmitExpiry = new Map<PaneId, number[]>()
+  private readonly echoLedger = createEchoLedger()
   private readonly webContentsToPane = new Map<number, PaneId>()
   private readonly loadingState = new Map<PaneId, boolean>()
-  private readonly paneUrls = new Map<PaneId, string>()
-  private readonly paneTitles = new Map<PaneId, string>()
-  private readonly paneFavicons = new Map<PaneId, string>()
-  private activePane: PaneId | null = null
-  private barUrl = ''
-  private pageTitle = ''
-  private faviconUrl: string | null = null
+  private readonly tracker = createActivePaneTracker()
   private readonly pendingProgrammaticNavigation = new Set<PaneId>()
+  // Pane last used for goBack()/goForward(). Keeps resolveNavigationPane()
+  // pointing at the history source even when a synced pane steals focus.
+  // Cleared on URL-bar navigation or any explicit user navigation in a pane.
+  private historySourcePane: PaneId | null = null
+  private readonly pendingHistoryNavigation = new Set<PaneId>()
   private syncEnabled = true
-  private scrollSyncState: ScrollSyncState = createScrollSyncState(true)
+  private readonly valueSyncGeneration = new Map<string, number>()
   private mainWindow: BrowserWindow | null = null
   private sharedSession: Electron.Session | null = null
   private deviceReady: Promise<void> = Promise.resolve()
@@ -111,13 +102,9 @@ export class PaneManager {
     for (const paneId of PANE_IDS) {
       this.pendingProgrammaticNavigation.add(paneId)
       this.setPaneLoading(paneId, true)
-      this.paneUrls.set(paneId, url)
-      this.paneTitles.set(paneId, '')
     }
-    this.barUrl = url
-    this.activePane = null
-    this.pageTitle = ''
-    this.faviconUrl = null
+    this.historySourcePane = null
+    this.tracker.didNavigateAll(url)
     this.markPendingVisit(url, false)
     this.emitNavigationState()
     await Promise.all(PANE_IDS.map((paneId) => this.getEngine(paneId).navigate(url)))
@@ -127,7 +114,7 @@ export class PaneManager {
     await this.deviceReady
     await Promise.all(
       PANE_IDS.map(async (paneId) => {
-        const trackedUrl = this.paneUrls.get(paneId)
+        const trackedUrl = this.tracker.getPaneUrl(paneId)
         const liveUrl = this.getEngine(paneId).webContents.getURL()
         const url =
           trackedUrl && trackedUrl !== 'about:blank'
@@ -146,14 +133,8 @@ export class PaneManager {
 
   getNavigationState(): PaneNavigationState {
     const { canGoBack, canGoForward } = this.getNavigationCapabilities()
-    return {
-      activePane: this.activePane,
-      barUrl: this.barUrl,
-      pageTitle: this.pageTitle,
-      faviconUrl: this.faviconUrl,
-      canGoBack,
-      canGoForward
-    }
+    const { activePane, barUrl, pageTitle, faviconUrl } = this.tracker.getSnapshot()
+    return { activePane, barUrl, pageTitle, faviconUrl, canGoBack, canGoForward }
   }
 
   async goBack(): Promise<void> {
@@ -161,6 +142,8 @@ export class PaneManager {
     const paneId = this.resolveNavigationPane()
     const webContents = this.getEngine(paneId).webContents
     if (!webContents.canGoBack()) return
+    this.historySourcePane = paneId
+    this.pendingHistoryNavigation.add(paneId)
     webContents.goBack()
   }
 
@@ -169,11 +152,13 @@ export class PaneManager {
     const paneId = this.resolveNavigationPane()
     const webContents = this.getEngine(paneId).webContents
     if (!webContents.canGoForward()) return
+    this.historySourcePane = paneId
+    this.pendingHistoryNavigation.add(paneId)
     webContents.goForward()
   }
 
   private resolveNavigationPane(): PaneId {
-    return this.activePane ?? 'desktop'
+    return this.historySourcePane ?? this.tracker.getSnapshot().activePane ?? 'desktop'
   }
 
   private getNavigationCapabilities(): { canGoBack: boolean; canGoForward: boolean } {
@@ -220,7 +205,7 @@ export class PaneManager {
     // Synthetic clicks are real input events, so the target pane's preload
     // re-reports them. Consume that echo here instead of broadcasting it,
     // otherwise panes ping-pong clicks forever.
-    if (this.consumeSyntheticClick(paneId)) {
+    if (this.echoLedger.isEcho(paneId, 'click')) {
       syncTrace('click:echo-suppressed', { paneId })
       return
     }
@@ -238,12 +223,9 @@ export class PaneManager {
 
         // Prevent the scrollIntoView inside resolveClickPoint from
         // being broadcast as a real scroll to other panes.
-        this.scrollSyncState = {
-          ...this.scrollSyncState,
-          echoFrom: { ...this.scrollSyncState.echoFrom, [targetId]: true }
-        }
+        this.echoLedger.expect(targetId, 'scroll')
 
-        const syntheticClickExpiry = this.reserveSyntheticClick(targetId)
+        const clickExpectation = this.echoLedger.expect(targetId, 'click')
         const resolution = await engine.resolveClickPoint(fingerprint)
         const epochAfterResolution = this.getPaneInteractionEpoch(targetId)
         const engineStale = engine !== this.engines.get(targetId)
@@ -268,16 +250,16 @@ export class PaneManager {
         })
 
         if (!resolution) {
-          this.revokeSyntheticClick(targetId, syntheticClickExpiry)
+          clickExpectation.revoke()
           return
         }
         if (engineStale) {
-          this.revokeSyntheticClick(targetId, syntheticClickExpiry)
+          clickExpectation.revoke()
           syncTrace('click:skipped-stale-engine', { targetPane: targetId })
           return
         }
         if (epochStale) {
-          this.revokeSyntheticClick(targetId, syntheticClickExpiry)
+          clickExpectation.revoke()
           syncTrace('click:skipped-stale-epoch', { targetPane: targetId, epochBefore: epochBeforeResolution, epochAfter: epochAfterResolution })
           return
         }
@@ -288,10 +270,10 @@ export class PaneManager {
         if (isLinkNav) {
           const { navigateTo } = resolution as { skipDispatch: true; navigateTo: string }
           syncTrace('click:link-nav', { targetPane: targetId, navigateTo })
-          this.revokeSyntheticClick(targetId, syntheticClickExpiry)
+          clickExpectation.revoke()
           if (!this.pendingProgrammaticNavigation.has(targetId)) {
             this.pendingProgrammaticNavigation.add(targetId)
-            this.paneUrls.set(targetId, navigateTo)
+            this.tracker.didNavigate(targetId, navigateTo, { inPage: false, isProgrammatic: true })
             void this.getEngine(targetId).navigate(navigateTo)
           }
           return
@@ -299,7 +281,7 @@ export class PaneManager {
 
         if (isHandled) {
           syncTrace('click:js-handled', { targetPane: targetId })
-          this.revokeSyntheticClick(targetId, syntheticClickExpiry)
+          clickExpectation.revoke()
           return
         }
 
@@ -312,13 +294,22 @@ export class PaneManager {
 
   async syncValue(sourcePaneId: PaneId, fingerprint: ElementFingerprint, value: string): Promise<void> {
     syncTrace('value:received', { sourcePane: sourcePaneId, value, fingerprint: summarizeFingerprint(fingerprint) })
+    if (this.echoLedger.isEcho(sourcePaneId, 'value')) {
+      syncTrace('value:echo-suppressed', { sourcePane: sourcePaneId })
+      return
+    }
     if (!this.syncEnabled) return
-    const payload: ValueSyncPayload = { value }
+
+    const fieldKey = JSON.stringify(fingerprint)
+    const generation = (this.valueSyncGeneration.get(fieldKey) ?? 0) + 1
+    this.valueSyncGeneration.set(fieldKey, generation)
+    const payload: ValueSyncPayload = { value, generation }
 
     await Promise.all(
       PANE_IDS.map(async (targetId) => {
         if (targetId === sourcePaneId) return
-        syncTrace('value:applying', { sourcePane: sourcePaneId, targetPane: targetId })
+        syncTrace('value:applying', { sourcePane: sourcePaneId, targetPane: targetId, generation })
+        this.echoLedger.expect(targetId, 'value')
         await this.getEngine(targetId).applyValue(fingerprint, payload)
       })
     )
@@ -336,13 +327,22 @@ export class PaneManager {
       selectedIndex,
       fingerprint: summarizeFingerprint(fingerprint)
     })
+    if (this.echoLedger.isEcho(sourcePaneId, 'value')) {
+      syncTrace('select:echo-suppressed', { sourcePane: sourcePaneId })
+      return
+    }
     if (!this.syncEnabled) return
-    const payload: ValueSyncPayload = { value, selectedIndex }
+
+    const fieldKey = JSON.stringify(fingerprint)
+    const generation = (this.valueSyncGeneration.get(fieldKey) ?? 0) + 1
+    this.valueSyncGeneration.set(fieldKey, generation)
+    const payload: ValueSyncPayload = { value, selectedIndex, generation }
 
     await Promise.all(
       PANE_IDS.map(async (targetId) => {
         if (targetId === sourcePaneId) return
-        syncTrace('select:applying', { sourcePane: sourcePaneId, targetPane: targetId })
+        syncTrace('select:applying', { sourcePane: sourcePaneId, targetPane: targetId, generation })
+        this.echoLedger.expect(targetId, 'value')
         await this.getEngine(targetId).applyValue(fingerprint, payload)
       })
     )
@@ -350,7 +350,7 @@ export class PaneManager {
 
   async syncSubmit(sourcePaneId: PaneId, fingerprint: ElementFingerprint): Promise<void> {
     syncTrace('submit:received', { sourcePane: sourcePaneId, fingerprint: summarizeFingerprint(fingerprint) })
-    if (this.consumeSyntheticSubmit(sourcePaneId)) {
+    if (this.echoLedger.isEcho(sourcePaneId, 'submit')) {
       syncTrace('submit:echo-suppressed', { sourcePane: sourcePaneId })
       return
     }
@@ -360,9 +360,7 @@ export class PaneManager {
       PANE_IDS.map(async (targetId) => {
         if (targetId === sourcePaneId) return
 
-        const queue = this.syntheticSubmitExpiry.get(targetId) ?? []
-        queue.push(Date.now() + PaneManager.SYNTHETIC_SUBMIT_TTL_MS)
-        this.syntheticSubmitExpiry.set(targetId, queue)
+        this.echoLedger.expect(targetId, 'submit')
 
         // Mark as programmatic so the resulting navigation doesn't cascade
         // back to the source pane via handleNavigation.
@@ -372,17 +370,6 @@ export class PaneManager {
         await this.getEngine(targetId).submitForm(fingerprint)
       })
     )
-  }
-
-  private consumeSyntheticSubmit(paneId: PaneId): boolean {
-    const queue = this.syntheticSubmitExpiry.get(paneId)
-    if (!queue?.length) return false
-    const now = Date.now()
-    while (queue.length) {
-      const expiry = queue.shift()
-      if (expiry !== undefined && expiry >= now) return true
-    }
-    return false
   }
 
   getMirrorFailureLogs(): Record<PaneId, ReturnType<EngineView['getMirrorFailureLogs']>> {
@@ -397,52 +384,27 @@ export class PaneManager {
     return getSyncTraceLogs()
   }
 
-  private consumeSyntheticClick(paneId: PaneId): boolean {
-    const queue = this.syntheticClickExpiry.get(paneId)
-    if (!queue?.length) return false
-    const now = Date.now()
-    // Expired entries mean the synthetic click never produced a click event
-    // (e.g. mousedown/mouseup landed on different elements) — drop them so
-    // they can't swallow a later real click.
-    while (queue.length) {
-      const expiry = queue.shift()
-      if (expiry !== undefined && expiry >= now) return true
-    }
-    return false
-  }
-
-  private reserveSyntheticClick(paneId: PaneId): number {
-    const expiry = Date.now() + PaneManager.SYNTHETIC_CLICK_TTL_MS
-    const queue = this.syntheticClickExpiry.get(paneId) ?? []
-    queue.push(expiry)
-    this.syntheticClickExpiry.set(paneId, queue)
-    return expiry
-  }
-
-  private revokeSyntheticClick(paneId: PaneId, expiry: number): void {
-    const queue = this.syntheticClickExpiry.get(paneId)
-    if (!queue?.length) return
-    const index = queue.indexOf(expiry)
-    if (index !== -1) queue.splice(index, 1)
-    if (!queue.length) this.syntheticClickExpiry.delete(paneId)
-  }
-
   async syncScroll(paneId: PaneId, ratio: number, programmatic: boolean): Promise<void> {
-    const { state, targets } = handleScrollEvent(
-      this.scrollSyncState,
-      { paneId, ratio, programmatic },
-      PANE_IDS
-    )
-    this.scrollSyncState = state
+    if (!this.syncEnabled) return
 
-    await Promise.all(
-      targets.map((target) => this.getEngine(target.paneId).syncScroll(target.ratio))
-    )
+    // Always consume: a programmatic report from a pane also settles any
+    // pending scroll-echo expectation for it.
+    const isEcho = this.echoLedger.isEcho(paneId, 'scroll')
+    if (programmatic || isEcho) return
+
+    const targets = PANE_IDS.filter((targetId) => targetId !== paneId)
+    for (const targetId of targets) {
+      this.echoLedger.expect(targetId, 'scroll')
+    }
+
+    await Promise.all(targets.map((targetId) => this.getEngine(targetId).syncScroll(ratio)))
   }
 
   setSyncEnabled(enabled: boolean): void {
     this.syncEnabled = enabled
-    this.scrollSyncState = setScrollSyncEnabled(this.scrollSyncState, enabled)
+    // Pending scroll-echo expectations belong to the previous sync session;
+    // clear them so a stale flag can't swallow the first scroll after re-enable.
+    this.echoLedger.clear('scroll')
   }
 
   isSyncEnabled(): boolean {
@@ -602,17 +564,24 @@ export class PaneManager {
     const handleNavigation = (url: string, inPage: boolean): void => {
       if (url === 'about:blank') return
 
-      if (this.pendingProgrammaticNavigation.has(paneId)) {
+      const isProgrammatic = this.pendingProgrammaticNavigation.has(paneId)
+      if (isProgrammatic) {
         this.pendingProgrammaticNavigation.delete(paneId)
-        this.paneUrls.set(paneId, url)
-        return
       }
 
-      this.paneUrls.set(paneId, url)
-      this.activePane = paneId
-      this.barUrl = url
-      this.pageTitle = this.paneTitles.get(paneId) ?? ''
-      this.faviconUrl = this.paneFavicons.get(paneId) ?? null
+      const isHistoryNav = this.pendingHistoryNavigation.has(paneId)
+      this.pendingHistoryNavigation.delete(paneId)
+
+      this.tracker.didNavigate(paneId, url, { inPage, isProgrammatic })
+
+      if (isProgrammatic) return
+
+      // A link click / JS navigation clears the history source so the newly
+      // active pane becomes the one used for subsequent back/forward.
+      if (!isHistoryNav) {
+        this.historySourcePane = null
+      }
+
       this.markPendingVisit(url, inPage)
       this.emitNavigationState()
 
@@ -626,9 +595,9 @@ export class PaneManager {
           // Skip panes already being navigated (from syncClick or syncSubmit).
           if (this.pendingProgrammaticNavigation.has(targetId)) continue
           // Skip panes already at the destination (e.g. after a synced submit).
-          if (this.paneUrls.get(targetId) === url) continue
+          if (this.tracker.getPaneUrl(targetId) === url) continue
           this.pendingProgrammaticNavigation.add(targetId)
-          this.paneUrls.set(targetId, url)
+          this.tracker.didNavigate(targetId, url, { inPage: false, isProgrammatic: true })
           void this.getEngine(targetId).navigate(url)
         }
       }
@@ -640,40 +609,46 @@ export class PaneManager {
       this.bumpPaneInteractionEpoch(paneId)
     })
     webContents.on('page-title-updated', (_event, title) => {
-      this.paneTitles.set(paneId, title)
-      if (this.activePane === paneId || (this.activePane === null && this.barUrl === this.paneUrls.get(paneId))) {
-        this.pageTitle = title
+      if (this.tracker.didTitleUpdate(paneId, title)) {
         this.emitNavigationState()
         this.emitMetadataUpdate()
       }
     })
     webContents.on('page-favicon-updated', (_event, favicons) => {
       const favicon = favicons[0] ?? null
-      this.paneFavicons.set(paneId, favicon ?? '')
-      if (this.activePane === paneId || (this.activePane === null && this.barUrl === this.paneUrls.get(paneId))) {
-        this.faviconUrl = favicon
+      const applied = this.tracker.didFaviconUpdate(paneId, favicon)
+      console.debug(
+        '[favicon]',
+        JSON.stringify({
+          paneId,
+          favicon,
+          allCandidates: favicons,
+          appliedToToolbar: applied,
+          activePane: this.tracker.getSnapshot().activePane
+        })
+      )
+      if (applied) {
         this.emitNavigationState()
         this.emitMetadataUpdate()
       }
     })
     webContents.on('did-fail-load', () => {
       this.pendingProgrammaticNavigation.delete(paneId)
-      if (this.pendingVisitUrl && this.barUrl === this.pendingVisitUrl) {
+      this.pendingHistoryNavigation.delete(paneId)
+      if (this.pendingVisitUrl && this.tracker.getSnapshot().barUrl === this.pendingVisitUrl) {
         this.pendingVisitFailed = true
       }
     })
     webContents.on('did-stop-loading', () => {
       this.tryCommitVisit()
+      // Re-emit after loading settles: canGoBack/canGoForward read from
+      // Electron's navigation history, which may not be fully updated at
+      // did-navigate time (e.g. after goBack/goForward).
+      this.emitNavigationState()
     })
     webContents.on('focus', () => {
-      this.activePane = paneId
-      const url = this.paneUrls.get(paneId)
-      if (url && url !== 'about:blank') {
-        this.barUrl = url
-        this.pageTitle = this.paneTitles.get(paneId) ?? ''
-        this.faviconUrl = this.paneFavicons.get(paneId) ?? null
-        this.emitNavigationState()
-      }
+      this.tracker.didFocus(paneId)
+      this.emitNavigationState()
     })
   }
 
@@ -698,26 +673,19 @@ export class PaneManager {
 
   private tryCommitVisit(): void {
     if (!this.pendingVisitUrl || this.pendingVisitFailed) return
-    if (this.pendingVisitUrl !== this.barUrl) return
+    const { barUrl, pageTitle, faviconUrl } = this.tracker.getSnapshot()
+    if (this.pendingVisitUrl !== barUrl) return
     if (this.pendingVisitInPage === false && this.isAnyPaneLoading()) return
 
-    this.historyHooks?.onVisitCommitted?.({
-      url: this.barUrl,
-      title: this.pageTitle,
-      faviconUrl: this.faviconUrl
-    })
+    this.historyHooks?.onVisitCommitted?.({ url: barUrl, title: pageTitle, faviconUrl })
     this.pendingVisitUrl = null
     this.pendingVisitInPage = false
   }
 
   private emitMetadataUpdate(): void {
-    if (!this.barUrl || this.barUrl === 'about:blank') return
-
-    this.historyHooks?.onMetadataUpdated?.({
-      url: this.barUrl,
-      title: this.pageTitle,
-      faviconUrl: this.faviconUrl
-    })
+    const { barUrl, pageTitle, faviconUrl } = this.tracker.getSnapshot()
+    if (!barUrl || barUrl === 'about:blank') return
+    this.historyHooks?.onMetadataUpdated?.({ url: barUrl, title: pageTitle, faviconUrl })
   }
 
   private isAnyPaneLoading(): boolean {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { ElementFingerprint } from '../../src/shared/element-fingerprint'
+import type { ElementFingerprint } from '../../src/shared/element-mirror'
 import { PaneManager } from '../../src/main/pane-manager'
 
 function createDeferred<T>() {
@@ -156,5 +156,124 @@ describe('PaneManager syncClick stale guards', () => {
     expect(ipad.resolveClickPoint).toHaveBeenNthCalledWith(2, createToggleFingerprint(false))
     expect(desktop.resolveClickPoint).toHaveBeenNthCalledWith(1, createToggleFingerprint(true))
     expect(desktop.resolveClickPoint).toHaveBeenNthCalledWith(2, createToggleFingerprint(false))
+  })
+})
+
+describe('PaneManager scroll sync', () => {
+  it('propagates a user scroll to the other panes', async () => {
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithEngines()
+
+    await paneManager.syncScroll('iphone', 0.4, false)
+
+    expect(iphone.syncScroll).not.toHaveBeenCalled()
+    expect(ipad.syncScroll).toHaveBeenCalledWith(0.4)
+    expect(desktop.syncScroll).toHaveBeenCalledWith(0.4)
+  })
+
+  it('suppresses the echo report from a broadcast scroll', async () => {
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithEngines()
+
+    await paneManager.syncScroll('iphone', 0.4, false)
+    ipad.syncScroll.mockClear()
+    desktop.syncScroll.mockClear()
+
+    // ipad reports the applied scroll back (programmatic via the in-page flag)
+    await paneManager.syncScroll('ipad', 0.4, true)
+
+    expect(iphone.syncScroll).not.toHaveBeenCalled()
+    expect(ipad.syncScroll).not.toHaveBeenCalled()
+    expect(desktop.syncScroll).not.toHaveBeenCalled()
+  })
+
+  it('handles rapid alternating scrolls without stale echo expectations', async () => {
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithEngines()
+
+    await paneManager.syncScroll('iphone', 0.2, false)
+    await paneManager.syncScroll('ipad', 0.2, true)
+    await paneManager.syncScroll('desktop', 0.2, true)
+    ipad.syncScroll.mockClear()
+    desktop.syncScroll.mockClear()
+
+    await paneManager.syncScroll('desktop', 0.8, false)
+
+    expect(iphone.syncScroll).toHaveBeenCalledWith(0.8)
+    expect(ipad.syncScroll).toHaveBeenCalledWith(0.8)
+    expect(desktop.syncScroll).not.toHaveBeenCalled()
+  })
+
+  it('does nothing when sync is disabled and forgets stale expectations on toggle', async () => {
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithEngines()
+
+    await paneManager.syncScroll('iphone', 0.4, false)
+    ipad.syncScroll.mockClear()
+    desktop.syncScroll.mockClear()
+
+    paneManager.setSyncEnabled(false)
+    await paneManager.syncScroll('iphone', 0.5, false)
+    expect(ipad.syncScroll).not.toHaveBeenCalled()
+    expect(desktop.syncScroll).not.toHaveBeenCalled()
+
+    // Re-enable: the pre-toggle expectation on ipad must not swallow its scroll
+    paneManager.setSyncEnabled(true)
+    await paneManager.syncScroll('ipad', 0.6, false)
+    expect(iphone.syncScroll).toHaveBeenCalledWith(0.6)
+    expect(desktop.syncScroll).toHaveBeenCalledWith(0.6)
+  })
+
+  it('does not broadcast the scroll echo produced by resolveClickPoint scrollIntoView', async () => {
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithEngines()
+    ipad.resolveClickPoint.mockResolvedValue({ handled: true })
+    desktop.resolveClickPoint.mockResolvedValue({ handled: true })
+
+    await paneManager.syncClick('iphone', createFingerprint())
+    // The scrollIntoView inside resolveClickPoint surfaces as a scroll report
+    // from each target pane; neither may cascade to the other panes.
+    await paneManager.syncScroll('ipad', 0.3, false)
+    await paneManager.syncScroll('desktop', 0.3, false)
+
+    expect(iphone.syncScroll).not.toHaveBeenCalled()
+    expect(ipad.syncScroll).not.toHaveBeenCalled()
+    expect(desktop.syncScroll).not.toHaveBeenCalled()
+  })
+})
+
+describe('PaneManager value sync', () => {
+  it('mirrors value to other panes but not the source', async () => {
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithEngines()
+    const fingerprint = createFingerprint()
+
+    await paneManager.syncValue('iphone', fingerprint, 'hello')
+
+    expect(iphone.applyValue).not.toHaveBeenCalled()
+    expect(ipad.applyValue).toHaveBeenCalledWith(fingerprint, { value: 'hello', generation: 1 })
+    expect(desktop.applyValue).toHaveBeenCalledWith(fingerprint, { value: 'hello', generation: 1 })
+  })
+
+  it('suppresses value echo from a mirrored apply', async () => {
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithEngines()
+    const fingerprint = createFingerprint()
+    ipad.applyValue.mockImplementation(async () => {
+      await paneManager.syncValue('ipad', fingerprint, 'echo')
+    })
+    desktop.applyValue.mockResolvedValue(undefined)
+
+    await paneManager.syncValue('iphone', fingerprint, 'hello')
+
+    expect(ipad.applyValue).toHaveBeenCalledTimes(1)
+    expect(desktop.applyValue).toHaveBeenCalledTimes(1)
+    expect(desktop.applyValue).toHaveBeenCalledWith(fingerprint, { value: 'hello', generation: 1 })
+  })
+
+  it('bumps generation for rapid successive updates to the same field', async () => {
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithEngines()
+    const fingerprint = createFingerprint()
+
+    await paneManager.syncValue('iphone', fingerprint, 'a')
+    await paneManager.syncValue('iphone', fingerprint, 'ab')
+
+    expect(ipad.applyValue).toHaveBeenNthCalledWith(1, fingerprint, { value: 'a', generation: 1 })
+    expect(ipad.applyValue).toHaveBeenNthCalledWith(2, fingerprint, { value: 'ab', generation: 2 })
+    expect(desktop.applyValue).toHaveBeenNthCalledWith(2, fingerprint, { value: 'ab', generation: 2 })
+    expect(iphone.applyValue).not.toHaveBeenCalled()
   })
 })
