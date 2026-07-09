@@ -33,7 +33,13 @@ function createMockEngine() {
     destroy: vi.fn(),
     webContents: {
       id: Math.floor(Math.random() * 10000),
-      getURL: vi.fn(() => 'https://example.com')
+      getURL: vi.fn(() => 'https://example.com'),
+      canGoBack: vi.fn(() => false),
+      canGoForward: vi.fn(() => false),
+      navigationHistory: {
+        getActiveIndex: vi.fn(() => 0),
+        getEntryAtIndex: vi.fn(() => null)
+      }
     },
     view: {}
   }
@@ -313,6 +319,91 @@ describe('PaneManager value sync', () => {
     expect(ipad.applyValue).toHaveBeenNthCalledWith(2, fingerprint, { value: 'ab', generation: 2 })
     expect(desktop.applyValue).toHaveBeenNthCalledWith(2, fingerprint, { value: 'ab', generation: 2 })
     expect(iphone.applyValue).not.toHaveBeenCalled()
+  })
+})
+
+describe('PaneManager evidence clear on navigation', () => {
+  function createPaneManagerWithBufferAndListeners() {
+    // createPaneManagerWithEngines sets up all three mock engines which
+    // attachNavigationListeners needs (via getNavigationCapabilities/emitNavigationState)
+    const { paneManager } = createPaneManagerWithEngines()
+    const buffer = createRuntimeEvidenceBuffer()
+
+    ;(paneManager as any).runtimeEvidence.set('desktop', buffer)
+    ;(paneManager as any).tracker.didFocus('desktop')
+
+    const listeners: Record<string, ((...args: any[]) => void)[]> = {}
+    const fakeWebContents = {
+      id: 99,
+      on(event: string, handler: (...args: any[]) => void) {
+        listeners[event] = listeners[event] ?? []
+        listeners[event].push(handler)
+      }
+    }
+
+    ;(paneManager as any).attachNavigationListeners(fakeWebContents, 'desktop')
+
+    const emit = (event: string, ...args: any[]): void => {
+      for (const fn of listeners[event] ?? []) {
+        fn({}, ...args)
+      }
+    }
+
+    return { paneManager, buffer, emit }
+  }
+
+  it('clears console and network evidence on top-level navigation', () => {
+    const { buffer, emit } = createPaneManagerWithBufferAndListeners()
+
+    buffer.pushConsole({ level: 'error', message: 'before nav' })
+    buffer.pushNetwork({ method: 'GET', url: 'http://localhost/req', path: '/req', failed: false })
+
+    emit('did-navigate', 'http://localhost/page2')
+
+    expect(buffer.getConsole()).toHaveLength(0)
+    expect(buffer.getNetwork()).toHaveLength(0)
+  })
+
+  it('does not clear evidence on in-page navigation', () => {
+    const { buffer, emit } = createPaneManagerWithBufferAndListeners()
+
+    buffer.pushConsole({ level: 'error', message: 'kept' })
+    buffer.pushNetwork({ method: 'GET', url: 'http://localhost/req', path: '/req', failed: false })
+
+    emit('did-navigate-in-page', 'http://localhost/page2#section')
+
+    expect(buffer.getConsole()).toHaveLength(1)
+    expect(buffer.getNetwork()).toHaveLength(1)
+  })
+
+  it('does not clear evidence for other panes when one pane navigates', () => {
+    const { paneManager } = createPaneManagerWithEngines()
+    const iphoneBuffer = createRuntimeEvidenceBuffer()
+    const desktopBuffer = createRuntimeEvidenceBuffer()
+
+    ;(paneManager as any).runtimeEvidence.set('iphone', iphoneBuffer)
+    ;(paneManager as any).runtimeEvidence.set('desktop', desktopBuffer)
+
+    const listeners: Record<string, ((...args: any[]) => void)[]> = {}
+    const fakeWebContents = {
+      id: 99,
+      on(event: string, handler: (...args: any[]) => void) {
+        listeners[event] = listeners[event] ?? []
+        listeners[event].push(handler)
+      }
+    }
+
+    ;(paneManager as any).attachNavigationListeners(fakeWebContents, 'desktop')
+
+    iphoneBuffer.pushConsole({ level: 'warn', message: 'iphone log' })
+    desktopBuffer.pushConsole({ level: 'error', message: 'desktop error' })
+
+    for (const fn of listeners['did-navigate'] ?? []) {
+      fn({}, 'http://localhost/newpage')
+    }
+
+    expect(desktopBuffer.getConsole()).toHaveLength(0)
+    expect(iphoneBuffer.getConsole()).toHaveLength(1)
   })
 })
 

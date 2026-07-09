@@ -771,7 +771,16 @@ export class PaneManager {
       this.emitNavigationState()
     }
 
-    webContents.on('did-navigate', (_event, url) => handleNavigation(url, false))
+    webContents.on('did-navigate', (_event, url) => {
+      if (url !== 'about:blank') {
+        const buffer = this.runtimeEvidence.get(paneId)
+        if (buffer) {
+          buffer.clearConsole()
+          buffer.clearNetwork()
+        }
+      }
+      handleNavigation(url, false)
+    })
     webContents.on('did-navigate-in-page', (_event, url) => handleNavigation(url, true))
     webContents.on('did-start-loading', () => {
       this.bumpPaneInteractionEpoch(paneId)
