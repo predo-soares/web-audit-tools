@@ -65,6 +65,35 @@ describe('element mirror in-page interface', () => {
     expect(match.failureReason).toBe('ambiguous')
   })
 
+  it('builds and resolves a form fingerprint by name across restructured markup', () => {
+    setBody(`
+      <form name="site-search" method="POST" action="/search">
+        <input type="search" name="q" placeholder="Search">
+      </form>
+    `)
+    const form = document.querySelector('form')!
+    const fingerprint = mirror.buildFingerprint(form, Array.from(document.querySelectorAll('form')))
+    expect(fingerprint).not.toBeNull()
+    expect(fingerprint!.layers).toContainEqual({ type: 'testid', testId: 'site-search' })
+
+    setBody(`
+      <section class="search-shell">
+        <div class="search-panel">
+          <form name="site-search" method="POST" action="/search">
+            <fieldset>
+              <input type="search" name="q" placeholder="Search">
+              <input type="hidden" name="layout" value="desktop">
+            </fieldset>
+          </form>
+        </div>
+      </section>
+    `)
+
+    const match = mirror.resolveFingerprint(fingerprint!, Array.from(document.querySelectorAll('form')))
+    expect(match.element).not.toBeNull()
+    expect((match.element as HTMLFormElement).getAttribute('name')).toBe('site-search')
+  })
+
   it('describes checkbox groups with a stable per-group test id', () => {
     setBody(`
       <input type="checkbox" name="topping" value="a" />

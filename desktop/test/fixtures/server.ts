@@ -238,6 +238,44 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     return
   }
 
+  if (pathname === '/enter-form-sync' && req.method === 'GET') {
+    const mobile = isMobileUa(ua)
+    sendHtml(
+      res,
+      mobile
+        ? `<!doctype html><html><body>
+        <h1>Search</h1>
+        <form name="site-search" method="POST" action="/enter-form-sync">
+          <input id="search-input" type="search" name="q" placeholder="Search">
+        </form>
+      </body></html>`
+        : `<!doctype html><html><body>
+        <h1>Search</h1>
+        <section class="search-shell">
+          <div class="search-panel">
+            <form name="site-search" method="POST" action="/enter-form-sync">
+              <fieldset>
+                <input id="search-input" type="search" name="q" placeholder="Search">
+                <input type="hidden" name="layout" value="desktop">
+              </fieldset>
+            </form>
+          </div>
+        </section>
+      </body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/enter-form-sync' && req.method === 'POST') {
+    sendHtml(
+      res,
+      `<!doctype html><html><body>
+        <div id="enter-form-result" data-user-agent="${ua.replace(/"/g, '&quot;')}">${ua}</div>
+      </body></html>`
+    )
+    return
+  }
+
   if (pathname === '/touch-probe') {
     sendHtml(
       res,

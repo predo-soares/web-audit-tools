@@ -499,6 +499,18 @@ export class WebContentsViewEngine implements EngineView {
         }
 
         const element = match.element;
+        if (match.resolved?.layer.type === 'structural-path') {
+          const identityLayers = fingerprint.layers.filter(function(layer) {
+            return layer.type !== 'structural-path';
+          });
+          const descriptor = mirror.describeElement(element);
+          const matchesIdentityLayer = identityLayers.some(function(layer) {
+            return mirror.matchesLayer(layer, descriptor);
+          });
+          if (identityLayers.length > 0 && !matchesIdentityLayer) {
+            return { matched: false, failureReason: 'not-found' };
+          }
+        }
 
         const fieldKey = JSON.stringify(fingerprint);
         if (typeof payload.generation === 'number') {

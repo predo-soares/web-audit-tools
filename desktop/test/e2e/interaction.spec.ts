@@ -661,6 +661,73 @@ test('pressing Enter in a form field submits matching forms in every pane', asyn
   }
 })
 
+test('pressing Enter in a cross-device search form POSTs with each pane emulated UA', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/enter-form-sync'))
+    await waitForAllPanes(window)
+
+    await evaluateInPane(window, 'iphone', `
+      var input = document.getElementById('search-input');
+      input.focus();
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      if (input.form) {
+        input.form.requestSubmit();
+      }
+    `)
+
+    const expectedUa = {
+      iphone: /iPhone/,
+      ipad: /iPad/,
+      desktop: /Macintosh/
+    } as const
+
+    for (const paneId of ['iphone', 'ipad', 'desktop'] as const) {
+      await waitForPaneElement(window, paneId, 'enter-form-result')
+      const ua = await evaluateInPane<string>(
+        window,
+        paneId,
+        `document.getElementById('enter-form-result')?.dataset.userAgent ?? ''`
+      )
+      expect(ua).toMatch(expectedUa[paneId])
+    }
+  } finally {
+    await close()
+  }
+})
+
+test('missing cross-device search form targets no-op and emit structured mirror-failure logs', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/enter-form-sync'))
+    await waitForAllPanes(window)
+
+    await evaluateInPane(window, 'ipad', `
+      document.querySelector('form[name="site-search"]')?.remove();
+    `)
+
+    await evaluateInPane(window, 'iphone', `
+      var input = document.getElementById('search-input');
+      if (input?.form) {
+        input.form.requestSubmit();
+      }
+    `)
+
+    await window.waitForTimeout(300)
+
+    const logs = await getMirrorFailureLogs(window)
+    expect(logs.ipad).toEqual(
+      expect.arrayContaining([expect.objectContaining({ paneId: 'ipad', reason: 'not-found' })])
+    )
+  } finally {
+    await close()
+  }
+})
+
 test('typing into the second duplicate text input mirrors to the second match in every pane', async ({
   fixturePort
 }) => {

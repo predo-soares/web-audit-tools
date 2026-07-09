@@ -430,6 +430,29 @@ describe('element fingerprint', () => {
     })
   })
 
+  it('builds and resolves forms by name before structural-path fallback', () => {
+    const fingerprint = buildElementFingerprint({
+      tagName: 'form',
+      testId: 'site-search',
+      structuralPath: 'form:nth-child(1)'
+    })
+
+    expect(fingerprint?.layers).toContainEqual({ type: 'testid', testId: 'site-search' })
+
+    const targetCandidates: ElementDescriptor[] = [
+      {
+        tagName: 'form',
+        testId: 'site-search',
+        structuralPath: 'section > div:nth-child(1) > form:nth-child(1)'
+      }
+    ]
+
+    expect(resolveElementFingerprint(fingerprint!, targetCandidates)).toEqual({
+      index: 0,
+      layer: { type: 'testid', testId: 'site-search' }
+    })
+  })
+
   it('captures and resolves indexAmongMatches for duplicate forms before structural-path fallback', () => {
     const sourceCandidates: ElementDescriptor[] = [
       {
@@ -562,5 +585,28 @@ describe('element fingerprint', () => {
       index: 0,
       layer: { type: 'text-tag', tagName: 'button', text: 'Add to cart' }
     })
+  })
+
+  it('does not resolve a missing identified control by structural path alone', () => {
+    const fingerprint: ElementFingerprint = {
+      layers: [
+        { type: 'id', id: 'country-select' },
+        { type: 'testid', testId: 'country' },
+        { type: 'text-tag', tagName: 'select', text: 'Brazil United States Japan' },
+        { type: 'structural-path', path: 'form:nth-child(1) > select:nth-child(4)' }
+      ]
+    }
+    const candidates: ElementDescriptor[] = [
+      {
+        tagName: 'select',
+        id: 'index-fallback-select',
+        testId: 'city',
+        visibleText: 'Rio New York Tokyo',
+        structuralPath: 'form:nth-child(1) > select:nth-child(4)'
+      }
+    ]
+
+    expect(resolveElementFingerprint(fingerprint, candidates)).toBeNull()
+    expect(classifyMirrorFailure(fingerprint, candidates)).toBe('not-found')
   })
 })

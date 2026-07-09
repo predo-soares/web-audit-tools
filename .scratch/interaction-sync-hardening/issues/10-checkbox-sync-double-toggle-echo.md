@@ -1,6 +1,6 @@
 # 10 — Fix checkbox/radio sync double-toggle from preload echo
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -12,9 +12,9 @@ When a checkbox or radio is synced via `element.click()` inside the CDP expressi
 
 ## Acceptance criteria
 
-- [ ] Clicking a checkbox in iphone toggles it exactly once in ipad and desktop (checked → checked, not checked → unchecked → checked)
-- [ ] Clicking a radio button in iphone selects the matching radio in ipad and desktop exactly once with no subsequent deselect
-- [ ] The echo suppression does not swallow a subsequent real user click on the same element
+- [x] Clicking a checkbox in iphone toggles it exactly once in ipad and desktop (checked → checked, not checked → unchecked → checked)
+- [x] Clicking a radio button in iphone selects the matching radio in ipad and desktop exactly once with no subsequent deselect
+- [x] The echo suppression does not swallow a subsequent real user click on the same element
 
 ## Blocked by
 
@@ -33,3 +33,4 @@ None - can start immediately
 - Added unit coverage in `desktop/test/unit/pane-manager.test.ts` for echo during resolution, unresolved-target cleanup, handled replay without a later real-click suppression, and preserving source toggle state across mirrored checkbox clicks.
 - Validation passed: `pnpm test:unit -- pane-manager element-fingerprint`, `pnpm run typecheck`, `pnpm run build`, `pnpm exec playwright test test/e2e/sync-trace-diag.spec.ts -g "checkbox/radio"`, and `pnpm exec playwright test test/e2e/interaction.spec.ts -g "checkboxes and radios|duplicate checkboxes"` from `desktop/`.
 - Focused e2e note: sandboxed Playwright failed on `listen EPERM: operation not permitted 127.0.0.1:4173`; one escalated run reached the app and showed the previous `element.click()` path still did not converge target toggles. A second escalated diagnostic/focused run was blocked by the approval/usage limit, so final e2e confirmation remains pending.
+- Follow-up verification passed from `desktop/`: `pnpm test:unit -- pane-manager element-mirror` and escalated `pnpm exec playwright test test/e2e/interaction.spec.ts -g "checkboxes and radios|duplicate checkboxes|Nth duplicate button"`. The focused checkbox/radio and duplicate toggle e2es now pass, so this issue is closed.

@@ -278,14 +278,23 @@ export function createElementMirror(): ElementMirror {
     fingerprint: ElementFingerprint,
     candidates: readonly ElementDescriptor[]
   ): ResolvedElementFingerprint | null {
+    const identityLayers = fingerprint.layers.filter((layer) => layer.type !== 'structural-path')
+    let sawIdentityMatch = false
     for (const layer of fingerprint.layers) {
       const matches = getLayerMatches(layer, candidates)
+      const isStructuralPath = layer.type === 'structural-path'
 
       if (matches.length === 1) {
+        if (isStructuralPath && identityLayers.length > 0 && !sawIdentityMatch) {
+          continue
+        }
         return { index: matches[0], layer }
       }
 
       if (matches.length > 1) {
+        if (!isStructuralPath) {
+          sawIdentityMatch = true
+        }
         if (
           fingerprint.indexAmongMatches !== undefined &&
           fingerprint.indexAmongMatches >= 0 &&
@@ -363,6 +372,11 @@ export function createElementMirror(): ElementMirror {
   function getDescriptorTestId(element: Element, isFormField: boolean): string | null {
     const explicitTestId = element.getAttribute('data-testid')
     if (explicitTestId) return explicitTestId
+
+    if (element instanceof HTMLFormElement) {
+      return element.getAttribute('name') || null
+    }
+
     if (!isFormField) return null
 
     if (element instanceof HTMLInputElement) {
