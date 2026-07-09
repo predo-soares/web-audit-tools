@@ -91,8 +91,8 @@ function isDiagnosticsToggleInput(input: Electron.Input): boolean {
   return (
     input.type === 'keyDown' &&
     input.key.toLowerCase() === 'j' &&
-    input.alt &&
     (input.meta || input.control) &&
+    !input.alt &&
     !input.shift
   )
 }

@@ -50,7 +50,7 @@ export default function App(): React.JSX.Element {
       } else if (event.key === ']') {
         event.preventDefault()
         void window.api.goForward()
-      } else if (event.key === 'j' && event.altKey) {
+      } else if (event.key === 'j') {
         event.preventDefault()
         window.api.toggleDiagnosticsDrawer()
       }

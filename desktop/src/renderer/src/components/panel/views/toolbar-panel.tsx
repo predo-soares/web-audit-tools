@@ -266,7 +266,7 @@ export function ToolbarPanel(): React.JSX.Element {
       } else if (event.key === 'b') {
         event.preventDefault()
         toggleSidebar()
-      } else if (event.key === 'j' && event.altKey) {
+      } else if (event.key === 'j') {
         event.preventDefault()
         toggleDiagnostics()
       }
@@ -411,7 +411,7 @@ export function ToolbarPanel(): React.JSX.Element {
           }
           aria-expanded={diagnosticsOpen}
           aria-controls="diagnostics-drawer"
-          aria-keyshortcuts="Meta+Alt+J"
+          aria-keyshortcuts="Meta+J"
           onClick={toggleDiagnostics}
         >
           <Icon icon={SourceCodeIcon} size={14} />
