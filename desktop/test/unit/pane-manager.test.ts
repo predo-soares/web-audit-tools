@@ -253,21 +253,22 @@ describe('PaneManager scroll sync', () => {
     expect(ipad.resolveClickPoint).toHaveBeenCalled()
   })
 
-  it('skips mirrored navigation links so only the source pane navigates', async () => {
+  it('navigates mirrored navigation links on target panes without dispatching a click', async () => {
     const { paneManager, iphone, ipad, desktop } = createPaneManagerWithEngines()
+    const url = 'http://127.0.0.1:4173/semantic-destination'
     ipad.resolveClickPoint.mockResolvedValue({
       skipDispatch: true,
-      navigateTo: 'http://127.0.0.1:4173/semantic-destination'
+      navigateTo: url
     })
     desktop.resolveClickPoint.mockResolvedValue({
       skipDispatch: true,
-      navigateTo: 'http://127.0.0.1:4173/semantic-destination'
+      navigateTo: url
     })
 
     await paneManager.syncClick('iphone', createFingerprint())
 
-    expect(ipad.navigate).not.toHaveBeenCalled()
-    expect(desktop.navigate).not.toHaveBeenCalled()
+    expect(ipad.navigate).toHaveBeenCalledWith(url)
+    expect(desktop.navigate).toHaveBeenCalledWith(url)
     expect(ipad.dispatchClick).not.toHaveBeenCalled()
     expect(desktop.dispatchClick).not.toHaveBeenCalled()
   })

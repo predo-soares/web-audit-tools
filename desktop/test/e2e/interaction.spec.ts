@@ -19,6 +19,9 @@ test('clicking a link inside one pane navigates only that pane and updates the U
     await navigateTo(window, fixtureUrl(fixturePort, '/flow-a'))
     await waitForAllPanes(window)
 
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('sync-toggle').click()
+
     await evaluateInPane(window, 'iphone', `document.getElementById('flow-link').click()`)
     await waitForPaneElement(window, 'iphone', 'flow-b')
 
@@ -38,7 +41,6 @@ test('clicking a link inside one pane navigates only that pane and updates the U
       expect(text).toBe('Flow page A')
     }
 
-    const toolbar = await getToolbarPage(window)
     await expect(toolbar.getByTestId('url-input')).toHaveValue(/\/flow-b/)
   } finally {
     await close()
@@ -119,9 +121,9 @@ test('history.back() inside a pane returns only that pane to the previous URL an
       const text = await evaluateInPane<string>(
         window,
         paneId,
-        `document.getElementById('flow-a')?.textContent ?? ''`
+        `document.getElementById('flow-b')?.textContent ?? ''`
       )
-      expect(text).toBe('Flow page A')
+      expect(text).toBe('Flow page B')
     }
 
     const toolbar = await getToolbarPage(window)
@@ -233,7 +235,7 @@ test('semantic click sync mirrors the same button with native input and no echo'
   }
 })
 
-test('semantic click sync does not mirror link navigation across panes', async ({
+test('semantic click sync mirrors link navigation across panes', async ({
   fixturePort
 }) => {
   const { window, close } = await launchApp()
@@ -255,18 +257,12 @@ test('semantic click sync does not mirror link navigation across panes', async (
       expect(count).toBe('0')
     }
 
-    const toolbar = await getToolbarPage(window)
     await toolbar.getByTestId('sync-toggle').click()
     await evaluateInPane(window, 'iphone', `document.getElementById('semantic-link')?.click()`)
     await waitForPaneElement(window, 'iphone', 'semantic-destination')
 
     for (const paneId of ['ipad', 'desktop'] as const) {
-      const stillOnSource = await evaluateInPane<boolean>(
-        window,
-        paneId,
-        `!!document.getElementById('semantic-primary')`
-      )
-      expect(stillOnSource).toBe(true)
+      await waitForPaneElement(window, paneId, 'semantic-destination')
     }
   } finally {
     await close()
