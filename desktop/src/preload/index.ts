@@ -54,6 +54,7 @@ export interface PreviewApi {
   getSyncTraceLogs: () => Promise<Array<{ ts: number; event: string; data?: Record<string, unknown> }>>
   getRuntimeEvidence: () => Promise<RuntimeEvidenceSnapshot>
   onRuntimeEvidenceChanged: (callback: (snapshot: RuntimeEvidenceSnapshot) => void) => () => void
+  toggleDiagnosticsDrawer: () => void
 }
 
 const api: PreviewApi = {
@@ -175,6 +176,9 @@ const api: PreviewApi = {
       callback(snapshot)
     ipcRenderer.on('runtime-evidence:changed', listener)
     return () => ipcRenderer.removeListener('runtime-evidence:changed', listener)
+  },
+  toggleDiagnosticsDrawer: () => {
+    ipcRenderer.send('diagnostics:toggle')
   }
 }
 

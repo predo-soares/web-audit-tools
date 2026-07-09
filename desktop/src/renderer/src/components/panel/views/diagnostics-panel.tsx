@@ -5,7 +5,7 @@ import type {
   RuntimeEvidenceChannel,
   RuntimeEvidenceSnapshot
 } from '../../../../../shared/runtime-evidence'
-import { DIAGNOSTICS_DRAWER_WIDTH_PX } from '../../../../../shared/runtime-evidence'
+import { DIAGNOSTICS_DRAWER_WIDTH_PX, selectPreferredDiagnosticsTab } from '../../../../../shared/runtime-evidence'
 import { TOOLBAR_HEIGHT_PX } from '../../../../../shared/sidebar'
 import { cn } from '@renderer/lib/utils'
 import { ArrowDown01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons'
@@ -84,6 +84,22 @@ export function DiagnosticsPanel(): React.JSX.Element {
       unsubscribeEvidence()
       unsubscribeNavigation()
     }
+  }, [])
+
+  useEffect(() => {
+    void window.panelApi.getRuntimeEvidence().then((snapshot) => {
+      setActiveTab(selectPreferredDiagnosticsTab(snapshot))
+    })
+  }, [])
+
+  useEffect(() => {
+    const unsubscribeShow = window.panelApi.onShow((message) => {
+      if (message.panelId !== 'diagnostics-right' || message.mode !== 'docked') return
+      void window.panelApi.getRuntimeEvidence().then((snapshot) => {
+        setActiveTab(selectPreferredDiagnosticsTab(snapshot))
+      })
+    })
+    return unsubscribeShow
   }, [])
 
   useEffect(() => {

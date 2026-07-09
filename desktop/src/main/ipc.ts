@@ -15,6 +15,10 @@ export function registerIpcHandlers(
   projectStore: ProjectStore,
   historyStore: HistoryStore
 ): void {
+  ipcMain.on('diagnostics:toggle', () => {
+    panelManager.notifyToolbarPanel('panel:toggle-diagnostics')
+  })
+
   ipcMain.handle('window:close', (event) => {
     BrowserWindow.fromWebContents(event.sender)?.close()
   })
@@ -193,10 +197,7 @@ export function registerIpcHandlers(
     }
 
     if (action.type === 'toggle-diagnostics') {
-      const mainWindow = BrowserWindow.getAllWindows()[0]
-      if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
-        mainWindow.webContents.send('panel:toggle-diagnostics')
-      }
+      panelManager.notifyToolbarPanel('panel:toggle-diagnostics')
       return
     }
 

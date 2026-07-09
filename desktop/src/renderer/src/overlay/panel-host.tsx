@@ -110,7 +110,10 @@ export function PanelHost(): React.JSX.Element | null {
   if (panel.mode === 'docked') {
     return (
       <div ref={containerRef} className="h-screen min-h-screen w-full bg-transparent p-0">
-        <PanelView onAction={(action) => window.panelApi.sendAction(action)} />
+        <PanelView
+          payload={panel.payload}
+          onAction={(action) => window.panelApi.sendAction(action)}
+        />
       </div>
     )
   }

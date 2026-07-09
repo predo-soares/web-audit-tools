@@ -336,6 +336,10 @@ export function sidebarToggleShortcut(): string {
   return process.platform === 'darwin' ? 'Meta+b' : 'Control+b'
 }
 
+export function diagnosticsToggleShortcut(): string {
+  return process.platform === 'darwin' ? 'Meta+Alt+j' : 'Control+Alt+j'
+}
+
 export async function waitForSidebarSettled(window: Page): Promise<void> {
   await window.waitForFunction(() => {
     const state = document.querySelector('[data-testid="sidebar-state"]')

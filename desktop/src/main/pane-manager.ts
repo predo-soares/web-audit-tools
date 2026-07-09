@@ -63,6 +63,7 @@ export class PaneManager {
   private deviceReady: Promise<void> = Promise.resolve()
   private readonly lastMount = new Map<PaneId, PaneMount>()
   private themePreference: ThemePreference = 'system'
+  private webContentsInputHooks: Array<(webContents: WebContents) => void> = []
   private destroyed = false
   private readonly childViewStackListeners = new Set<() => void>()
   private historyHooks: NavigationHistoryHooks | null = null
@@ -114,6 +115,13 @@ export class PaneManager {
   private notifyChildViewStackChanged(): void {
     for (const listener of this.childViewStackListeners) {
       listener()
+    }
+  }
+
+  onWebContentsCreated(listener: (webContents: WebContents) => void): void {
+    this.webContentsInputHooks.push(listener)
+    for (const engine of this.engines.values()) {
+      listener(engine.webContents)
     }
   }
 
@@ -687,6 +695,9 @@ export class PaneManager {
     this.notifyChildViewStackChanged()
     this.attachLoadingListeners(engine.webContents, paneId)
     this.attachNavigationListeners(engine.webContents, paneId)
+    for (const listener of this.webContentsInputHooks) {
+      listener(engine.webContents)
+    }
 
     try {
       await engine.setDevice(DEVICE_PRESETS[paneId])

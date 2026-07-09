@@ -53,3 +53,21 @@ export function isConsoleProblem(level: ConsoleEvidenceLevel): boolean {
 export function isNetworkProblem(entry: Pick<NetworkEvidenceEntry, 'failed' | 'status'>): boolean {
   return entry.failed || (entry.status !== undefined && entry.status >= 400)
 }
+
+export function countConsoleProblems(entries: readonly { level: ConsoleEvidenceLevel }[]): number {
+  return entries.filter((entry) => isConsoleProblem(entry.level)).length
+}
+
+export function countNetworkProblems(
+  entries: readonly Pick<NetworkEvidenceEntry, 'failed' | 'status'>[]
+): number {
+  return entries.filter((entry) => isNetworkProblem(entry)).length
+}
+
+export function selectPreferredDiagnosticsTab(
+  snapshot: Pick<RuntimeEvidenceSnapshot, 'console' | 'network'>
+): RuntimeEvidenceChannel {
+  const consoleProblems = countConsoleProblems(snapshot.console)
+  const networkProblems = countNetworkProblems(snapshot.network)
+  return networkProblems > consoleProblems ? 'network' : 'console'
+}

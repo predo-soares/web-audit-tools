@@ -90,6 +90,9 @@ function createWindow(): BrowserWindow {
 
   paneManager.initialize(mainWindow)
   panelManager.initialize(mainWindow)
+  paneManager.onWebContentsCreated((webContents) => {
+    panelManager.registerDiagnosticsToggleShortcut(webContents)
+  })
   paneManager.setOverlayBroadcast((channel, ...args) => {
     panelManager.notifyOverlayPanels(channel, ...args)
   })

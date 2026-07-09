@@ -54,6 +54,7 @@ export interface PanelOverlayApi {
   onPanelClosed: (callback: (panelId: PanelId) => void) => () => void
   onPanelLayoutSettled: (callback: (panelId: PanelId) => void) => () => void
   onFocusSidebarToggle: (callback: () => void) => () => void
+  onToggleDiagnostics: (callback: () => void) => () => void
   getRuntimeEvidence: () => Promise<RuntimeEvidenceSnapshot>
   clearRuntimeEvidence: (channel: RuntimeEvidenceChannel) => Promise<RuntimeEvidenceSnapshot>
   onRuntimeEvidenceChanged: (callback: (snapshot: RuntimeEvidenceSnapshot) => void) => () => void
@@ -182,6 +183,11 @@ const panelApi: PanelOverlayApi = {
     const listener = (): void => callback()
     ipcRenderer.on('panel:focus-sidebar-toggle', listener)
     return () => ipcRenderer.removeListener('panel:focus-sidebar-toggle', listener)
+  },
+  onToggleDiagnostics: (callback) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('panel:toggle-diagnostics', listener)
+    return () => ipcRenderer.removeListener('panel:toggle-diagnostics', listener)
   },
   getRuntimeEvidence: () => ipcRenderer.invoke('runtime-evidence:get'),
   clearRuntimeEvidence: (channel) => ipcRenderer.invoke('runtime-evidence:clear', channel),

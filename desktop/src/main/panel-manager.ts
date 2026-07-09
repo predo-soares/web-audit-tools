@@ -87,6 +87,16 @@ const ALL_PANEL_IDS: PanelId[] = ['sidebar-left', 'diagnostics-right', 'toolbar-
 
 const PANEL_Z_ORDER: PanelId[] = ALL_PANEL_IDS
 
+function isDiagnosticsToggleInput(input: Electron.Input): boolean {
+  return (
+    input.type === 'keyDown' &&
+    input.key.toLowerCase() === 'j' &&
+    input.alt &&
+    (input.meta || input.control) &&
+    !input.shift
+  )
+}
+
 export class PanelManager {
   private entries = new Map<PanelId, PanelEntry>()
   private mainWindow: BrowserWindow | null = null
@@ -95,6 +105,7 @@ export class PanelManager {
 
   initialize(mainWindow: BrowserWindow): void {
     this.mainWindow = mainWindow
+    this.registerDiagnosticsToggleShortcut(mainWindow.webContents)
     this.paneManager.onChildViewStackChanged(() => {
       this.bringAllToFront()
     })
@@ -202,7 +213,8 @@ export class PanelManager {
       const message: PanelShowMessage = {
         panelId,
         mode: 'docked',
-        edge: entry.options.edge
+        edge: entry.options.edge,
+        payload: options.payload
       }
       this.deliverShow(panelId, message)
 
@@ -489,6 +501,7 @@ export class PanelManager {
     view.setBackgroundColor('#00000000')
     view.setBounds({ x: 0, y: 0, width: 0, height: 0 })
     view.setVisible(false)
+    this.registerDiagnosticsToggleShortcut(view.webContents)
     return view
   }
 
@@ -605,6 +618,14 @@ export class PanelManager {
 
   notifyToolbarPanel(channel: string, ...args: unknown[]): void {
     this.notifyToolbar(channel, ...args)
+  }
+
+  registerDiagnosticsToggleShortcut(webContents: WebContents): void {
+    webContents.on('before-input-event', (event, input) => {
+      if (!isDiagnosticsToggleInput(input)) return
+      event.preventDefault()
+      this.notifyToolbarPanel('panel:toggle-diagnostics')
+    })
   }
 
   notifyOverlayPanels(channel: string, ...args: unknown[]): void {

@@ -3,6 +3,7 @@ import { cn } from '@renderer/lib/utils'
 import { UrlBar } from '@renderer/components/url-bar'
 import { useOverlayPanel } from '@renderer/hooks/use-overlay-panel'
 import { DIAGNOSTICS_DRAWER_WIDTH_PX } from '../../../../../shared/runtime-evidence'
+import type { RuntimeEvidenceSnapshot } from '../../../../../shared/runtime-evidence'
 import type { ThemePreference } from '../../../../../shared/types'
 import { TOOLBAR_HEIGHT_PX } from '../../../../../shared/sidebar'
 import {
@@ -83,6 +84,7 @@ export function ToolbarPanel(): React.JSX.Element {
   const [themePreference, setThemePreference] = useState<ThemePreference>(readStoredThemePreference)
   const [zoomOpen, setZoomOpen] = useState(false)
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
+  const [runtimeEvidence, setRuntimeEvidence] = useState<RuntimeEvidenceSnapshot | null>(null)
 
   const { isOpen: isZoomOpen } = useOverlayPanel(
     'zoom',
@@ -106,7 +108,8 @@ export function ToolbarPanel(): React.JSX.Element {
     onOpenChange: setDiagnosticsOpen
   })
 
-  const zoomPercent = Math.round(zoom * 100)
+  const problemCount = runtimeEvidence?.problemCount ?? 0
+  const showProblemBadge = !diagnosticsOpen && problemCount > 0
 
   const anyPaneLoading = Object.values(loadingStates).some(Boolean)
   const isLoading = navigating || anyPaneLoading
@@ -184,6 +187,15 @@ export function ToolbarPanel(): React.JSX.Element {
     }
   }, [])
 
+  const zoomPercent = Math.round(zoom * 100)
+
+  useEffect(() => {
+    void window.panelApi.getRuntimeEvidence().then(setRuntimeEvidence)
+
+    const unsubscribeEvidence = window.panelApi.onRuntimeEvidenceChanged(setRuntimeEvidence)
+    return unsubscribeEvidence
+  }, [])
+
   useEffect(() => {
     window.localStorage.setItem(THEME_STORAGE_KEY, themePreference)
     void window.panelApi.setPaneThemePreference(themePreference)
@@ -231,6 +243,10 @@ export function ToolbarPanel(): React.JSX.Element {
     setSidebarOpen((current) => !current)
   }, [])
 
+  const toggleDiagnostics = useCallback((): void => {
+    setDiagnosticsOpen((current) => !current)
+  }, [])
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (!event.metaKey && !event.ctrlKey) return
@@ -244,16 +260,22 @@ export function ToolbarPanel(): React.JSX.Element {
       } else if (event.key === 'b') {
         event.preventDefault()
         toggleSidebar()
+      } else if (event.key === 'j' && event.altKey) {
+        event.preventDefault()
+        toggleDiagnostics()
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [toggleSidebar])
+  }, [toggleSidebar, toggleDiagnostics])
 
-  const toggleDiagnostics = useCallback((): void => {
-    setDiagnosticsOpen((current) => !current)
-  }, [])
+  useEffect(() => {
+    const unsubscribeToggleDiagnostics = window.panelApi.onToggleDiagnostics(() => {
+      toggleDiagnostics()
+    })
+    return unsubscribeToggleDiagnostics
+  }, [toggleDiagnostics])
 
   const toggleZoomPopover = (): void => {
     if (isZoomOpen) {
@@ -370,13 +392,31 @@ export function ToolbarPanel(): React.JSX.Element {
         <button
           type="button"
           data-testid="diagnostics-toggle"
-          className={cn(buttonVariants({ variant: 'ghost', size: 'icon-sm' }))}
-          aria-label={diagnosticsOpen ? 'Close diagnostics drawer' : 'Open diagnostics drawer'}
+          className={cn(
+            buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
+            'relative'
+          )}
+          aria-label={
+            diagnosticsOpen
+              ? 'Close diagnostics drawer'
+              : problemCount > 0
+                ? `Open diagnostics drawer, ${problemCount} problems`
+                : 'Open diagnostics drawer'
+          }
           aria-expanded={diagnosticsOpen}
           aria-controls="diagnostics-drawer"
+          aria-keyshortcuts="Meta+Alt+J"
           onClick={toggleDiagnostics}
         >
           <Icon icon={SourceCodeIcon} />
+          {showProblemBadge ? (
+            <span
+              data-testid="diagnostics-problem-badge"
+              className="absolute -right-0.5 -top-0.5 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium leading-none text-destructive-foreground tabular-nums"
+            >
+              {problemCount > 99 ? '99+' : problemCount}
+            </span>
+          ) : null}
         </button>
         <button
           type="button"

@@ -1,6 +1,8 @@
 import { test, expect } from './fixtures'
 import {
+  diagnosticsToggleShortcut,
   evaluateInPane,
+  expectSidebarOpen,
   fixtureUrl,
   focusPane,
   getDiagnosticsDrawerPage,
@@ -334,6 +336,187 @@ test('diagnostics drawer refreshes when the active pane changes', async ({ fixtu
     await expect(drawerRoot).toHaveAttribute('data-pane-id', 'iphone')
     await expect(drawer.getByText('iphone-only error')).toBeVisible()
     await expect(drawer.getByText('desktop-only error')).toHaveCount(0)
+  } finally {
+    await close()
+  }
+})
+
+test('diagnostics toolbar badge increments while drawer stays closed', async ({ fixturePort }) => {
+  const { window, close } = await launchApp()
+
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/runtime-evidence'))
+    await waitForPaneElement(window, 'desktop', 'runtime-evidence-fixture')
+
+    const toolbar = await getToolbarPage(window)
+    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute('aria-expanded', 'false')
+
+    const badge = toolbar.getByTestId('diagnostics-problem-badge')
+    const countBefore = (await badge.count()) > 0 ? Number(await badge.textContent()) : 0
+
+    await evaluateInPane(
+      window,
+      'desktop',
+      `document.getElementById('emit-console-error')?.click()`
+    )
+    await window.waitForTimeout(300)
+
+    await expect(badge).toHaveText(String(countBefore + 1))
+    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute('aria-expanded', 'false')
+  } finally {
+    await close()
+  }
+})
+
+test('diagnostics drawer does not auto-open when a new problem arrives', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/runtime-evidence'))
+    await waitForPaneElement(window, 'desktop', 'runtime-evidence-fixture')
+
+    const toolbar = await getToolbarPage(window)
+    await evaluateInPane(
+      window,
+      'desktop',
+      `document.getElementById('emit-console-error')?.click()`
+    )
+    await window.waitForTimeout(300)
+
+    await expect(toolbar.getByTestId('diagnostics-problem-badge')).not.toHaveText('0')
+    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute('aria-expanded', 'false')
+  } finally {
+    await close()
+  }
+})
+
+test('diagnostics drawer toggles with keyboard shortcut', async ({ fixturePort }) => {
+  const { window, close } = await launchApp()
+
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/runtime-evidence'))
+    await waitForPaneElement(window, 'desktop', 'runtime-evidence-fixture')
+
+    const toolbar = await getToolbarPage(window)
+    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute('aria-expanded', 'false')
+
+    await window.keyboard.press(diagnosticsToggleShortcut())
+    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute('aria-expanded', 'true')
+
+    await window.keyboard.press(diagnosticsToggleShortcut())
+    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute('aria-expanded', 'false')
+  } finally {
+    await close()
+  }
+})
+
+test('diagnostics drawer opens on the tab with more problems', async ({ fixturePort }) => {
+  const { window, close } = await launchApp()
+
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/runtime-evidence'))
+    await waitForPaneElement(window, 'desktop', 'runtime-evidence-fixture')
+
+    await evaluateInPane(
+      window,
+      'desktop',
+      `document.getElementById('emit-fetch-404')?.click()`
+    )
+    await evaluateInPane(
+      window,
+      'desktop',
+      `document.getElementById('emit-fetch-404')?.click()`
+    )
+    await evaluateInPane(
+      window,
+      'desktop',
+      `document.getElementById('emit-fetch-fail')?.click()`
+    )
+    await window.waitForTimeout(500)
+
+    const expectedTab = await window.evaluate(async () => {
+      const snapshot = await window.api.getRuntimeEvidence()
+      const consoleProblems = snapshot.console.filter((entry) =>
+        ['error', 'warn', 'exception', 'rejection'].includes(entry.level)
+      ).length
+      const networkProblems = snapshot.network.filter(
+        (entry) => entry.failed || (entry.status !== undefined && entry.status >= 400)
+      ).length
+      return networkProblems > consoleProblems ? 'network' : 'console'
+    })
+
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('diagnostics-toggle').click()
+
+    const drawer = await getDiagnosticsDrawerPage(window)
+    await expect(drawer.getByTestId(`diagnostics-tab-${expectedTab}`)).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+  } finally {
+    await close()
+  }
+})
+
+test('diagnostics drawer opens on console when problem counts tie', async ({ fixturePort }) => {
+  const { window, close } = await launchApp()
+
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/runtime-evidence'))
+    await waitForPaneElement(window, 'desktop', 'runtime-evidence-fixture')
+
+    await evaluateInPane(
+      window,
+      'desktop',
+      `document.getElementById('emit-console-error')?.click()`
+    )
+    await evaluateInPane(
+      window,
+      'desktop',
+      `document.getElementById('emit-fetch-404')?.click()`
+    )
+    await window.waitForTimeout(500)
+
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('diagnostics-toggle').click()
+
+    const drawer = await getDiagnosticsDrawerPage(window)
+    await expect(drawer.getByTestId('diagnostics-tab-console')).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+  } finally {
+    await close()
+  }
+})
+
+test('diagnostics drawer and sidebar can be open together with pane interaction', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/runtime-evidence'))
+    await waitForPaneElement(window, 'desktop', 'runtime-evidence-fixture')
+
+    await expectSidebarOpen(window, true)
+
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('diagnostics-toggle').click()
+    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute('aria-expanded', 'true')
+    await expectSidebarOpen(window, true)
+
+    await evaluateInPane(
+      window,
+      'desktop',
+      `document.getElementById('emit-console-error')?.click()`
+    )
+    await window.waitForTimeout(300)
+
+    const drawer = await getDiagnosticsDrawerPage(window)
+    await expect(drawer.getByText('deliberate test error')).toBeVisible()
   } finally {
     await close()
   }

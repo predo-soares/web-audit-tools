@@ -1,6 +1,9 @@
 import type { ThemePreference } from './types'
 import type { Size } from './types'
-import { DIAGNOSTICS_DRAWER_WIDTH_PX } from './runtime-evidence'
+import {
+  DIAGNOSTICS_DRAWER_WIDTH_PX,
+  type RuntimeEvidenceChannel
+} from './runtime-evidence'
 
 export type PanelId = 'zoom' | 'theme' | 'sidebar-left' | 'diagnostics-right' | 'toolbar-top'
 
@@ -26,7 +29,11 @@ export interface ThemePanelPayload {
   themePreference: ThemePreference
 }
 
-export type PanelPayload = ZoomPanelPayload | ThemePanelPayload
+export interface DiagnosticsPanelPayload {
+  initialTab: RuntimeEvidenceChannel
+}
+
+export type PanelPayload = ZoomPanelPayload | ThemePanelPayload | DiagnosticsPanelPayload
 
 export interface PanelOpenOptions {
   panelId: PanelId
