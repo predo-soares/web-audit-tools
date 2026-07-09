@@ -39,7 +39,7 @@ export function HistoryRow({
   return (
     <div
       className={cn(
-        'group/history-row flex min-w-0 items-stretch rounded-md',
+        'group/history-row relative flex min-w-0 items-stretch rounded-md',
         isActive && 'bg-white/10',
         !isActive && 'hover:bg-white/10 focus-within:bg-white/10'
       )}
@@ -70,7 +70,7 @@ export function HistoryRow({
           />
         )}
         <span className="min-w-0 flex-1">
-          <span className="flex min-w-0 items-center gap-1.5">
+          <span className="flex min-w-0 items-center gap-1.5 justify-between">
             <span className="truncate text-sm font-medium">{title}</span>
             {isDev && (
               <span className="shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold leading-none bg-emerald-500/20 text-emerald-400">
@@ -78,7 +78,9 @@ export function HistoryRow({
               </span>
             )}
           </span>
-          <span className="block truncate text-xs text-muted-foreground">{entry.url}</span>
+          <span className="block truncate text-xs text-muted-foreground max-w-[24ch]">
+            {entry.url}
+          </span>
         </span>
       </button>
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
@@ -89,7 +91,7 @@ export function HistoryRow({
               data-testid={`${historyRowTestId(entry.url)}-menu`}
               aria-label={`History actions for ${title}`}
               className={cn(
-                'my-1 mr-1 inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-background/60 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none',
+                'absolute bottom-1 right-1 inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-background/60 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none',
                 menuOpen
                   ? 'opacity-100'
                   : 'opacity-0 group-hover/history-row:opacity-100 group-focus-within/history-row:opacity-100'
@@ -100,7 +102,7 @@ export function HistoryRow({
             </button>
           }
         />
-        <DropdownMenuContent align="end" side="right">
+        <DropdownMenuContent align="end" side="bottom">
           <DropdownMenuItem
             variant="destructive"
             data-testid={`${historyRowTestId(entry.url)}-delete`}
