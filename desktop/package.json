@@ -19,7 +19,7 @@
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
-    "build:mac": "electron-vite build && electron-builder --mac",
+    "build:mac": "electron-vite build && env APPLE_KEYCHAIN_PROFILE=audit-screens-notary electron-builder --mac",
     "build:linux": "electron-vite build && electron-builder --linux"
   },
   "dependencies": {
@@ -30,7 +30,6 @@
     "@fontsource-variable/geist-mono": "^5.2.8",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "electron-updater": "^6.3.9",
     "lucide-react": "^1.23.0",
     "motion": "^12.42.2",
     "tailwind-merge": "^3.6.0",
@@ -53,6 +52,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
+    "happy-dom": "^20.10.6",
     "prettier": "^3.7.4",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",

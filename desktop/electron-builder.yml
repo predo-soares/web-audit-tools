@@ -20,12 +20,18 @@ nsis:
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
+  target:
+    - dmg
+    - zip
   category: public.app-category.developer-tools
-  entitlementsInherit: build/entitlements.mac.plist
+  identity: "Pedro Soares (V658BJYP75)"
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.inherit.plist
   extendInfo:
     - NSDocumentsFolderUsageDescription: Audit Screens needs access to your Documents folder to save exports and screenshots.
     - NSDownloadsFolderUsageDescription: Audit Screens needs access to your Downloads folder to save exports and screenshots.
-  notarize: false
+  notarize: true
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:
@@ -38,6 +44,3 @@ linux:
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
-publish:
-  provider: generic
-  url: https://example.com/auto-updates
