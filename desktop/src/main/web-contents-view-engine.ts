@@ -141,9 +141,6 @@ export class WebContentsViewEngine implements EngineView {
     const savedScreenBounds = this.screenBounds ? { ...this.screenBounds } : null
 
     try {
-      // enableDeviceEmulation fits the page into the native view bounds. For a
-      // full-resolution export, render at 1:1 inside bounds that match the
-      // logical viewport, then capture at deviceScaleFactor via CDP.
       this.zoom = 1
       if (savedScreenBounds) {
         this.view.setBounds({
@@ -525,9 +522,8 @@ export class WebContentsViewEngine implements EngineView {
         }
 
         // Navigation links (<a href> pointing to a different page) are synced
-        // by navigating all panes to the destination URL rather than by
-        // replaying the click, so the browser history and activePane tracking
-        // stay on the source pane instead of all panes navigating independently.
+        // by programmatic navigation on target panes (not click replay), so
+        // activePane tracking stays on the source pane.
         const rawHref = element instanceof HTMLAnchorElement ? element.getAttribute('href') : null;
         const isNavigationLink = rawHref !== null &&
           rawHref !== '' &&

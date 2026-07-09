@@ -121,6 +121,13 @@ export class PaneManager {
     this.getEngine(paneId).mount(mount)
   }
 
+  private restorePaneMount(paneId: PaneId): void {
+    const mount = this.lastMount.get(paneId)
+    if (mount) {
+      this.getEngine(paneId).mount(mount)
+    }
+  }
+
   async navigateAll(url: string): Promise<void> {
     await this.deviceReady
     await this.doNavigateAll(url)
@@ -163,7 +170,13 @@ export class PaneManager {
       return { saved: false }
     }
 
-    const png = await this.getEngine(paneId).captureScreenshot()
+    let png: Buffer
+    try {
+      png = await this.getEngine(paneId).captureScreenshot()
+    } finally {
+      this.restorePaneMount(paneId)
+    }
+
     const { canceled, filePath } = await dialog.showSaveDialog(parentWindow, {
       title: 'Save screenshot',
       defaultPath: screenshotDefaultName(paneId),
@@ -337,9 +350,24 @@ export class PaneManager {
             return
           }
 
-          if (isLinkNav) {
-            syncTrace('click:link-skipped', { targetPane: targetId })
+          if (isLinkNav && 'navigateTo' in resolution) {
+            syncTrace('click:link-navigating', {
+              targetPane: targetId,
+              url: resolution.navigateTo
+            })
             clickExpectation.revoke()
+            this.pendingProgrammaticNavigation.add(targetId)
+            this.setPaneLoading(targetId, true)
+            try {
+              await engine.navigate(resolution.navigateTo)
+            } catch (error) {
+              this.pendingProgrammaticNavigation.delete(targetId)
+              this.setPaneLoading(targetId, false)
+              syncTrace('click:link-navigate-failed', {
+                targetPane: targetId,
+                error: String(error)
+              })
+            }
             return
           }
 

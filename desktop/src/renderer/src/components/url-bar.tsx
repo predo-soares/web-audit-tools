@@ -56,10 +56,13 @@ export function UrlBar({
 
   return (
     <form
-      className={cn('flex min-w-0 flex-1 items-center gap-2 rounded-lg bg-white/20', className)}
+      className={cn(
+        'flex min-w-0 flex-1 items-center gap-2 rounded-lg bg-white/20 focus-within:bg-white/10 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50',
+        className
+      )}
       onSubmit={handleSubmit}
     >
-      <div className="relative min-w-0 flex-1">
+      <div className="relative min-w-0 flex-1 flex items-center pr-1">
         {faviconUrl && !faviconFailed ? (
           <img
             src={faviconUrl}
@@ -92,7 +95,7 @@ export function UrlBar({
           onChange={(event) => onChange(event.target.value)}
           disabled={disabled}
           className={cn(
-            'min-w-0 flex-1 pl-9 focus-visible:bg-white/10',
+            'min-w-0 flex-1 pl-9  border-none !bg-transparent focus-visible:ring-0',
             pageTitle ? 'pr-64' : 'pr-20'
           )}
         />
@@ -106,7 +109,7 @@ export function UrlBar({
           isSaved={isSavedProject}
           suggestedName={saveSuggestedName}
           onSave={onSaveProject}
-          className="absolute top-1/2 right-8 z-10 -translate-y-1/2"
+          className=""
         />
         <Button
           type="button"
@@ -114,7 +117,7 @@ export function UrlBar({
           size="icon-sm"
           data-testid={loading ? 'url-stop' : 'url-refresh'}
           aria-label={loading ? 'Stop loading' : 'Refresh'}
-          className="absolute top-1/2 right-1 z-10 -translate-y-1/2 text-muted-foreground"
+          className=" text-muted-foreground"
           onClick={() => void (loading ? onStop() : onRefresh())}
           disabled={disabled && !loading}
         >
