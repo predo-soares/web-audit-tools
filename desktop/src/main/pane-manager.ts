@@ -4,6 +4,9 @@ import { DEVICE_PRESETS, PANE_IDS } from '../shared/device-presets'
 import type { ElementFingerprint } from '../shared/element-mirror'
 import type { PaneId, PaneMount, PaneNavigationState, ThemePreference } from '../shared/types'
 import type { RuntimeEvidenceChannel, RuntimeEvidenceSnapshot } from '../shared/runtime-evidence'
+import type { DevContext } from '../shared/dev-context'
+import { isLocalhostUrl } from '../shared/dev-context'
+import { resolveDevContext } from './dev-context'
 import { createActivePaneTracker } from './active-pane-tracker'
 import { createEchoLedger } from './echo-ledger'
 import type { EngineView, ValueSyncPayload } from './engine-view'
@@ -69,9 +72,25 @@ export class PaneManager {
   private pendingVisitInPage = false
   private activeClickMirrors = 0
   private clickMirrorCooldownUntil = 0
+  private devContext: DevContext | null | undefined = undefined
+  private devContextPromise: Promise<void> | null = null
 
   setHistoryHooks(hooks: NavigationHistoryHooks | null): void {
     this.historyHooks = hooks
+  }
+
+  getDevContext(): DevContext | null {
+    return this.devContext ?? null
+  }
+
+  private maybeResolveDevContext(url: string): void {
+    if (this.devContext !== undefined || this.devContextPromise) return
+    if (!isLocalhostUrl(url)) return
+
+    this.devContextPromise = resolveDevContext(process.cwd())
+      .then((ctx) => { this.devContext = ctx })
+      .catch(() => { this.devContext = null })
+      .finally(() => { this.devContextPromise = null })
   }
 
   setOverlayBroadcast(handler: (channel: string, ...args: unknown[]) => void): void {
@@ -727,6 +746,7 @@ export class PaneManager {
       this.pendingHistoryNavigation.delete(paneId)
 
       this.tracker.didNavigate(paneId, url, { inPage, isProgrammatic })
+      this.maybeResolveDevContext(url)
 
       if (isProgrammatic) return
 

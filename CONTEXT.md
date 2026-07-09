@@ -25,6 +25,7 @@ A macOS desktop tool for previewing a website across multiple device viewports s
 - **Observed context** — the current evidence available from the device panes for an agent handoff: visible page state, pane metadata, and runtime evidence.
 - **Snapshot** — a user-initiated moment-in-time capture of observed context. A snapshot is one way to perform an agent handoff; live agent access to observed context does not have to create a snapshot.
 - **Capture bundle** — a persisted snapshot artifact intended for agent consumption. Its entrypoint is an agent-readable context document, with supporting assets such as pane screenshots and raw evidence files.
+- **Dev context** — the git metadata block (`repoPath`, `branch`, `commit`) attached at the app level to a capture bundle when at least one pane is a localhost URL. Resolved at navigation time by walking up from `process.cwd()` to the nearest `.git` directory; absent when no `.git` is found. Fields are individually nullable (e.g. `branch` is `null` on detached HEAD). Not per-pane — all localhost panes in a snapshot share one repo.
 
 ## Architecture (decided — see docs/adr/)
 

@@ -2,6 +2,7 @@ import { Globe02Icon } from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
 import { useState } from 'react'
 import type { Project } from '../../../shared/project'
+import { isLocalhostUrl } from '../../../shared/dev-context'
 import { cn } from '@renderer/lib/utils'
 
 interface ProjectRowProps {
@@ -12,6 +13,7 @@ interface ProjectRowProps {
 
 export function ProjectRow({ project, isActive = false, onActivate }: ProjectRowProps): React.JSX.Element {
   const [faviconFailed, setFaviconFailed] = useState(false)
+  const isDev = isLocalhostUrl(project.url)
 
   return (
     <button
@@ -35,7 +37,14 @@ export function ProjectRow({ project, isActive = false, onActivate }: ProjectRow
         <Icon aria-hidden icon={Globe02Icon} className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
       )}
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium">{project.name}</span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate text-sm font-medium">{project.name}</span>
+          {isDev && (
+            <span className="shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold leading-none bg-emerald-500/20 text-emerald-400">
+              DEV
+            </span>
+          )}
+        </span>
         <span className="block truncate text-xs text-muted-foreground">{project.url}</span>
       </span>
     </button>

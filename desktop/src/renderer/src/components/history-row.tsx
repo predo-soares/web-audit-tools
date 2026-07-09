@@ -3,6 +3,7 @@ import { Icon } from '@renderer/components/ui/icon'
 import { useState } from 'react'
 import type { HistoryEntry } from '../../../shared/history'
 import { suggestProjectName } from '../../../shared/project'
+import { isLocalhostUrl } from '../../../shared/dev-context'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +34,7 @@ export function HistoryRow({
   const [faviconFailed, setFaviconFailed] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const title = suggestProjectName(entry.title, entry.url)
+  const isDev = isLocalhostUrl(entry.url)
 
   return (
     <div
@@ -68,7 +70,14 @@ export function HistoryRow({
           />
         )}
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium">{title}</span>
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate text-sm font-medium">{title}</span>
+            {isDev && (
+              <span className="shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold leading-none bg-emerald-500/20 text-emerald-400">
+                DEV
+              </span>
+            )}
+          </span>
           <span className="block truncate text-xs text-muted-foreground">{entry.url}</span>
         </span>
       </button>
