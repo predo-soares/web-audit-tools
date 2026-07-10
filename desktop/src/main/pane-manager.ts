@@ -76,7 +76,10 @@ export class PaneManager {
   private pendingVisitFailed = false
   private pendingVisitInPage = false
   private activeClickMirrors = 0
+  private clickMirrorSourcePane: PaneId | null = null
   private clickMirrorCooldownUntil = 0
+  private historySourceLock: { paneId: PaneId; until: number } | null = null
+  private readonly mirrorLinkTargetPanes = new Set<PaneId>()
   private devContext: DevContext | null | undefined = undefined
   private devContextPromise: Promise<void> | null = null
 
@@ -298,6 +301,9 @@ export class PaneManager {
   }
 
   focusPane(paneId: PaneId): void {
+    this.historySourcePane = paneId
+    this.tracker.didFocus(paneId)
+    this.emitNavigationState()
     this.getEngine(paneId).focus()
   }
 
@@ -360,9 +366,10 @@ export class PaneManager {
     const paneId = this.resolveNavigationPane()
     const engine = this.getEngine(paneId)
     if (!engine.canGoBack()) return
+    if (engine.getPreviousEntryUrl() === 'about:blank') return
     this.historySourcePane = paneId
     this.pendingHistoryNavigation.add(paneId)
-    engine.goBack()
+    await engine.evaluate('history.back()')
   }
 
   async goForward(): Promise<void> {
@@ -372,7 +379,7 @@ export class PaneManager {
     if (!engine.canGoForward()) return
     this.historySourcePane = paneId
     this.pendingHistoryNavigation.add(paneId)
-    engine.goForward()
+    await engine.evaluate('history.forward()')
   }
 
   private resolveNavigationPane(): PaneId {
@@ -428,6 +435,7 @@ export class PaneManager {
       return
     }
 
+    this.clickMirrorSourcePane = paneId
     this.activeClickMirrors += 1
     try {
       await Promise.all(
@@ -493,6 +501,7 @@ export class PaneManager {
               url: resolution.navigateTo
             })
             clickExpectation.revoke()
+            this.mirrorLinkTargetPanes.add(targetId)
             this.pendingProgrammaticNavigation.add(targetId)
             this.setPaneLoading(targetId, true)
             try {
@@ -523,6 +532,8 @@ export class PaneManager {
     } finally {
       this.activeClickMirrors -= 1
       if (this.activeClickMirrors === 0) {
+        this.historySourceLock = { paneId, until: Date.now() + 500 }
+        this.clickMirrorSourcePane = null
         this.clickMirrorCooldownUntil = Date.now() + 250
       }
     }
@@ -861,12 +872,13 @@ export class PaneManager {
       this.lastNavTimestamps.set(paneId, Date.now())
       this.maybeResolveDevContext(url)
 
-      if (isProgrammatic) return
+      if (isProgrammatic) {
+        return
+      }
 
-      // A link click / JS navigation clears the history source so the newly
-      // active pane becomes the one used for subsequent back/forward.
       if (!isHistoryNav) {
-        this.historySourcePane = null
+        this.historySourcePane = paneId
+        this.mirrorLinkTargetPanes.clear()
       }
 
       this.markPendingVisit(url, inPage)
@@ -926,6 +938,24 @@ export class PaneManager {
       this.emitNavigationState()
     })
     engine.on('focus', () => {
+      if (this.pendingProgrammaticNavigation.has(paneId)) return
+      if (this.loadingState.get(paneId)) return
+      if (
+        this.activeClickMirrors > 0 &&
+        this.clickMirrorSourcePane !== null &&
+        paneId !== this.clickMirrorSourcePane
+      ) {
+        return
+      }
+      if (
+        this.historySourceLock &&
+        Date.now() < this.historySourceLock.until &&
+        paneId !== this.historySourceLock.paneId
+      ) {
+        return
+      }
+      if (this.mirrorLinkTargetPanes.has(paneId)) return
+      this.historySourcePane = paneId
       this.tracker.didFocus(paneId)
       this.emitNavigationState()
     })
