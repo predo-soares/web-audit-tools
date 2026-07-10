@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { EngineView } from '../../src/main/engine-view'
 import type { MirrorFailureLog } from '../../src/shared/element-mirror'
+import type { ConsoleEvidenceEntry } from '../../src/shared/runtime-evidence'
 
 /**
  * Observation port the contract suite uses to inspect an adapter's state
@@ -25,6 +26,23 @@ export interface EngineViewContractHarness {
    * would trigger an actual page navigation.
    */
   emitNavigate(url: string): void
+  /**
+   * Program the value `evaluate()` will return for the next call. The
+   * FakeEngine harness stores it in `evaluateResult`; a real-engine harness
+   * would inject it via a page script.
+   */
+  scriptEvaluate(result: unknown): void
+  /**
+   * Program the `Buffer` `captureScreenshot()` will return. The FakeEngine
+   * harness stores it in `screenshotBuffer`; a real-engine harness would
+   * populate the visible page.
+   */
+  scriptScreenshot(buffer: Buffer): void
+  /**
+   * Simulate a console evidence entry the page would push through the bound
+   * evidence handler.
+   */
+  emitConsoleEvidence(entry: Omit<ConsoleEvidenceEntry, 'id' | 'timestamp'>): void
 }
 
 // A stand-in BrowserWindow for attach/detach in the contract. The FakeEngine
@@ -190,6 +208,61 @@ export function describeEngineViewContract(
       const harness = createHarness()
 
       expect(harness.engine.getWebContentsId()).toBe(harness.engine.getWebContentsId())
+    })
+
+    it('evaluate resolves to the scripted result', async () => {
+      const harness = createHarness()
+      harness.scriptEvaluate(42)
+
+      const result = await harness.engine.evaluate<number>('40 + 2')
+
+      expect(result).toBe(42)
+    })
+
+    it('captureScreenshot resolves to the scripted Buffer', async () => {
+      const harness = createHarness()
+      const expected = Buffer.from([1, 2, 3])
+      harness.scriptScreenshot(expected)
+
+      const result = await harness.engine.captureScreenshot()
+
+      expect(result).toEqual(expected)
+    })
+
+    it('captureScreenshot returns a Buffer instance', async () => {
+      const harness = createHarness()
+
+      const result = await harness.engine.captureScreenshot()
+
+      expect(Buffer.isBuffer(result)).toBe(true)
+    })
+
+    it('bindRuntimeEvidence delivers pushConsole entries through the binding', () => {
+      const harness = createHarness()
+      const received: Omit<ConsoleEvidenceEntry, 'id' | 'timestamp'>[] = []
+
+      harness.engine.bindRuntimeEvidence({
+        pushConsole: (entry) => received.push(entry),
+        pushNetwork: () => {}
+      })
+      harness.emitConsoleEvidence({ level: 'error', message: 'test error', args: [] })
+
+      expect(received).toHaveLength(1)
+      expect(received[0]).toMatchObject({ level: 'error', message: 'test error' })
+    })
+
+    it('bindRuntimeEvidence delivers nothing before the binding is set', () => {
+      const harness = createHarness()
+      const received: Omit<ConsoleEvidenceEntry, 'id' | 'timestamp'>[] = []
+
+      harness.emitConsoleEvidence({ level: 'warn', message: 'before bind', args: [] })
+
+      harness.engine.bindRuntimeEvidence({
+        pushConsole: (entry) => received.push(entry),
+        pushNetwork: () => {}
+      })
+
+      expect(received).toHaveLength(0)
     })
   })
 }

@@ -1,5 +1,5 @@
 import type { BrowserWindow, Input } from 'electron'
-import type { DeviceProfile, PaneId, PaneMount } from '../../src/shared/types'
+import type { DeviceProfile, PaneId, PaneMount, ThemePreference } from '../../src/shared/types'
 import type { ElementFingerprint, MirrorFailureLog } from '../../src/shared/element-mirror'
 import type { EngineView, EngineViewEventMap, ValueSyncPayload } from '../../src/main/engine-view'
 import type { ConsoleEvidenceEntry, NetworkEvidenceEntry } from '../../src/shared/runtime-evidence'
@@ -36,19 +36,30 @@ export class FakeEngine implements EngineView {
     mount: [] as PaneMount[],
     navigate: [] as string[],
     setDevice: [] as DeviceProfile[],
+    setThemePreference: [] as ThemePreference[],
     syncScroll: [] as number[],
     resolveClickPoint: [] as ElementFingerprint[],
     applyValue: [] as Array<{ fingerprint: ElementFingerprint; payload: ValueSyncPayload }>,
     submitForm: [] as ElementFingerprint[],
     dispatchClick: [] as Array<{ x: number; y: number }>,
+    evaluate: [] as string[],
+    captureScreenshot: 0,
     goBack: 0,
     goForward: 0,
     setVisible: [] as boolean[],
     attach: 0,
     detach: 0,
     focus: 0,
+    stop: 0,
     destroy: 0
   }
+
+  // Scripted return value for evaluate() — tests set this to control what the
+  // expression "returns" without a live page.
+  evaluateResult: unknown = undefined
+  // Scripted return value for captureScreenshot() — tests set this to a PNG
+  // buffer when testing snapshot/screenshot paths.
+  screenshotBuffer: Buffer = Buffer.alloc(1)
 
   // In-memory navigation history mirroring a real pane's per-pane Chromium
   // session history. `navigate` pushes a new entry (truncating any forward
@@ -200,6 +211,24 @@ export class FakeEngine implements EngineView {
   focus(): void {
     this.calls.focus += 1
     this.focused = true
+  }
+
+  async setThemePreference(preference: ThemePreference): Promise<void> {
+    this.calls.setThemePreference.push(preference)
+  }
+
+  stop(): void {
+    this.calls.stop += 1
+  }
+
+  async evaluate<T = unknown>(_expression: string): Promise<T> {
+    this.calls.evaluate.push(_expression)
+    return this.evaluateResult as T
+  }
+
+  async captureScreenshot(): Promise<Buffer> {
+    this.calls.captureScreenshot += 1
+    return this.screenshotBuffer
   }
 
   on<E extends keyof EngineViewEventMap>(event: E, handler: EngineViewEventMap[E]): () => void {

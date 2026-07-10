@@ -40,7 +40,7 @@ export interface NavigationHistoryHooks {
 }
 
 export class PaneManager {
-  private readonly engines = new Map<PaneId, WebContentsViewEngine>()
+  private readonly engines = new Map<PaneId, EngineView>()
   private readonly runtimeEvidence = new Map<PaneId, RuntimeEvidenceBuffer>()
   private readonly paneInteractionEpoch = new Map<PaneId, number>()
   private readonly echoLedger = createEchoLedger()
@@ -61,7 +61,6 @@ export class PaneManager {
   private deviceReady: Promise<void> = Promise.resolve()
   private readonly lastMount = new Map<PaneId, PaneMount>()
   private themePreference: ThemePreference = 'system'
-  private webContentsInputHooks: Array<(webContents: WebContents) => void> = []
   private paneBeforeInputHooks: Array<EngineViewEventMap['before-input']> = []
   private destroyed = false
   private readonly childViewStackListeners = new Set<() => void>()
@@ -133,13 +132,6 @@ export class PaneManager {
   private notifyChildViewStackChanged(): void {
     for (const listener of this.childViewStackListeners) {
       listener()
-    }
-  }
-
-  onWebContentsCreated(listener: (webContents: WebContents) => void): void {
-    this.webContentsInputHooks.push(listener)
-    for (const engine of this.engines.values()) {
-      listener(engine.webContents)
     }
   }
 
@@ -727,7 +719,7 @@ export class PaneManager {
   }
 
   async evaluateInPane<T>(paneId: PaneId, expression: string): Promise<T> {
-    return this.getEngine(paneId).webContents.executeJavaScript(expression)
+    return this.getEngine(paneId).evaluate<T>(expression)
   }
 
   getUserAgentForPane(paneId: PaneId): string {
@@ -765,7 +757,7 @@ export class PaneManager {
     return this.sharedSession
   }
 
-  private getEngine(paneId: PaneId): WebContentsViewEngine {
+  private getEngine(paneId: PaneId): EngineView {
     const engine = this.engines.get(paneId)
     if (!engine) throw new Error(`Unknown pane: ${paneId}`)
     return engine
@@ -783,7 +775,7 @@ export class PaneManager {
     paneId: PaneId,
     mainWindow: BrowserWindow,
     restoreUrl: string | null
-  ): Promise<WebContentsViewEngine> {
+  ): Promise<void> {
     const engine = new WebContentsViewEngine(paneId, this.getSharedSession(), getPanePreloadPath())
     const evidenceBuffer = createRuntimeEvidenceBuffer()
     this.runtimeEvidence.set(paneId, evidenceBuffer)
@@ -809,9 +801,6 @@ export class PaneManager {
     for (const handler of this.paneBeforeInputHooks) {
       engine.on('before-input', handler)
     }
-    for (const listener of this.webContentsInputHooks) {
-      listener(engine.webContents)
-    }
 
     try {
       await engine.setDevice(DEVICE_PRESETS[paneId])
@@ -826,8 +815,6 @@ export class PaneManager {
     } catch (error) {
       console.error(`Failed to create pane ${paneId}:`, error)
     }
-
-    return engine
   }
 
   private setupSessionHeaders(): void {

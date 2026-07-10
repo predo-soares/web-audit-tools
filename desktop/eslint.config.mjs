@@ -28,5 +28,22 @@ export default defineConfig(
       ...eslintPluginReactRefresh.configs.vite.rules
     }
   },
-  eslintConfigPrettier
+  eslintConfigPrettier,
+  {
+    // Guard: pane engines are accessed only through the EngineView interface.
+    // Direct .webContents property access on engine objects is prohibited here
+    // because getEngine() returns EngineView (which does not expose webContents).
+    // This rule catches any future attempt to re-introduce a raw reach-around.
+    files: ['src/main/pane-manager.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "MemberExpression[property.name='webContents'][object.name!='mainWindow']",
+          message:
+            'Reach-around forbidden: access engine capabilities through the EngineView interface, not raw webContents.'
+        }
+      ]
+    }
+  }
 )

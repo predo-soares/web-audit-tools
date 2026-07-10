@@ -695,6 +695,13 @@ export class PanelManager {
     })
   }
 
+  /** Handle a pane before-input event through the EngineView seam. */
+  handlePaneBeforeInput(input: Electron.Input, preventDefault: () => void): void {
+    if (!isDiagnosticsToggleInput(input)) return
+    preventDefault()
+    this.notifyToolbarPanel('panel:toggle-diagnostics')
+  }
+
   notifyOverlayPanels(channel: string, ...args: unknown[]): void {
     for (const entry of this.entries.values()) {
       if (entry.view.webContents.isDestroyed()) continue

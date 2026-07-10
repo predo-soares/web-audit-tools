@@ -1,6 +1,7 @@
 import type { BrowserWindow, Input } from 'electron'
-import type { DeviceProfile, PaneMount } from '../shared/types'
+import type { DeviceProfile, PaneMount, ThemePreference } from '../shared/types'
 import type { ElementFingerprint, MirrorFailureLog } from '../shared/element-mirror'
+import type { ConsoleEvidenceEntry, NetworkEvidenceEntry } from '../shared/runtime-evidence'
 
 export interface ValueSyncPayload {
   value: string
@@ -70,6 +71,32 @@ export interface EngineView {
   detach(window: BrowserWindow): void
   /** Move keyboard focus to the pane. */
   focus(): void
+  /** Apply the user's theme preference to the pane. */
+  setThemePreference(preference: ThemePreference): Promise<void>
+  /** Stop any in-progress load; a no-op when the pane is not loading. */
+  stop(): void
+  /**
+   * Evaluate a JavaScript expression inside the pane's page context.
+   * Equivalent to `webContents.executeJavaScript` without the raw reach-through.
+   */
+  evaluate<T = unknown>(expression: string): Promise<T>
+  /**
+   * Capture a full-resolution screenshot of the pane's page at its logical
+   * device size. Returns a PNG-encoded `Buffer`.
+   */
+  captureScreenshot(): Promise<Buffer>
+  /**
+   * Bind evidence push handlers so console and network entries captured inside
+   * the pane are forwarded to the caller's buffer. The evidence pipeline calls
+   * this once per engine lifetime; calling again replaces the previous binding.
+   */
+  bindRuntimeEvidence(handlers: {
+    pushConsole: (entry: Omit<ConsoleEvidenceEntry, 'id' | 'timestamp'>) => void
+    pushNetwork: (
+      entry: Omit<NetworkEvidenceEntry, 'id' | 'timestamp' | 'failed'> &
+        Partial<Pick<NetworkEvidenceEntry, 'failed'>>
+    ) => void
+  }): void
   /**
    * Subscribe to a pane-engine event. Returns an unsubscribe function that
    * detaches the underlying listener(s). After {@link destroy}, handlers must

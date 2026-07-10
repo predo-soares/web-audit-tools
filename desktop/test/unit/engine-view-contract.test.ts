@@ -9,6 +9,13 @@ describeEngineViewContract('FakeEngine', () => {
     simulateMirrorFailure: (log) => engine.simulateMirrorFailure(log),
     isVisible: () => engine.visible,
     isAttached: () => engine.attached,
-    emitNavigate: (url) => engine.emitDidNavigate(url)
+    emitNavigate: (url) => engine.emitDidNavigate(url),
+    scriptEvaluate: (result) => {
+      engine.evaluateResult = result
+    },
+    scriptScreenshot: (buffer) => {
+      engine.screenshotBuffer = buffer
+    },
+    emitConsoleEvidence: (entry) => engine.emitConsoleEvidence(entry)
   }
 })

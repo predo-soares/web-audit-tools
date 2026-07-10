@@ -455,6 +455,10 @@ export class WebContentsViewEngine implements EngineView {
     })
   }
 
+  async evaluate<T = unknown>(expression: string): Promise<T> {
+    return this.webContents.executeJavaScript(expression) as Promise<T>
+  }
+
   async syncScroll(ratio: number): Promise<void> {
     const clamped = Math.min(1, Math.max(0, ratio))
     await this.webContents.executeJavaScript(`
