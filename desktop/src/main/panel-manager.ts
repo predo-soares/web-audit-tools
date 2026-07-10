@@ -19,7 +19,10 @@ import {
   PANEL_STAGING_SIZE
 } from '../shared/panel-types'
 import { SIDEBAR_TRANSITION_MS, SIDEBAR_WIDTH_PX, TOOLBAR_HEIGHT_PX } from '../shared/sidebar'
-import { DIAGNOSTICS_DRAWER_WIDTH_PX, clampDiagnosticsDrawerWidth } from '../shared/runtime-evidence'
+import {
+  DIAGNOSTICS_DRAWER_WIDTH_PX,
+  clampDiagnosticsDrawerWidth
+} from '../shared/runtime-evidence'
 import { computeFitZoom } from '../shared/mockup-layout'
 import type { Bounds, Size } from '../shared/types'
 import type { PaneManager } from './pane-manager'
@@ -157,6 +160,16 @@ export class PanelManager {
     return [...this.entries.entries()]
       .filter(([, entry]) => entry.isOpen)
       .map(([panelId]) => panelId)
+  }
+
+  isPanelOpen(panelId: PanelId): boolean {
+    return this.entries.get(panelId)?.isOpen === true
+  }
+
+  notifyPanel(panelId: PanelId, channel: string, ...args: unknown[]): void {
+    const entry = this.entries.get(panelId)
+    if (!entry?.isOpen || entry.view.webContents.isDestroyed()) return
+    entry.view.webContents.send(channel, ...args)
   }
 
   private computeFitZoom(): number {
@@ -692,12 +705,7 @@ export class PanelManager {
   private applyAnchoredBounds(panelId: PanelId): void {
     const mainWindow = this.mainWindow
     const entry = this.entries.get(panelId)
-    if (
-      !mainWindow ||
-      mainWindow.isDestroyed() ||
-      !entry?.options.anchor ||
-      !entry.size
-    ) {
+    if (!mainWindow || mainWindow.isDestroyed() || !entry?.options.anchor || !entry.size) {
       return
     }
 

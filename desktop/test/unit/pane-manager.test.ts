@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ElementFingerprint } from '../../src/shared/element-mirror'
 import { PaneManager } from '../../src/main/pane-manager'
 import { createRuntimeEvidenceBuffer } from '../../src/main/runtime-evidence-buffer'
+import { RUNTIME_EVIDENCE_EMIT_WINDOW_MS } from '../../src/shared/runtime-evidence'
 import { FakeEngine } from '../support/fake-engine'
 
 function createDeferred<T>() {
@@ -667,5 +668,197 @@ describe('PaneManager runtime evidence', () => {
     paneManager.clearRuntimeEvidence('network')
 
     expect(paneManager.getRuntimeEvidenceSnapshot().network).toEqual([])
+  })
+})
+
+describe('PaneManager runtime evidence broadcasts', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  function createPaneManagerWithEvidence() {
+    const paneManager = new PaneManager()
+    const buffer = createRuntimeEvidenceBuffer()
+
+    ;(paneManager as any).runtimeEvidence.set('desktop', buffer)
+    ;(paneManager as any).tracker.didFocus('desktop')
+
+    const overlayEvents: { channel: string; payload: unknown }[] = []
+    paneManager.setOverlayBroadcast((channel, ...args) => {
+      overlayEvents.push({ channel, payload: args[0] })
+    })
+
+    let diagnosticsOpen = false
+    const sinkSnapshots: unknown[] = []
+    paneManager.setDiagnosticsEvidenceSink({
+      isOpen: () => diagnosticsOpen,
+      send: (snapshot) => {
+        sinkSnapshots.push(snapshot)
+      }
+    })
+
+    const shellSend = vi.fn()
+    ;(paneManager as any).mainWindow = {
+      isDestroyed: () => false,
+      webContents: { isDestroyed: () => false, send: shellSend }
+    }
+
+    return {
+      paneManager,
+      buffer,
+      overlayEvents,
+      shellSend,
+      sinkSnapshots,
+      setDiagnosticsOpen: (open: boolean) => {
+        diagnosticsOpen = open
+      }
+    }
+  }
+
+  it('emits a problem-count payload with no entry arrays to overlay panels', () => {
+    const { paneManager, buffer, overlayEvents } = createPaneManagerWithEvidence()
+
+    buffer.pushConsole({ level: 'error', message: 'boom' })
+    buffer.pushNetwork({
+      method: 'GET',
+      url: 'http://localhost/missing',
+      path: '/missing',
+      status: 404,
+      failed: true
+    })
+    ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+
+    const countEvents = overlayEvents.filter((e) => e.channel === 'runtime-evidence:problem-count')
+    expect(countEvents).toHaveLength(1)
+    expect(countEvents[0].payload).toEqual({ paneId: 'desktop', problemCount: 2 })
+
+    const fullSnapshots = overlayEvents.filter((e) => e.channel === 'runtime-evidence:changed')
+    expect(fullSnapshots).toEqual([])
+  })
+
+  it('sends full snapshots to the diagnostics sink only while the drawer is open', () => {
+    const { paneManager, buffer, sinkSnapshots, setDiagnosticsOpen } =
+      createPaneManagerWithEvidence()
+
+    buffer.pushConsole({ level: 'error', message: 'while closed' })
+    ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+    expect(sinkSnapshots).toEqual([])
+
+    setDiagnosticsOpen(true)
+    buffer.pushConsole({ level: 'error', message: 'while open' })
+    ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+    vi.advanceTimersByTime(RUNTIME_EVIDENCE_EMIT_WINDOW_MS)
+
+    expect(sinkSnapshots).toHaveLength(1)
+    expect(sinkSnapshots[0]).toMatchObject({ paneId: 'desktop', problemCount: 2 })
+  })
+
+  it('does not assemble a snapshot while the drawer is closed', () => {
+    const { paneManager, buffer } = createPaneManagerWithEvidence()
+    const snapshotSpy = vi.spyOn(buffer, 'snapshot')
+
+    buffer.pushConsole({ level: 'error', message: 'boom' })
+    ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+
+    expect(snapshotSpy).not.toHaveBeenCalled()
+  })
+
+  it('does not send evidence broadcasts to the shell window', () => {
+    const { paneManager, buffer, shellSend } = createPaneManagerWithEvidence()
+
+    buffer.pushConsole({ level: 'error', message: 'boom' })
+    ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+    paneManager.clearRuntimeEvidence('console')
+
+    const evidenceChannels = shellSend.mock.calls.filter(([channel]) =>
+      String(channel).startsWith('runtime-evidence:')
+    )
+    expect(evidenceChannels).toEqual([])
+  })
+
+  it('does not emit for evidence on an inactive pane', () => {
+    const { paneManager, overlayEvents } = createPaneManagerWithEvidence()
+    const iphoneBuffer = createRuntimeEvidenceBuffer()
+    ;(paneManager as any).runtimeEvidence.set('iphone', iphoneBuffer)
+
+    iphoneBuffer.pushConsole({ level: 'error', message: 'inactive pane' })
+    ;(paneManager as any).notifyRuntimeEvidenceChanged('iphone')
+
+    expect(overlayEvents).toEqual([])
+  })
+
+  it('emits both channels after a clear so the badge converges', () => {
+    const { paneManager, buffer, overlayEvents } = createPaneManagerWithEvidence()
+
+    buffer.pushConsole({ level: 'error', message: 'boom' })
+    paneManager.clearRuntimeEvidence('console')
+    vi.advanceTimersByTime(RUNTIME_EVIDENCE_EMIT_WINDOW_MS)
+
+    const countEvents = overlayEvents.filter((e) => e.channel === 'runtime-evidence:problem-count')
+    expect(countEvents.at(-1)?.payload).toEqual({ paneId: 'desktop', problemCount: 0 })
+  })
+
+  it('collapses a burst into one leading and one trailing emission with the final state', () => {
+    const { paneManager, buffer, overlayEvents } = createPaneManagerWithEvidence()
+
+    for (let i = 0; i < 50; i += 1) {
+      buffer.pushConsole({ level: 'error', message: `burst ${i}` })
+      ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+    }
+
+    const countEvents = () =>
+      overlayEvents.filter((e) => e.channel === 'runtime-evidence:problem-count')
+
+    expect(countEvents()).toHaveLength(1)
+    expect(countEvents()[0].payload).toEqual({ paneId: 'desktop', problemCount: 1 })
+
+    vi.advanceTimersByTime(RUNTIME_EVIDENCE_EMIT_WINDOW_MS)
+
+    expect(countEvents()).toHaveLength(2)
+    expect(countEvents()[1].payload).toEqual({ paneId: 'desktop', problemCount: 50 })
+  })
+
+  it('emits immediately for a sparse event after an idle window', () => {
+    const { paneManager, buffer, overlayEvents } = createPaneManagerWithEvidence()
+
+    buffer.pushConsole({ level: 'error', message: 'first' })
+    ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+    expect(overlayEvents).toHaveLength(1)
+
+    vi.advanceTimersByTime(RUNTIME_EVIDENCE_EMIT_WINDOW_MS * 2)
+
+    buffer.pushConsole({ level: 'error', message: 'second' })
+    ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+    expect(overlayEvents).toHaveLength(2)
+    expect(overlayEvents[1].payload).toEqual({ paneId: 'desktop', problemCount: 2 })
+  })
+
+  it('clear returns the post-clear snapshot synchronously while an emission is pending', () => {
+    const { paneManager, buffer } = createPaneManagerWithEvidence()
+
+    buffer.pushConsole({ level: 'error', message: 'boom' })
+    ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+    buffer.pushConsole({ level: 'error', message: 'pending burst' })
+    ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+
+    const cleared = paneManager.clearRuntimeEvidence('console')
+
+    expect(cleared.console).toEqual([])
+    expect(cleared.problemCount).toBe(0)
+  })
+
+  it('pull-based snapshot reads live evidence regardless of pending emissions', () => {
+    const { paneManager, buffer } = createPaneManagerWithEvidence()
+
+    buffer.pushConsole({ level: 'error', message: 'first' })
+    ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+    buffer.pushConsole({ level: 'error', message: 'second (still pending)' })
+    ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+
+    expect(paneManager.getRuntimeEvidenceSnapshot().console).toHaveLength(2)
   })
 })

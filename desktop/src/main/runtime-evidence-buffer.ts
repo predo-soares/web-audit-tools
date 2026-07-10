@@ -37,12 +37,17 @@ export function createRuntimeEvidenceBuffer(options?: {
   const consoleCap = options?.consoleCap ?? CONSOLE_EVIDENCE_CAP
   const networkCap = options?.networkCap ?? NETWORK_EVIDENCE_CAP
   const now = options?.now ?? (() => Date.now())
-  let createId = options?.createId
+  const createId = options?.createId
   let consoleSequence = 0
   let networkSequence = 0
 
   const consoleEntries: ConsoleEvidenceEntry[] = []
   const networkEntries: NetworkEvidenceEntry[] = []
+  // Maintained on push/eviction/clear so problem counts stay O(1) per event.
+  // Safe because entries are immutable once pushed (network entries are
+  // finalized before push, never mutated after).
+  let consoleProblemCount = 0
+  let networkProblemCount = 0
 
   const nextConsoleId = (): string => {
     if (createId) return createId()
@@ -58,15 +63,23 @@ export function createRuntimeEvidenceBuffer(options?: {
 
   const pushBoundedConsole = (entry: ConsoleEvidenceEntry): void => {
     consoleEntries.push(entry)
+    if (isConsoleProblem(entry.level)) consoleProblemCount += 1
     if (consoleEntries.length > consoleCap) {
-      consoleEntries.splice(0, consoleEntries.length - consoleCap)
+      const evicted = consoleEntries.splice(0, consoleEntries.length - consoleCap)
+      for (const evictedEntry of evicted) {
+        if (isConsoleProblem(evictedEntry.level)) consoleProblemCount -= 1
+      }
     }
   }
 
   const pushBoundedNetwork = (entry: NetworkEvidenceEntry): void => {
     networkEntries.push(entry)
+    if (isNetworkProblem(entry)) networkProblemCount += 1
     if (networkEntries.length > networkCap) {
-      networkEntries.splice(0, networkEntries.length - networkCap)
+      const evicted = networkEntries.splice(0, networkEntries.length - networkCap)
+      for (const evictedEntry of evicted) {
+        if (isNetworkProblem(evictedEntry)) networkProblemCount -= 1
+      }
     }
   }
 
@@ -92,10 +105,11 @@ export function createRuntimeEvidenceBuffer(options?: {
 
     clearConsole() {
       consoleEntries.length = 0
+      consoleProblemCount = 0
     },
 
     getConsoleProblemCount() {
-      return consoleEntries.filter((entry) => isConsoleProblem(entry.level)).length
+      return consoleProblemCount
     },
 
     pushNetwork(entry) {
@@ -121,10 +135,11 @@ export function createRuntimeEvidenceBuffer(options?: {
 
     clearNetwork() {
       networkEntries.length = 0
+      networkProblemCount = 0
     },
 
     getNetworkProblemCount() {
-      return networkEntries.filter((entry) => isNetworkProblem(entry)).length
+      return networkProblemCount
     },
 
     snapshot(paneId) {

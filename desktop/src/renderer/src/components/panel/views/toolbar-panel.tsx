@@ -2,7 +2,6 @@ import { buttonVariants } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/utils'
 import { UrlBar } from '@renderer/components/url-bar'
 import { useOverlayPanel } from '@renderer/hooks/use-overlay-panel'
-import type { RuntimeEvidenceSnapshot } from '../../../../../shared/runtime-evidence'
 import { DIAGNOSTICS_DRAWER_WIDTH_PX } from '../../../../../shared/runtime-evidence'
 import type { ThemePreference } from '../../../../../shared/types'
 import { TOOLBAR_HEIGHT_PX } from '../../../../../shared/sidebar'
@@ -95,7 +94,7 @@ export function ToolbarPanel(): React.JSX.Element {
   const [zoomOpen, setZoomOpen] = useState(false)
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
   const [diagnosticsWidth, setDiagnosticsWidth] = useState(DIAGNOSTICS_DRAWER_WIDTH_PX)
-  const [runtimeEvidence, setRuntimeEvidence] = useState<RuntimeEvidenceSnapshot | null>(null)
+  const [problemCount, setProblemCount] = useState(0)
   const [snapshotToast, setSnapshotToast] = useState<string | null>(null)
   const snapshotToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -121,7 +120,6 @@ export function ToolbarPanel(): React.JSX.Element {
     onOpenChange: setDiagnosticsOpen
   })
 
-  const problemCount = runtimeEvidence?.problemCount ?? 0
   const showProblemBadge = !diagnosticsOpen && problemCount > 0
 
   const anyPaneLoading = Object.values(loadingStates).some(Boolean)
@@ -190,7 +188,8 @@ export function ToolbarPanel(): React.JSX.Element {
     const unsubscribeFocus = window.panelApi.onFocusSidebarToggle(() => {
       toggleButtonRef.current?.focus()
     })
-    const unsubscribeDiagnosticsWidth = window.panelApi.onDiagnosticsWidthChanged(setDiagnosticsWidth)
+    const unsubscribeDiagnosticsWidth =
+      window.panelApi.onDiagnosticsWidthChanged(setDiagnosticsWidth)
 
     return () => {
       unsubscribeNavigation()
@@ -208,9 +207,13 @@ export function ToolbarPanel(): React.JSX.Element {
   const zoomPercent = Math.round(zoom * 100)
 
   useEffect(() => {
-    void window.panelApi.getRuntimeEvidence().then(setRuntimeEvidence)
+    void window.panelApi
+      .getRuntimeEvidence()
+      .then((snapshot) => setProblemCount(snapshot.problemCount))
 
-    const unsubscribeEvidence = window.panelApi.onRuntimeEvidenceChanged(setRuntimeEvidence)
+    const unsubscribeEvidence = window.panelApi.onRuntimeEvidenceProblemCount((payload) =>
+      setProblemCount(payload.problemCount)
+    )
     return unsubscribeEvidence
   }, [])
 
@@ -298,7 +301,10 @@ export function ToolbarPanel(): React.JSX.Element {
   const showSnapshotToast = useCallback((result: SnapshotResult): void => {
     if (snapshotToastTimerRef.current) clearTimeout(snapshotToastTimerRef.current)
     setSnapshotToast(snapshotToastMessage(result))
-    snapshotToastTimerRef.current = setTimeout(() => setSnapshotToast(null), SNAPSHOT_TOAST_DURATION_MS)
+    snapshotToastTimerRef.current = setTimeout(
+      () => setSnapshotToast(null),
+      SNAPSHOT_TOAST_DURATION_MS
+    )
   }, [])
 
   useEffect(() => {
@@ -433,10 +439,7 @@ export function ToolbarPanel(): React.JSX.Element {
         <button
           type="button"
           data-testid="diagnostics-toggle"
-          className={cn(
-            buttonVariants({ variant: 'ghost', size: 'icon-xs' }),
-            'relative'
-          )}
+          className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }), 'relative')}
           aria-label={
             diagnosticsOpen
               ? 'Close diagnostics drawer'
