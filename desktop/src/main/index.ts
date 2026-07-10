@@ -115,12 +115,12 @@ function createWindow(): BrowserWindow {
   projectStore.setOnChange((projects) => {
     if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
     mainWindow.webContents.send('projects:changed', projects)
-    panelManager.notifyToolbarPanel('projects:changed', projects)
+    panelManager.notifyOverlayPanels('projects:changed', projects)
   })
   historyStore.setOnChange((entries) => {
     if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
     mainWindow.webContents.send('history:updated', entries)
-    panelManager.notifyToolbarPanel('history:updated', entries)
+    panelManager.notifyOverlayPanels('history:updated', entries)
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
