@@ -18,7 +18,7 @@ import { normalizeUrl } from '../shared/url'
 import type { ConsoleEvidenceEntry, NetworkEvidenceEntry } from '../shared/runtime-evidence'
 import { enableConsoleEvidenceCapture } from './console-evidence-capture'
 import { enableNetworkEvidenceCapture } from './network-evidence-capture'
-import type { EngineView, ValueSyncPayload } from './engine-view'
+import type { EngineView, EngineViewEventMap, ValueSyncPayload } from './engine-view'
 import { syncTrace } from './sync-trace'
 
 interface RuntimeEvaluateResponse {
@@ -519,6 +519,110 @@ export class WebContentsViewEngine implements EngineView {
 
   focus(): void {
     this.webContents.focus()
+  }
+
+  on<E extends keyof EngineViewEventMap>(event: E, handler: EngineViewEventMap[E]): () => void {
+    const wc = this.webContents
+    // Each typed event maps to one Electron webContents listener that adapts
+    // the raw event shape to the typed handler. Guard every dispatch on
+    // isDestroyed so a listener that outlives destroy() never fires.
+    let dispose: () => void
+
+    switch (event) {
+      case 'did-navigate': {
+        const listener = (_e: Electron.Event, url: string): void => {
+          if (wc.isDestroyed()) return
+          ;(handler as EngineViewEventMap['did-navigate'])(url)
+        }
+        wc.on('did-navigate', listener)
+        dispose = () => wc.removeListener('did-navigate', listener)
+        break
+      }
+      case 'did-navigate-in-page': {
+        const listener = (_e: Electron.Event, url: string): void => {
+          if (wc.isDestroyed()) return
+          ;(handler as EngineViewEventMap['did-navigate-in-page'])(url)
+        }
+        wc.on('did-navigate-in-page', listener)
+        dispose = () => wc.removeListener('did-navigate-in-page', listener)
+        break
+      }
+      case 'did-start-loading': {
+        const listener = (): void => {
+          if (wc.isDestroyed()) return
+          ;(handler as EngineViewEventMap['did-start-loading'])()
+        }
+        wc.on('did-start-loading', listener)
+        dispose = () => wc.removeListener('did-start-loading', listener)
+        break
+      }
+      case 'did-stop-loading': {
+        const listener = (): void => {
+          if (wc.isDestroyed()) return
+          ;(handler as EngineViewEventMap['did-stop-loading'])()
+        }
+        wc.on('did-stop-loading', listener)
+        dispose = () => wc.removeListener('did-stop-loading', listener)
+        break
+      }
+      case 'did-fail-load': {
+        const listener = (): void => {
+          if (wc.isDestroyed()) return
+          ;(handler as EngineViewEventMap['did-fail-load'])()
+        }
+        wc.on('did-fail-load', listener)
+        dispose = () => wc.removeListener('did-fail-load', listener)
+        break
+      }
+      case 'page-title-updated': {
+        const listener = (_e: Electron.Event, title: string): void => {
+          if (wc.isDestroyed()) return
+          ;(handler as EngineViewEventMap['page-title-updated'])(title)
+        }
+        wc.on('page-title-updated', listener)
+        dispose = () => wc.removeListener('page-title-updated', listener)
+        break
+      }
+      case 'page-favicon-updated': {
+        const listener = (_e: Electron.Event, favicons: string[]): void => {
+          if (wc.isDestroyed()) return
+          ;(handler as EngineViewEventMap['page-favicon-updated'])(favicons)
+        }
+        wc.on('page-favicon-updated', listener)
+        dispose = () => wc.removeListener('page-favicon-updated', listener)
+        break
+      }
+      case 'focus': {
+        const listener = (): void => {
+          if (wc.isDestroyed()) return
+          ;(handler as EngineViewEventMap['focus'])()
+        }
+        wc.on('focus', listener)
+        dispose = () => wc.removeListener('focus', listener)
+        break
+      }
+      case 'before-input': {
+        const listener = (e: Electron.Event, input: Electron.Input): void => {
+          if (wc.isDestroyed()) return
+          ;(handler as EngineViewEventMap['before-input'])(input, () => e.preventDefault())
+        }
+        wc.on('before-input-event', listener)
+        dispose = () => wc.removeListener('before-input-event', listener)
+        break
+      }
+      default: {
+        // Exhaustiveness guard: every EngineViewEventMap key is handled above.
+        const _exhaustive: never = event
+        void _exhaustive
+        dispose = () => {}
+      }
+    }
+
+    return dispose
+  }
+
+  getWebContentsId(): number {
+    return this.webContents.id
   }
 
   destroy(): void {

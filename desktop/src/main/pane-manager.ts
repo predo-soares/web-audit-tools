@@ -9,7 +9,7 @@ import { isLocalhostUrl } from '../shared/dev-context'
 import { resolveDevContext } from './dev-context'
 import { createActivePaneTracker } from './active-pane-tracker'
 import { createEchoLedger } from './echo-ledger'
-import type { EngineView, ValueSyncPayload } from './engine-view'
+import type { EngineView, EngineViewEventMap, ValueSyncPayload } from './engine-view'
 import { createRuntimeEvidenceBuffer, type RuntimeEvidenceBuffer } from './runtime-evidence-buffer'
 import { summarizeFingerprint, syncTrace, getSyncTraceLogs } from './sync-trace'
 import { getPanePreloadPath, WebContentsViewEngine } from './web-contents-view-engine'
@@ -57,6 +57,7 @@ export class PaneManager {
   private readonly lastMount = new Map<PaneId, PaneMount>()
   private themePreference: ThemePreference = 'system'
   private webContentsInputHooks: Array<(webContents: WebContents) => void> = []
+  private paneBeforeInputHooks: Array<EngineViewEventMap['before-input']> = []
   private destroyed = false
   private readonly childViewStackListeners = new Set<() => void>()
   private historyHooks: NavigationHistoryHooks | null = null
@@ -121,6 +122,18 @@ export class PaneManager {
     this.webContentsInputHooks.push(listener)
     for (const engine of this.engines.values()) {
       listener(engine.webContents)
+    }
+  }
+
+  /**
+   * Subscribe to `before-input` on every pane engine — existing and any created
+   * later — through the EngineView seam. Lets callers observe keyboard input
+   * (e.g. a pane-scoped shortcut) without reaching into raw webContents.
+   */
+  onPaneBeforeInput(handler: EngineViewEventMap['before-input']): void {
+    this.paneBeforeInputHooks.push(handler)
+    for (const engine of this.engines.values()) {
+      engine.on('before-input', handler)
     }
   }
 
@@ -329,7 +342,7 @@ export class PaneManager {
         const currentUrl = previousEngine.getCurrentUrl()
 
         previousEngine.detach(mainWindow)
-        this.webContentsToPane.delete(previousEngine.webContents.id)
+        this.webContentsToPane.delete(previousEngine.getWebContentsId())
         previousEngine.destroy()
 
         await this.createEngine(paneId, mainWindow, currentUrl)
@@ -712,13 +725,16 @@ export class PaneManager {
     })
     this.engines.set(paneId, engine)
     this.bumpPaneInteractionEpoch(paneId)
-    this.webContentsToPane.set(engine.webContents.id, paneId)
+    this.webContentsToPane.set(engine.getWebContentsId(), paneId)
     this.loadingState.set(paneId, false)
     engine.attach(mainWindow)
     engine.setVisible(false)
     this.notifyChildViewStackChanged()
-    this.attachLoadingListeners(engine.webContents, paneId)
-    this.attachNavigationListeners(engine.webContents, paneId)
+    this.attachLoadingListeners(engine, paneId)
+    this.attachNavigationListeners(engine, paneId)
+    for (const handler of this.paneBeforeInputHooks) {
+      engine.on('before-input', handler)
+    }
     for (const listener of this.webContentsInputHooks) {
       listener(engine.webContents)
     }
@@ -768,7 +784,7 @@ export class PaneManager {
     })
   }
 
-  private attachNavigationListeners(webContents: WebContents, paneId: PaneId): void {
+  private attachNavigationListeners(engine: EngineView, paneId: PaneId): void {
     const handleNavigation = (url: string, inPage: boolean): void => {
       if (url === 'about:blank') return
 
@@ -796,7 +812,7 @@ export class PaneManager {
       this.emitNavigationState()
     }
 
-    webContents.on('did-navigate', (_event, url) => {
+    engine.on('did-navigate', (url) => {
       if (url !== 'about:blank') {
         const buffer = this.runtimeEvidence.get(paneId)
         if (buffer) {
@@ -806,17 +822,17 @@ export class PaneManager {
       }
       handleNavigation(url, false)
     })
-    webContents.on('did-navigate-in-page', (_event, url) => handleNavigation(url, true))
-    webContents.on('did-start-loading', () => {
+    engine.on('did-navigate-in-page', (url) => handleNavigation(url, true))
+    engine.on('did-start-loading', () => {
       this.bumpPaneInteractionEpoch(paneId)
     })
-    webContents.on('page-title-updated', (_event, title) => {
+    engine.on('page-title-updated', (title) => {
       if (this.tracker.didTitleUpdate(paneId, title)) {
         this.emitNavigationState()
         this.emitMetadataUpdate()
       }
     })
-    webContents.on('page-favicon-updated', (_event, favicons) => {
+    engine.on('page-favicon-updated', (favicons) => {
       const favicon = favicons[0] ?? null
       const applied = this.tracker.didFaviconUpdate(paneId, favicon)
       console.debug(
@@ -834,21 +850,21 @@ export class PaneManager {
         this.emitMetadataUpdate()
       }
     })
-    webContents.on('did-fail-load', () => {
+    engine.on('did-fail-load', () => {
       this.pendingProgrammaticNavigation.delete(paneId)
       this.pendingHistoryNavigation.delete(paneId)
       if (this.pendingVisitUrl && this.tracker.getSnapshot().barUrl === this.pendingVisitUrl) {
         this.pendingVisitFailed = true
       }
     })
-    webContents.on('did-stop-loading', () => {
+    engine.on('did-stop-loading', () => {
       this.tryCommitVisit()
       // Re-emit after loading settles: canGoBack/canGoForward read from
       // Electron's navigation history, which may not be fully updated at
       // did-navigate time (e.g. after goBack/goForward).
       this.emitNavigationState()
     })
-    webContents.on('focus', () => {
+    engine.on('focus', () => {
       this.tracker.didFocus(paneId)
       this.emitNavigationState()
     })
@@ -888,13 +904,13 @@ export class PaneManager {
     this.historyHooks?.onMetadataUpdated?.({ url: barUrl, title: pageTitle, faviconUrl })
   }
 
-  private attachLoadingListeners(webContents: WebContents, paneId: PaneId): void {
+  private attachLoadingListeners(engine: EngineView, paneId: PaneId): void {
     const setLoading = (loading: boolean): void => {
       this.setPaneLoading(paneId, loading)
     }
 
-    webContents.on('did-start-loading', () => setLoading(true))
-    webContents.on('did-stop-loading', () => setLoading(false))
-    webContents.on('did-fail-load', () => setLoading(false))
+    engine.on('did-start-loading', () => setLoading(true))
+    engine.on('did-stop-loading', () => setLoading(false))
+    engine.on('did-fail-load', () => setLoading(false))
   }
 }

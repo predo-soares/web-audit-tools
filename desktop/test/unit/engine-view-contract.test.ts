@@ -8,6 +8,7 @@ describeEngineViewContract('FakeEngine', () => {
     currentUrl: () => engine.currentUrl,
     simulateMirrorFailure: (log) => engine.simulateMirrorFailure(log),
     isVisible: () => engine.visible,
-    isAttached: () => engine.attached
+    isAttached: () => engine.attached,
+    emitNavigate: (url) => engine.emitDidNavigate(url)
   }
 })

@@ -19,6 +19,12 @@ export interface EngineViewContractHarness {
   isVisible(): boolean
   /** Whether the adapter's view is currently attached to a window. */
   isAttached(): boolean
+  /**
+   * Drive a `did-navigate` event through the adapter's real event source. The
+   * FakeEngine harness calls its emit helper; a future real-engine harness
+   * would trigger an actual page navigation.
+   */
+  emitNavigate(url: string): void
 }
 
 // A stand-in BrowserWindow for attach/detach in the contract. The FakeEngine
@@ -145,6 +151,45 @@ export function describeEngineViewContract(
       const harness = createHarness()
 
       expect(harness.engine.getMirrorFailureLogs()).toEqual([])
+    })
+
+    it('on delivers emitted events to the subscribed handler', () => {
+      const harness = createHarness()
+      const urls: string[] = []
+
+      harness.engine.on('did-navigate', (url) => urls.push(url))
+      harness.emitNavigate('https://example.com/subscribed')
+
+      expect(urls).toEqual(['https://example.com/subscribed'])
+    })
+
+    it('unsubscribe stops further delivery', () => {
+      const harness = createHarness()
+      const urls: string[] = []
+
+      const unsubscribe = harness.engine.on('did-navigate', (url) => urls.push(url))
+      harness.emitNavigate('https://example.com/one')
+      unsubscribe()
+      harness.emitNavigate('https://example.com/two')
+
+      expect(urls).toEqual(['https://example.com/one'])
+    })
+
+    it('events after destroy are not delivered', () => {
+      const harness = createHarness()
+      const urls: string[] = []
+
+      harness.engine.on('did-navigate', (url) => urls.push(url))
+      harness.engine.destroy()
+      harness.emitNavigate('https://example.com/after-destroy')
+
+      expect(urls).toEqual([])
+    })
+
+    it('getWebContentsId returns a stable value across calls', () => {
+      const harness = createHarness()
+
+      expect(harness.engine.getWebContentsId()).toBe(harness.engine.getWebContentsId())
     })
   })
 }

@@ -42,6 +42,8 @@ function createMockEngine() {
     attach: vi.fn(),
     detach: vi.fn(),
     focus: vi.fn(),
+    on: vi.fn(() => () => {}),
+    getWebContentsId: vi.fn(() => Math.floor(Math.random() * 10000)),
     destroy: vi.fn(),
     webContents: {
       id: Math.floor(Math.random() * 10000),
@@ -490,88 +492,116 @@ describe('PaneManager presentation through the seam', () => {
   })
 })
 
+// Pane-engine events routed through the EngineView seam: tests emit real
+// FakeEngine events (via emit helpers) instead of hand-rolling a webContents
+// listener recorder. attachNavigationListeners now subscribes via engine.on().
 describe('PaneManager evidence clear on navigation', () => {
-  function createPaneManagerWithBufferAndListeners() {
-    // createPaneManagerWithEngines sets up all three mock engines which
-    // attachNavigationListeners needs (via getNavigationCapabilities/emitNavigationState)
-    const { paneManager } = createPaneManagerWithEngines()
+  function setupNavListeners() {
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithFakeEngines()
     const buffer = createRuntimeEvidenceBuffer()
 
     ;(paneManager as any).runtimeEvidence.set('desktop', buffer)
     ;(paneManager as any).tracker.didFocus('desktop')
+    ;(paneManager as any).attachNavigationListeners(desktop, 'desktop')
 
-    const listeners: Record<string, ((...args: any[]) => void)[]> = {}
-    const fakeWebContents = {
-      id: 99,
-      on(event: string, handler: (...args: any[]) => void) {
-        listeners[event] = listeners[event] ?? []
-        listeners[event].push(handler)
-      }
-    }
-
-    ;(paneManager as any).attachNavigationListeners(fakeWebContents, 'desktop')
-
-    const emit = (event: string, ...args: any[]): void => {
-      for (const fn of listeners[event] ?? []) {
-        fn({}, ...args)
-      }
-    }
-
-    return { paneManager, buffer, emit }
+    return { paneManager, buffer, iphone, ipad, desktop }
   }
 
   it('clears console and network evidence on top-level navigation', () => {
-    const { buffer, emit } = createPaneManagerWithBufferAndListeners()
+    const { buffer, desktop } = setupNavListeners()
 
     buffer.pushConsole({ level: 'error', message: 'before nav' })
     buffer.pushNetwork({ method: 'GET', url: 'http://localhost/req', path: '/req', failed: false })
 
-    emit('did-navigate', 'http://localhost/page2')
+    desktop.emitDidNavigate('http://localhost/page2')
 
     expect(buffer.getConsole()).toHaveLength(0)
     expect(buffer.getNetwork()).toHaveLength(0)
   })
 
   it('does not clear evidence on in-page navigation', () => {
-    const { buffer, emit } = createPaneManagerWithBufferAndListeners()
+    const { buffer, desktop } = setupNavListeners()
 
     buffer.pushConsole({ level: 'error', message: 'kept' })
     buffer.pushNetwork({ method: 'GET', url: 'http://localhost/req', path: '/req', failed: false })
 
-    emit('did-navigate-in-page', 'http://localhost/page2#section')
+    desktop.emitDidNavigateInPage('http://localhost/page2#section')
 
     expect(buffer.getConsole()).toHaveLength(1)
     expect(buffer.getNetwork()).toHaveLength(1)
   })
 
   it('does not clear evidence for other panes when one pane navigates', () => {
-    const { paneManager } = createPaneManagerWithEngines()
+    const { paneManager, desktop } = createPaneManagerWithFakeEngines()
     const iphoneBuffer = createRuntimeEvidenceBuffer()
     const desktopBuffer = createRuntimeEvidenceBuffer()
 
     ;(paneManager as any).runtimeEvidence.set('iphone', iphoneBuffer)
     ;(paneManager as any).runtimeEvidence.set('desktop', desktopBuffer)
-
-    const listeners: Record<string, ((...args: any[]) => void)[]> = {}
-    const fakeWebContents = {
-      id: 99,
-      on(event: string, handler: (...args: any[]) => void) {
-        listeners[event] = listeners[event] ?? []
-        listeners[event].push(handler)
-      }
-    }
-
-    ;(paneManager as any).attachNavigationListeners(fakeWebContents, 'desktop')
+    ;(paneManager as any).attachNavigationListeners(desktop, 'desktop')
 
     iphoneBuffer.pushConsole({ level: 'warn', message: 'iphone log' })
     desktopBuffer.pushConsole({ level: 'error', message: 'desktop error' })
 
-    for (const fn of listeners['did-navigate'] ?? []) {
-      fn({}, 'http://localhost/newpage')
-    }
+    desktop.emitDidNavigate('http://localhost/newpage')
 
     expect(desktopBuffer.getConsole()).toHaveLength(0)
     expect(iphoneBuffer.getConsole()).toHaveLength(1)
+  })
+})
+
+// Loading + focus broadcasts routed through the seam: emitting FakeEngine
+// loading/focus events drives PaneManager exactly as a live pane would.
+describe('PaneManager pane-engine events through the seam', () => {
+  it('sets pane loading state from emitted loading events', () => {
+    const { paneManager, desktop } = createPaneManagerWithFakeEngines()
+    ;(paneManager as any).attachLoadingListeners(desktop, 'desktop')
+
+    desktop.emitDidStartLoading()
+    expect(paneManager.getLoadingStates().desktop).toBe(true)
+    expect(paneManager.isAnyPaneLoading()).toBe(true)
+
+    desktop.emitDidStopLoading()
+    expect(paneManager.getLoadingStates().desktop).toBe(false)
+    expect(paneManager.isAnyPaneLoading()).toBe(false)
+  })
+
+  it('clears pane loading state on a failed load', () => {
+    const { paneManager, desktop } = createPaneManagerWithFakeEngines()
+    ;(paneManager as any).attachLoadingListeners(desktop, 'desktop')
+
+    desktop.emitDidStartLoading()
+    expect(paneManager.getLoadingStates().desktop).toBe(true)
+
+    desktop.emitDidFailLoad()
+    expect(paneManager.getLoadingStates().desktop).toBe(false)
+  })
+
+  it('marks the focused pane active from an emitted focus event', () => {
+    const { paneManager, ipad } = createPaneManagerWithFakeEngines()
+    ;(paneManager as any).attachNavigationListeners(ipad, 'ipad')
+
+    ipad.emitFocus()
+
+    expect(paneManager.getNavigationState().activePane).toBe('ipad')
+  })
+
+  it('forwards a before-input event to onPaneBeforeInput subscribers', () => {
+    const { paneManager, desktop } = createPaneManagerWithFakeEngines()
+    const received: Array<{ key: string; prevented: boolean }> = []
+
+    paneManager.onPaneBeforeInput((input, preventDefault) => {
+      let prevented = false
+      preventDefault()
+      prevented = true
+      received.push({ key: input.key, prevented })
+    })
+
+    const preventDefault = vi.fn()
+    desktop.emitBeforeInput({ type: 'keyDown', key: 'j' } as any, preventDefault)
+
+    expect(received).toEqual([{ key: 'j', prevented: true }])
+    expect(preventDefault).toHaveBeenCalledTimes(1)
   })
 })
 

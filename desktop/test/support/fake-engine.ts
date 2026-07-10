@@ -1,8 +1,12 @@
-import type { BrowserWindow } from 'electron'
+import type { BrowserWindow, Input } from 'electron'
 import type { DeviceProfile, PaneId, PaneMount } from '../../src/shared/types'
 import type { ElementFingerprint, MirrorFailureLog } from '../../src/shared/element-mirror'
-import type { EngineView, ValueSyncPayload } from '../../src/main/engine-view'
+import type { EngineView, EngineViewEventMap, ValueSyncPayload } from '../../src/main/engine-view'
 import type { ConsoleEvidenceEntry, NetworkEvidenceEntry } from '../../src/shared/runtime-evidence'
+
+// Monotonic source of stable fake WebContents ids, so each FakeEngine gets a
+// distinct id the way real WebContents do (used to key PaneManager's maps).
+let nextFakeWebContentsId = 1
 
 export type ClickResolution =
   { dispatched: true } | { handled: true } | { skipDispatch: true; navigateTo: string } | null
@@ -60,6 +64,23 @@ export class FakeEngine implements EngineView {
     ((fingerprint: ElementFingerprint, payload: ValueSyncPayload) => void | Promise<void>) | null =
     null
   onSubmitForm: ((fingerprint: ElementFingerprint) => void | Promise<void>) | null = null
+
+  private readonly webContentsId = nextFakeWebContentsId++
+  // In-memory event registry backing on()/emit helpers. Mirrors a real pane's
+  // webContents event surface without a live browser.
+  private readonly eventHandlers: {
+    [E in keyof EngineViewEventMap]: Set<EngineViewEventMap[E]>
+  } = {
+    'did-navigate': new Set(),
+    'did-navigate-in-page': new Set(),
+    'did-start-loading': new Set(),
+    'did-stop-loading': new Set(),
+    'did-fail-load': new Set(),
+    'page-title-updated': new Set(),
+    'page-favicon-updated': new Set(),
+    focus: new Set(),
+    'before-input': new Set()
+  }
 
   private clickResolver: ClickResolver = null
   private readonly mirrorFailureLogs: MirrorFailureLog[] = []
@@ -181,13 +202,87 @@ export class FakeEngine implements EngineView {
     this.focused = true
   }
 
+  on<E extends keyof EngineViewEventMap>(event: E, handler: EngineViewEventMap[E]): () => void {
+    const handlers = this.eventHandlers[event]
+    handlers.add(handler)
+    return () => {
+      handlers.delete(handler)
+    }
+  }
+
+  getWebContentsId(): number {
+    return this.webContentsId
+  }
+
   destroy(): void {
     this.calls.destroy += 1
     this.destroyed = true
     this.attached = false
+    // After destroy a real pane's listeners no longer fire; drop every handler
+    // so emit helpers and any late on() subscriptions deliver nothing.
+    for (const handlers of Object.values(this.eventHandlers)) {
+      handlers.clear()
+    }
   }
 
   // --- Test-facing programming / emitter helpers ----------------------------
+
+  // Dispatch to every subscriber, guarding on destroyed so emissions after
+  // destroy() never reach handlers.
+  private emit<E extends keyof EngineViewEventMap>(
+    event: E,
+    invoke: (handler: EngineViewEventMap[E]) => void
+  ): void {
+    if (this.destroyed) return
+    for (const handler of this.eventHandlers[event]) {
+      invoke(handler)
+    }
+  }
+
+  /** Simulate a top-level navigation the pane would report. */
+  emitDidNavigate(url: string): void {
+    this.emit('did-navigate', (handler) => handler(url))
+  }
+
+  /** Simulate an in-page (hash/history.pushState) navigation. */
+  emitDidNavigateInPage(url: string): void {
+    this.emit('did-navigate-in-page', (handler) => handler(url))
+  }
+
+  /** Simulate the pane starting to load. */
+  emitDidStartLoading(): void {
+    this.emit('did-start-loading', (handler) => handler())
+  }
+
+  /** Simulate the pane finishing loading. */
+  emitDidStopLoading(): void {
+    this.emit('did-stop-loading', (handler) => handler())
+  }
+
+  /** Simulate a failed load. */
+  emitDidFailLoad(): void {
+    this.emit('did-fail-load', (handler) => handler())
+  }
+
+  /** Simulate a page title update. */
+  emitTitleUpdated(title: string): void {
+    this.emit('page-title-updated', (handler) => handler(title))
+  }
+
+  /** Simulate a favicon update. */
+  emitFaviconUpdated(favicons: string[]): void {
+    this.emit('page-favicon-updated', (handler) => handler(favicons))
+  }
+
+  /** Simulate the pane gaining focus. */
+  emitFocus(): void {
+    this.emit('focus', (handler) => handler())
+  }
+
+  /** Simulate a before-input keyboard event; preventDefault defaults to a no-op. */
+  emitBeforeInput(input: Input, preventDefault: () => void = () => {}): void {
+    this.emit('before-input', (handler) => handler(input, preventDefault))
+  }
 
   /** Program what {@link resolveClickPoint} returns (value or per-fingerprint fn). */
   setClickResolution(resolver: ClickResolver): void {

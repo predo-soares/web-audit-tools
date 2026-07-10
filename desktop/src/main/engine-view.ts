@@ -1,4 +1,4 @@
-import type { BrowserWindow } from 'electron'
+import type { BrowserWindow, Input } from 'electron'
 import type { DeviceProfile, PaneMount } from '../shared/types'
 import type { ElementFingerprint, MirrorFailureLog } from '../shared/element-mirror'
 
@@ -6,6 +6,26 @@ export interface ValueSyncPayload {
   value: string
   selectedIndex?: number
   generation?: number
+}
+
+/**
+ * The pane-engine events an {@link EngineView} exposes to its consumers. These
+ * are the Electron `webContents` events PaneManager used to attach raw
+ * listeners for — moved behind the seam so the Electron wiring lives inside the
+ * real engine and tests can drive them through the FakeEngine's emit helpers.
+ */
+export interface EngineViewEventMap {
+  'did-navigate': (url: string) => void
+  'did-navigate-in-page': (url: string) => void
+  'did-start-loading': () => void
+  'did-stop-loading': () => void
+  'did-fail-load': () => void
+  'page-title-updated': (title: string) => void
+  'page-favicon-updated': (favicons: string[]) => void
+  focus: () => void
+  // Carries the Electron input plus a preventDefault callback so consumers can
+  // suppress the key without reaching into the raw before-input-event.
+  'before-input': (input: Input, preventDefault: () => void) => void
 }
 
 export interface EngineView {
@@ -50,5 +70,16 @@ export interface EngineView {
   detach(window: BrowserWindow): void
   /** Move keyboard focus to the pane. */
   focus(): void
+  /**
+   * Subscribe to a pane-engine event. Returns an unsubscribe function that
+   * detaches the underlying listener(s). After {@link destroy}, handlers must
+   * not fire.
+   */
+  on<E extends keyof EngineViewEventMap>(event: E, handler: EngineViewEventMap[E]): () => void
+  /**
+   * Stable per-engine identity for the pane's underlying WebContents. Lets
+   * callers key maps by pane without reaching into `webContents.id` directly.
+   */
+  getWebContentsId(): number
   destroy(): void
 }
