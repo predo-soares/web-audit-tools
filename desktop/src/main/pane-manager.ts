@@ -3,7 +3,12 @@ import { writeFile } from 'fs/promises'
 import { DEVICE_PRESETS, PANE_IDS } from '../shared/device-presets'
 import type { ElementFingerprint } from '../shared/element-mirror'
 import type { PaneId, PaneMount, PaneNavigationState, ThemePreference } from '../shared/types'
-import type { RuntimeEvidenceChannel, RuntimeEvidenceSnapshot } from '../shared/runtime-evidence'
+import {
+  RUNTIME_EVIDENCE_EMIT_WINDOW_MS,
+  type RuntimeEvidenceChannel,
+  type RuntimeEvidenceProblemCount,
+  type RuntimeEvidenceSnapshot
+} from '../shared/runtime-evidence'
 import type { DevContext } from '../shared/dev-context'
 import { isLocalhostUrl } from '../shared/dev-context'
 import { resolveDevContext } from './dev-context'
@@ -30,16 +35,8 @@ function screenshotDefaultName(paneId: PaneId): string {
   return `${slug}-${stamp}.png`
 }
 export interface NavigationHistoryHooks {
-  onVisitCommitted?: (state: {
-    url: string
-    title: string
-    faviconUrl: string | null
-  }) => void
-  onMetadataUpdated?: (state: {
-    url: string
-    title: string
-    faviconUrl: string | null
-  }) => void
+  onVisitCommitted?: (state: { url: string; title: string; faviconUrl: string | null }) => void
+  onMetadataUpdated?: (state: { url: string; title: string; faviconUrl: string | null }) => void
 }
 
 export class PaneManager {
@@ -69,6 +66,12 @@ export class PaneManager {
   private readonly childViewStackListeners = new Set<() => void>()
   private historyHooks: NavigationHistoryHooks | null = null
   private overlayBroadcast: ((channel: string, ...args: unknown[]) => void) | null = null
+  private diagnosticsEvidenceSink: {
+    isOpen: () => boolean
+    send: (snapshot: RuntimeEvidenceSnapshot) => void
+  } | null = null
+  private evidenceEmitTimer: ReturnType<typeof setTimeout> | null = null
+  private evidenceEmitPending = false
   private pendingVisitUrl: string | null = null
   private pendingVisitFailed = false
   private pendingVisitInPage = false
@@ -90,13 +93,26 @@ export class PaneManager {
     if (!isLocalhostUrl(url)) return
 
     this.devContextPromise = resolveDevContext(process.cwd())
-      .then((ctx) => { this.devContext = ctx })
-      .catch(() => { this.devContext = null })
-      .finally(() => { this.devContextPromise = null })
+      .then((ctx) => {
+        this.devContext = ctx
+      })
+      .catch(() => {
+        this.devContext = null
+      })
+      .finally(() => {
+        this.devContextPromise = null
+      })
   }
 
   setOverlayBroadcast(handler: (channel: string, ...args: unknown[]) => void): void {
     this.overlayBroadcast = handler
+  }
+
+  setDiagnosticsEvidenceSink(sink: {
+    isOpen: () => boolean
+    send: (snapshot: RuntimeEvidenceSnapshot) => void
+  }): void {
+    this.diagnosticsEvidenceSink = sink
   }
 
   private broadcastRendererEvent(channel: string, ...args: unknown[]): void {
@@ -185,10 +201,7 @@ export class PaneManager {
     }
   }
 
-  async savePaneScreenshot(
-    paneId: PaneId,
-    parentWindow: BrowserWindow
-  ): Promise<ScreenshotResult> {
+  async savePaneScreenshot(paneId: PaneId, parentWindow: BrowserWindow): Promise<ScreenshotResult> {
     await this.deviceReady
 
     const { activePane } = this.tracker.getSnapshot()
@@ -255,6 +268,15 @@ export class PaneManager {
     return buffer?.snapshot(paneId) ?? { paneId, console: [], network: [], problemCount: 0 }
   }
 
+  getRuntimeEvidenceProblemCount(): RuntimeEvidenceProblemCount {
+    const paneId = this.resolveActivePaneForEvidence()
+    const buffer = this.runtimeEvidence.get(paneId)
+    const problemCount = buffer
+      ? buffer.getConsoleProblemCount() + buffer.getNetworkProblemCount()
+      : 0
+    return { paneId, problemCount }
+  }
+
   clearRuntimeEvidence(channel: RuntimeEvidenceChannel): RuntimeEvidenceSnapshot {
     const paneId = this.resolveActivePaneForEvidence()
     const buffer = this.runtimeEvidence.get(paneId)
@@ -266,7 +288,7 @@ export class PaneManager {
       }
     }
     const snapshot = this.getRuntimeEvidenceSnapshot()
-    this.broadcastRendererEvent('runtime-evidence:changed', snapshot)
+    this.scheduleRuntimeEvidenceEmit()
     return snapshot
   }
 
@@ -280,11 +302,52 @@ export class PaneManager {
 
   private notifyRuntimeEvidenceChanged(paneId: PaneId): void {
     if (paneId !== this.resolveActivePaneForEvidence()) return
-    this.broadcastRendererEvent('runtime-evidence:changed', this.getRuntimeEvidenceSnapshot())
+    this.scheduleRuntimeEvidenceEmit()
   }
 
   private emitRuntimeEvidenceIfActivePaneChanged(): void {
-    this.broadcastRendererEvent('runtime-evidence:changed', this.getRuntimeEvidenceSnapshot())
+    this.scheduleRuntimeEvidenceEmit()
+  }
+
+  // Leading + trailing coalescing: the first event after idle emits
+  // immediately (a single error on a quiet page reaches the badge instantly);
+  // a burst collapses into one trailing emission with the final state per
+  // window. Under sustained load this emits at most once per window.
+  private scheduleRuntimeEvidenceEmit(): void {
+    if (this.evidenceEmitTimer) {
+      this.evidenceEmitPending = true
+      return
+    }
+    this.emitRuntimeEvidence()
+    this.evidenceEmitTimer = setTimeout(
+      this.flushEvidenceEmitWindow,
+      RUNTIME_EVIDENCE_EMIT_WINDOW_MS
+    )
+  }
+
+  private flushEvidenceEmitWindow = (): void => {
+    if (this.evidenceEmitPending) {
+      this.evidenceEmitPending = false
+      this.emitRuntimeEvidence()
+      this.evidenceEmitTimer = setTimeout(
+        this.flushEvidenceEmitWindow,
+        RUNTIME_EVIDENCE_EMIT_WINDOW_MS
+      )
+      return
+    }
+    this.evidenceEmitTimer = null
+  }
+
+  // Evidence notifications are sized to their consumers: overlay panels get
+  // the lightweight problem-count payload (toolbar badge); full snapshots go
+  // only to the diagnostics drawer, whose lazy Panel lifecycle is the gate —
+  // closed drawer means the snapshot is never even assembled. The shell
+  // window has no evidence subscriber, so it gets no send at all.
+  private emitRuntimeEvidence(): void {
+    this.overlayBroadcast?.('runtime-evidence:problem-count', this.getRuntimeEvidenceProblemCount())
+    if (this.diagnosticsEvidenceSink?.isOpen()) {
+      this.diagnosticsEvidenceSink.send(this.getRuntimeEvidenceSnapshot())
+    }
   }
 
   async goBack(): Promise<void> {
@@ -350,7 +413,10 @@ export class PaneManager {
   }
 
   async syncClick(paneId: PaneId, fingerprint: ElementFingerprint): Promise<void> {
-    syncTrace('click:received', { sourcePane: paneId, fingerprint: summarizeFingerprint(fingerprint) })
+    syncTrace('click:received', {
+      sourcePane: paneId,
+      fingerprint: summarizeFingerprint(fingerprint)
+    })
 
     // Synthetic clicks are real input events, so the target pane's preload
     // re-reports them. Consume that echo here instead of broadcasting it,
@@ -415,7 +481,11 @@ export class PaneManager {
           }
           if (epochStale) {
             clickExpectation.revoke()
-            syncTrace('click:skipped-stale-epoch', { targetPane: targetId, epochBefore: epochBeforeResolution, epochAfter: epochAfterResolution })
+            syncTrace('click:skipped-stale-epoch', {
+              targetPane: targetId,
+              epochBefore: epochBeforeResolution,
+              epochAfter: epochAfterResolution
+            })
             return
           }
 
@@ -460,8 +530,16 @@ export class PaneManager {
     }
   }
 
-  async syncValue(sourcePaneId: PaneId, fingerprint: ElementFingerprint, value: string): Promise<void> {
-    syncTrace('value:received', { sourcePane: sourcePaneId, value, fingerprint: summarizeFingerprint(fingerprint) })
+  async syncValue(
+    sourcePaneId: PaneId,
+    fingerprint: ElementFingerprint,
+    value: string
+  ): Promise<void> {
+    syncTrace('value:received', {
+      sourcePane: sourcePaneId,
+      value,
+      fingerprint: summarizeFingerprint(fingerprint)
+    })
     if (this.echoLedger.isEcho(sourcePaneId, 'value')) {
       syncTrace('value:echo-suppressed', { sourcePane: sourcePaneId })
       return
@@ -517,7 +595,10 @@ export class PaneManager {
   }
 
   async syncSubmit(sourcePaneId: PaneId, fingerprint: ElementFingerprint): Promise<void> {
-    syncTrace('submit:received', { sourcePane: sourcePaneId, fingerprint: summarizeFingerprint(fingerprint) })
+    syncTrace('submit:received', {
+      sourcePane: sourcePaneId,
+      fingerprint: summarizeFingerprint(fingerprint)
+    })
     if (this.echoLedger.isEcho(sourcePaneId, 'submit')) {
       syncTrace('submit:echo-suppressed', { sourcePane: sourcePaneId })
       return
@@ -650,6 +731,12 @@ export class PaneManager {
   destroy(): void {
     if (this.destroyed) return
     this.destroyed = true
+
+    if (this.evidenceEmitTimer) {
+      clearTimeout(this.evidenceEmitTimer)
+      this.evidenceEmitTimer = null
+      this.evidenceEmitPending = false
+    }
 
     const mainWindow = this.mainWindow
     for (const engine of this.engines.values()) {

@@ -97,6 +97,12 @@ function createWindow(): BrowserWindow {
   paneManager.setOverlayBroadcast((channel, ...args) => {
     panelManager.notifyOverlayPanels(channel, ...args)
   })
+  paneManager.setDiagnosticsEvidenceSink({
+    isOpen: () => panelManager.isPanelOpen('diagnostics-right'),
+    send: (snapshot) => {
+      panelManager.notifyPanel('diagnostics-right', 'runtime-evidence:changed', snapshot)
+    }
+  })
   paneManager.setHistoryHooks({
     onVisitCommitted: ({ url, title, faviconUrl }) => {
       historyStore.logVisit(url, title, faviconUrl)

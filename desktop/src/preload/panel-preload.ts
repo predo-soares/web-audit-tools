@@ -9,7 +9,11 @@ import type {
 } from '../shared/panel-types'
 import type { NewProjectInput, Project } from '../shared/project'
 import type { PaneId, PaneNavigationState, Size, ThemePreference } from '../shared/types'
-import type { RuntimeEvidenceChannel, RuntimeEvidenceSnapshot } from '../shared/runtime-evidence'
+import type {
+  RuntimeEvidenceChannel,
+  RuntimeEvidenceProblemCount,
+  RuntimeEvidenceSnapshot
+} from '../shared/runtime-evidence'
 import type { SnapshotResult } from '../shared/snapshot'
 
 export interface PanelOverlayApi {
@@ -59,6 +63,9 @@ export interface PanelOverlayApi {
   getRuntimeEvidence: () => Promise<RuntimeEvidenceSnapshot>
   clearRuntimeEvidence: (channel: RuntimeEvidenceChannel) => Promise<RuntimeEvidenceSnapshot>
   onRuntimeEvidenceChanged: (callback: (snapshot: RuntimeEvidenceSnapshot) => void) => () => void
+  onRuntimeEvidenceProblemCount: (
+    callback: (payload: RuntimeEvidenceProblemCount) => void
+  ) => () => void
   getDiagnosticsWidth: () => Promise<number>
   resizeDockedPanel: (width: number, phase: 'preview' | 'commit') => void
   onDiagnosticsWidthChanged: (callback: (width: number) => void) => () => void
@@ -202,6 +209,14 @@ const panelApi: PanelOverlayApi = {
       callback(snapshot)
     ipcRenderer.on('runtime-evidence:changed', listener)
     return () => ipcRenderer.removeListener('runtime-evidence:changed', listener)
+  },
+  onRuntimeEvidenceProblemCount: (callback) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      payload: RuntimeEvidenceProblemCount
+    ): void => callback(payload)
+    ipcRenderer.on('runtime-evidence:problem-count', listener)
+    return () => ipcRenderer.removeListener('runtime-evidence:problem-count', listener)
   },
   getDiagnosticsWidth: () => ipcRenderer.invoke('panel:get-diagnostics-width'),
   resizeDockedPanel: (width, phase) => {

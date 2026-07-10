@@ -2,29 +2,24 @@ import type { PaneId } from './types'
 
 export const CONSOLE_EVIDENCE_CAP = 300
 export const NETWORK_EVIDENCE_CAP = 150
+// Evidence change notifications are coalesced with a leading + trailing
+// debounce: the first event after idle emits immediately, a burst collapses
+// into one trailing emission per window. Pull-based reads bypass this.
+export const RUNTIME_EVIDENCE_EMIT_WINDOW_MS = 150
 export const DIAGNOSTICS_DRAWER_WIDTH_PX = 320
 export const DIAGNOSTICS_DRAWER_MIN_WIDTH_PX = 240
 export const DIAGNOSTICS_DRAWER_MAX_WIDTH_PX = 600
 
 export function clampDiagnosticsDrawerWidth(width: number): number {
   return Math.round(
-    Math.min(
-      DIAGNOSTICS_DRAWER_MAX_WIDTH_PX,
-      Math.max(DIAGNOSTICS_DRAWER_MIN_WIDTH_PX, width)
-    )
+    Math.min(DIAGNOSTICS_DRAWER_MAX_WIDTH_PX, Math.max(DIAGNOSTICS_DRAWER_MIN_WIDTH_PX, width))
   )
 }
 
 export type RuntimeEvidenceChannel = 'console' | 'network'
 
 export type ConsoleEvidenceLevel =
-  | 'error'
-  | 'warn'
-  | 'info'
-  | 'log'
-  | 'debug'
-  | 'exception'
-  | 'rejection'
+  'error' | 'warn' | 'info' | 'log' | 'debug' | 'exception' | 'rejection'
 
 export interface ConsoleEvidenceEntry {
   id: string
@@ -54,6 +49,13 @@ export interface RuntimeEvidenceSnapshot {
   paneId: PaneId
   console: ConsoleEvidenceEntry[]
   network: NetworkEvidenceEntry[]
+  problemCount: number
+}
+
+// Lightweight badge payload: everything the toolbar needs, nothing more.
+// Full snapshots (entries + headers) travel only to the diagnostics drawer.
+export interface RuntimeEvidenceProblemCount {
+  paneId: PaneId
   problemCount: number
 }
 

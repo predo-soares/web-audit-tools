@@ -59,7 +59,12 @@ describe('runtime evidence buffer', () => {
 
     buffer.pushNetwork({ method: 'GET', url: 'http://localhost/one', path: '/one', failed: false })
     buffer.pushNetwork({ method: 'GET', url: 'http://localhost/two', path: '/two', failed: false })
-    buffer.pushNetwork({ method: 'GET', url: 'http://localhost/three', path: '/three', failed: false })
+    buffer.pushNetwork({
+      method: 'GET',
+      url: 'http://localhost/three',
+      path: '/three',
+      failed: false
+    })
 
     expect(buffer.getNetwork().map((entry) => entry.path)).toEqual(['/two', '/three'])
   })
@@ -67,8 +72,20 @@ describe('runtime evidence buffer', () => {
   it('counts network problems for failures and HTTP status >= 400', () => {
     const buffer = createRuntimeEvidenceBuffer()
 
-    buffer.pushNetwork({ method: 'GET', url: 'http://localhost/ok', path: '/ok', status: 200, failed: false })
-    buffer.pushNetwork({ method: 'GET', url: 'http://localhost/missing', path: '/missing', status: 404, failed: true })
+    buffer.pushNetwork({
+      method: 'GET',
+      url: 'http://localhost/ok',
+      path: '/ok',
+      status: 200,
+      failed: false
+    })
+    buffer.pushNetwork({
+      method: 'GET',
+      url: 'http://localhost/missing',
+      path: '/missing',
+      status: 404,
+      failed: true
+    })
     buffer.pushNetwork({ method: 'GET', url: 'http://localhost/fail', path: '/fail', failed: true })
 
     expect(buffer.getNetworkProblemCount()).toBe(2)
@@ -78,9 +95,61 @@ describe('runtime evidence buffer', () => {
     const buffer = createRuntimeEvidenceBuffer()
 
     buffer.pushConsole({ level: 'warn', message: 'warn' })
-    buffer.pushNetwork({ method: 'GET', url: 'http://localhost/missing', path: '/missing', status: 404, failed: true })
+    buffer.pushNetwork({
+      method: 'GET',
+      url: 'http://localhost/missing',
+      path: '/missing',
+      status: 404,
+      failed: true
+    })
 
     expect(buffer.snapshot('desktop').problemCount).toBe(2)
+  })
+
+  it('keeps the console problem count correct when a problem entry is evicted at the cap', () => {
+    const buffer = createRuntimeEvidenceBuffer({ consoleCap: 2 })
+
+    buffer.pushConsole({ level: 'error', message: 'oldest problem' })
+    buffer.pushConsole({ level: 'log', message: 'noise' })
+    expect(buffer.getConsoleProblemCount()).toBe(1)
+
+    buffer.pushConsole({ level: 'log', message: 'evicts the error' })
+    expect(buffer.getConsoleProblemCount()).toBe(0)
+
+    buffer.pushConsole({ level: 'warn', message: 'new problem evicting noise' })
+    expect(buffer.getConsoleProblemCount()).toBe(1)
+  })
+
+  it('keeps the network problem count correct when a problem entry is evicted at the cap', () => {
+    const buffer = createRuntimeEvidenceBuffer({ networkCap: 2 })
+
+    buffer.pushNetwork({
+      method: 'GET',
+      url: 'http://localhost/missing',
+      path: '/missing',
+      status: 404,
+      failed: true
+    })
+    buffer.pushNetwork({
+      method: 'GET',
+      url: 'http://localhost/ok',
+      path: '/ok',
+      status: 200,
+      failed: false
+    })
+    expect(buffer.getNetworkProblemCount()).toBe(1)
+
+    buffer.pushNetwork({
+      method: 'GET',
+      url: 'http://localhost/ok2',
+      path: '/ok2',
+      status: 200,
+      failed: false
+    })
+    expect(buffer.getNetworkProblemCount()).toBe(0)
+
+    buffer.pushNetwork({ method: 'GET', url: 'http://localhost/fail', path: '/fail', failed: true })
+    expect(buffer.getNetworkProblemCount()).toBe(1)
   })
 
   it('returns an immutable snapshot for a pane', () => {
