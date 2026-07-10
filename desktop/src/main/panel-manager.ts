@@ -109,6 +109,7 @@ export class PanelManager {
   initialize(mainWindow: BrowserWindow): void {
     this.mainWindow = mainWindow
     this.registerDiagnosticsToggleShortcut(mainWindow.webContents)
+    this.registerEscapeDismiss(mainWindow.webContents)
     this.paneManager.onChildViewStackChanged(() => {
       this.bringAllToFront()
     })
@@ -569,7 +570,21 @@ export class PanelManager {
     view.setBounds({ x: 0, y: 0, width: 0, height: 0 })
     view.setVisible(false)
     this.registerDiagnosticsToggleShortcut(view.webContents)
+    this.registerEscapeDismiss(view.webContents)
     return view
+  }
+
+  private registerEscapeDismiss(webContents: WebContents): void {
+    webContents.on('before-input-event', (event, input) => {
+      if (input.type !== 'keyDown' || input.key !== 'Escape') return
+      for (const panelId of [...PANEL_Z_ORDER].reverse()) {
+        const entry = this.entries.get(panelId)
+        if (!entry?.isOpen || entry.options.mode !== 'anchored') continue
+        event.preventDefault()
+        this.close(panelId)
+        return
+      }
+    })
   }
 
   private async ensureEntry(panelId: PanelId): Promise<PanelEntry | null> {

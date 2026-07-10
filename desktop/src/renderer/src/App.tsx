@@ -42,6 +42,10 @@ export default function App(): React.JSX.Element {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        void window.api.closePanel('zoom')
+      }
+
       if (!event.metaKey && !event.ctrlKey) return
 
       if (event.key === '[') {

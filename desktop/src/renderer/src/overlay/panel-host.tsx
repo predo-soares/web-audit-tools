@@ -75,6 +75,18 @@ export function PanelHost(): React.JSX.Element | null {
   }, [finishExit])
 
   useEffect(() => {
+    if (!panel || panel.mode === 'docked') return
+
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      void window.panelApi.closePanel(panel.panelId)
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [panel])
+
+  useEffect(() => {
     const container = containerRef.current
     if (!panel || !container) return
     if (getPanelFixedSize(panel.panelId)) return
