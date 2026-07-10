@@ -38,6 +38,10 @@ function createMockEngine() {
     goBack: vi.fn(),
     goForward: vi.fn(),
     getPreviousEntryUrl: vi.fn<() => string | null>(() => null),
+    setVisible: vi.fn<(visible: boolean) => void>(),
+    attach: vi.fn(),
+    detach: vi.fn(),
+    focus: vi.fn(),
     destroy: vi.fn(),
     webContents: {
       id: Math.floor(Math.random() * 10000),
@@ -416,6 +420,73 @@ describe('PaneManager navigation history through the seam', () => {
 
     await paneManager.goBack()
     expect(paneManager.getNavigationState().canGoForward).toBe(true)
+  })
+})
+
+// Presentation routed through the EngineView seam: assertions read
+// FakeEngine-observable visible/attached state instead of touching a raw view.
+describe('PaneManager presentation through the seam', () => {
+  it('toggles pane visibility through the seam', () => {
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithFakeEngines()
+
+    paneManager.setPanesVisible(true)
+
+    expect(iphone.visible).toBe(true)
+    expect(ipad.visible).toBe(true)
+    expect(desktop.visible).toBe(true)
+
+    paneManager.setPanesVisible(false)
+
+    expect(iphone.visible).toBe(false)
+    expect(ipad.visible).toBe(false)
+    expect(desktop.visible).toBe(false)
+  })
+
+  it('detaches each pane through the seam on recreateAll', async () => {
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithFakeEngines()
+    const fakeWindow = { isDestroyed: () => false } as any
+    ;(paneManager as any).mainWindow = fakeWindow
+    // webContents is still a raw path in recreateAll (removed in issue 04); give
+    // the fakes a minimal id so the webContentsToPane cleanup does not throw.
+    for (const [i, engine] of [iphone, ipad, desktop].entries()) {
+      ;(engine as any).webContents = { id: 1000 + i }
+    }
+    // Make createEngine a no-op so recreateAll only exercises the detach path
+    // (real engine construction needs Electron).
+    ;(paneManager as any).createEngine = vi.fn(async () => {})
+
+    await paneManager.recreateAll()
+
+    expect(iphone.calls.detach).toBe(1)
+    expect(ipad.calls.detach).toBe(1)
+    expect(desktop.calls.detach).toBe(1)
+    expect(iphone.attached).toBe(false)
+  })
+
+  it('detaches and destroys each pane through the seam on destroy', () => {
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithFakeEngines()
+    ;(paneManager as any).mainWindow = { isDestroyed: () => false } as any
+
+    iphone.attach({} as any)
+    ipad.attach({} as any)
+    desktop.attach({} as any)
+
+    paneManager.destroy()
+
+    expect(iphone.calls.detach).toBe(1)
+    expect(iphone.attached).toBe(false)
+    expect(iphone.destroyed).toBe(true)
+    expect(ipad.destroyed).toBe(true)
+    expect(desktop.destroyed).toBe(true)
+  })
+
+  it('focuses a pane through the seam', () => {
+    const { paneManager, iphone } = createPaneManagerWithFakeEngines()
+
+    paneManager.focusPane('iphone')
+
+    expect(iphone.focused).toBe(true)
+    expect(iphone.calls.focus).toBe(1)
   })
 })
 

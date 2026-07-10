@@ -15,7 +15,15 @@ export interface EngineViewContractHarness {
   currentUrl(): string
   /** Record a mirror failure the way the real engine would during resolution. */
   simulateMirrorFailure(log: MirrorFailureLog): void
+  /** The adapter's observable visibility, as {@link EngineView.setVisible} sets it. */
+  isVisible(): boolean
+  /** Whether the adapter's view is currently attached to a window. */
+  isAttached(): boolean
 }
+
+// A stand-in BrowserWindow for attach/detach in the contract. The FakeEngine
+// ignores it; a future real-engine harness would pass a live BrowserWindow.
+const contractWindow = {} as unknown as import('electron').BrowserWindow
 
 function sampleFailure(reason: MirrorFailureLog['reason'] = 'not-found'): MirrorFailureLog {
   return {
@@ -77,6 +85,40 @@ export function describeEngineViewContract(
 
       expect(harness.engine.getCurrentUrl()).toBe('https://example.com/one')
       expect(harness.engine.canGoForward()).toBe(true)
+    })
+
+    it('attach then detach is safe', () => {
+      const harness = createHarness()
+
+      expect(() => harness.engine.attach(contractWindow)).not.toThrow()
+      expect(harness.isAttached()).toBe(true)
+
+      expect(() => harness.engine.detach(contractWindow)).not.toThrow()
+      expect(harness.isAttached()).toBe(false)
+    })
+
+    it('detach without a prior attach is a no-op, not a throw', () => {
+      const harness = createHarness()
+
+      expect(() => harness.engine.detach(contractWindow)).not.toThrow()
+      expect(harness.isAttached()).toBe(false)
+    })
+
+    it('visibility is togglable and observable', () => {
+      const harness = createHarness()
+
+      harness.engine.setVisible(true)
+      expect(harness.isVisible()).toBe(true)
+
+      harness.engine.setVisible(false)
+      expect(harness.isVisible()).toBe(false)
+    })
+
+    it('destroy while attached is safe', () => {
+      const harness = createHarness()
+      harness.engine.attach(contractWindow)
+
+      expect(() => harness.engine.destroy()).not.toThrow()
     })
 
     it('destroy is idempotent', () => {

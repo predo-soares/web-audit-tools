@@ -266,7 +266,7 @@ export class PaneManager {
   }
 
   focusPane(paneId: PaneId): void {
-    this.getEngine(paneId).webContents.focus()
+    this.getEngine(paneId).focus()
   }
 
   private resolveActivePaneForEvidence(): PaneId {
@@ -328,11 +328,7 @@ export class PaneManager {
         const previousEngine = this.getEngine(paneId)
         const currentUrl = previousEngine.getCurrentUrl()
 
-        try {
-          mainWindow.contentView.removeChildView(previousEngine.view)
-        } catch {
-          // The view may already be detached while Electron is relaying layout updates.
-        }
+        previousEngine.detach(mainWindow)
         this.webContentsToPane.delete(previousEngine.webContents.id)
         previousEngine.destroy()
 
@@ -632,7 +628,7 @@ export class PaneManager {
 
   setPanesVisible(visible: boolean): void {
     for (const paneId of PANE_IDS) {
-      this.getEngine(paneId).view.setVisible(visible)
+      this.getEngine(paneId).setVisible(visible)
     }
 
     if (visible) {
@@ -664,11 +660,7 @@ export class PaneManager {
     const mainWindow = this.mainWindow
     for (const engine of this.engines.values()) {
       if (mainWindow && !mainWindow.isDestroyed()) {
-        try {
-          mainWindow.contentView.removeChildView(engine.view)
-        } catch {
-          // Electron may already be tearing down the window tree.
-        }
+        engine.detach(mainWindow)
       }
       engine.destroy()
     }
@@ -722,8 +714,8 @@ export class PaneManager {
     this.bumpPaneInteractionEpoch(paneId)
     this.webContentsToPane.set(engine.webContents.id, paneId)
     this.loadingState.set(paneId, false)
-    mainWindow.contentView.addChildView(engine.view)
-    engine.view.setVisible(false)
+    engine.attach(mainWindow)
+    engine.setVisible(false)
     this.notifyChildViewStackChanged()
     this.attachLoadingListeners(engine.webContents, paneId)
     this.attachNavigationListeners(engine.webContents, paneId)

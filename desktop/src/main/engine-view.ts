@@ -1,3 +1,4 @@
+import type { BrowserWindow } from 'electron'
 import type { DeviceProfile, PaneMount } from '../shared/types'
 import type { ElementFingerprint, MirrorFailureLog } from '../shared/element-mirror'
 
@@ -38,5 +39,16 @@ export interface EngineView {
   submitForm(fingerprint: ElementFingerprint): Promise<void>
   getMirrorFailureLogs(): MirrorFailureLog[]
   dispatchClick(x: number, y: number): void
+  /** Show or hide the pane's view without detaching it from the window. */
+  setVisible(visible: boolean): void
+  /** Add the pane's view to the window's content view. */
+  attach(window: BrowserWindow): void
+  /**
+   * Remove the pane's view from the window's content view. Safe to call when
+   * the view is already detached (Electron may detach during teardown).
+   */
+  detach(window: BrowserWindow): void
+  /** Move keyboard focus to the pane. */
+  focus(): void
   destroy(): void
 }

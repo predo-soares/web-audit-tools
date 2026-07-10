@@ -1,3 +1,4 @@
+import type { BrowserWindow } from 'electron'
 import type { DeviceProfile, PaneId, PaneMount } from '../../src/shared/types'
 import type { ElementFingerprint, MirrorFailureLog } from '../../src/shared/element-mirror'
 import type { EngineView, ValueSyncPayload } from '../../src/main/engine-view'
@@ -20,6 +21,12 @@ export class FakeEngine implements EngineView {
   lastMount: PaneMount | null = null
   deviceProfile: DeviceProfile | null = null
   destroyed = false
+  // In-memory presentation state a real pane keeps on its native view: whether
+  // the view is attached to the window's content view, whether it is visible,
+  // and whether it holds keyboard focus.
+  visible = false
+  attached = false
+  focused = false
 
   readonly calls = {
     mount: [] as PaneMount[],
@@ -32,6 +39,10 @@ export class FakeEngine implements EngineView {
     dispatchClick: [] as Array<{ x: number; y: number }>,
     goBack: 0,
     goForward: 0,
+    setVisible: [] as boolean[],
+    attach: 0,
+    detach: 0,
+    focus: 0,
     destroy: 0
   }
 
@@ -148,9 +159,32 @@ export class FakeEngine implements EngineView {
     return this.historyIndex > 0 ? (this.history[this.historyIndex - 1] ?? null) : null
   }
 
+  setVisible(visible: boolean): void {
+    this.calls.setVisible.push(visible)
+    this.visible = visible
+  }
+
+  // Takes a window for interface parity with the real engine; the FakeEngine
+  // only records that it was attached/detached. Safe to call in any order.
+  attach(_window: BrowserWindow): void {
+    this.calls.attach += 1
+    this.attached = true
+  }
+
+  detach(_window: BrowserWindow): void {
+    this.calls.detach += 1
+    this.attached = false
+  }
+
+  focus(): void {
+    this.calls.focus += 1
+    this.focused = true
+  }
+
   destroy(): void {
     this.calls.destroy += 1
     this.destroyed = true
+    this.attached = false
   }
 
   // --- Test-facing programming / emitter helpers ----------------------------

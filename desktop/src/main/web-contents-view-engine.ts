@@ -1,4 +1,4 @@
-import { WebContentsView, type Session, type WebContents } from 'electron'
+import { WebContentsView, type BrowserWindow, type Session, type WebContents } from 'electron'
 import { join } from 'path'
 import type {
   Bounds,
@@ -498,6 +498,27 @@ export class WebContentsViewEngine implements EngineView {
     const activeIndex = history.getActiveIndex()
     const prevEntry = activeIndex > 0 ? history.getEntryAtIndex(activeIndex - 1) : null
     return prevEntry?.url ?? null
+  }
+
+  setVisible(visible: boolean): void {
+    this.view.setVisible(visible)
+  }
+
+  attach(window: BrowserWindow): void {
+    window.contentView.addChildView(this.view)
+  }
+
+  detach(window: BrowserWindow): void {
+    try {
+      window.contentView.removeChildView(this.view)
+    } catch {
+      // The view may already be detached while Electron is relaying layout
+      // updates or tearing down the window tree.
+    }
+  }
+
+  focus(): void {
+    this.webContents.focus()
   }
 
   destroy(): void {
