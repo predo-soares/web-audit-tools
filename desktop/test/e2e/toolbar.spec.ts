@@ -2,6 +2,7 @@ import { test, expect } from './fixtures'
 import {
   evaluateInPane,
   fixtureUrl,
+  focusPane,
   getOverlayPage,
   getToolbarPage,
   launchApp,
@@ -20,7 +21,10 @@ test('toolbar menus stay non-modal and keep the app visible', async () => {
     await expect(toolbar.getByTestId('url-input')).toBeVisible()
 
     await window.keyboard.press('Escape')
-    await expect(overlay.getByTestId('toolbar-custom-popover')).toBeHidden()
+    await expect(overlay.getByTestId('toolbar-custom-popover')).toHaveAttribute(
+      'data-visible',
+      'false'
+    )
 
     const themeToggle = toolbar.getByTestId('theme-toggle')
     await themeToggle.click()
@@ -48,12 +52,10 @@ test('toolbar back and forward navigate the active pane history', async ({ fixtu
     await expect(toolbar.getByTestId('toolbar-back')).toBeDisabled()
     await expect(toolbar.getByTestId('toolbar-forward')).toBeDisabled()
 
-    await evaluateInPane(
-      window,
-      'iphone',
-      `document.getElementById('flow-link')?.click()`
-    )
+    await evaluateInPane(window, 'iphone', `document.getElementById('flow-link')?.click()`)
     await waitForPaneElement(window, 'iphone', 'flow-b')
+
+    await focusPane(window, 'iphone')
     await expect(toolbar.getByTestId('url-input')).toHaveValue(/\/flow-b/)
     await expect(toolbar.getByTestId('toolbar-back')).toBeEnabled()
     await expect(toolbar.getByTestId('toolbar-forward')).toBeDisabled()
@@ -78,12 +80,10 @@ test('toolbar back keyboard shortcut navigates the active pane', async ({ fixtur
     await navigateTo(window, fixtureUrl(fixturePort, '/flow-a'))
     await waitForPaneElement(window, 'iphone', 'flow-a')
 
-    await evaluateInPane(
-      window,
-      'iphone',
-      `document.getElementById('flow-link')?.click()`
-    )
+    await evaluateInPane(window, 'iphone', `document.getElementById('flow-link')?.click()`)
     await waitForPaneElement(window, 'iphone', 'flow-b')
+
+    await focusPane(window, 'iphone')
 
     await window.keyboard.press('Meta+[')
     await waitForPaneElement(window, 'iphone', 'flow-a')

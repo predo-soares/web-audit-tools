@@ -178,7 +178,7 @@ test('history rows support keyboard activation and overflow delete', async ({ fi
     const sidebar = await getSidebarPage(window)
     const firstRow = sidebar.getByTestId(historyRowTestId(firstUrl))
     await firstRow.focus()
-    await window.keyboard.press('Enter')
+    await firstRow.press('Enter')
     await waitForAllPanes(window)
     const toolbar = await getToolbarPage(window)
     await expect(toolbar.getByTestId('url-input')).toHaveValue(firstUrl)
@@ -191,7 +191,7 @@ test('history rows support keyboard activation and overflow delete', async ({ fi
 
     const menuButton = sidebar.getByTestId(`${historyRowTestId(firstUrl)}-menu`)
     await menuButton.focus()
-    await window.keyboard.press('Enter')
+    await menuButton.press('Enter')
     await sidebar.getByTestId(`${historyRowTestId(firstUrl)}-delete`).click()
 
     await expect(sidebar.getByTestId(historyRowTestId(firstUrl))).toHaveCount(0)

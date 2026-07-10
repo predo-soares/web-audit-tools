@@ -85,13 +85,11 @@ test('save uses last committed page while navigation is loading', async ({ fixtu
 
     const toolbar = await getToolbarPage(window)
     await toolbar.getByTestId('url-input').fill(secondUrl)
-    await toolbar.getByTestId('url-submit').click()
-
+    void window.evaluate((url) => window.api.navigate(url), secondUrl)
     await toolbar.getByTestId('save-project').click()
 
     const sidebar = await getSidebarPage(window)
     await expect(sidebar.locator('[data-testid^="project-row-"]').getByText(firstUrl)).toBeVisible()
-    await waitForAllPanes(window)
   } finally {
     await close()
   }
