@@ -1,4 +1,5 @@
 import { spawn, execFileSync, type ChildProcess } from 'child_process'
+import { createServer } from 'net'
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -31,6 +32,25 @@ function suppressMacRestorePrompt(): void {
     // Best effort — worth a warning but not a test failure.
     console.warn('Could not set ApplePersistenceIgnoreState for com.github.Electron')
   }
+}
+
+async function getFreePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createServer()
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address()
+      if (!address || typeof address === 'string') {
+        server.close(() => reject(new Error('Failed to allocate a free debug port')))
+        return
+      }
+      const port = address.port
+      server.close((error) => {
+        if (error) reject(error)
+        else resolve(port)
+      })
+    })
+  })
 }
 
 // Waiting on /json/version is not enough: the DevTools HTTP server comes up
@@ -149,7 +169,7 @@ export async function getSidebarPage(window: Page): Promise<Page> {
 export async function launchApp(existingUserDataDir?: string): Promise<LaunchedApp> {
   suppressMacRestorePrompt()
 
-  const port = 9400 + Math.floor(Math.random() * 200)
+  const port = await getFreePort()
   const cwd = join(__dirname, '../..')
   const ownsUserDataDir = existingUserDataDir === undefined
   const userDataDir =
