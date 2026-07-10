@@ -97,6 +97,16 @@ export function ToolbarPanel(): React.JSX.Element {
   const [problemCount, setProblemCount] = useState(0)
   const [snapshotToast, setSnapshotToast] = useState<string | null>(null)
   const snapshotToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const committedSnapshotRef = useRef({
+    url: '',
+    pageTitle: '',
+    faviconUrl: null as string | null
+  })
+  const [savedPageSnapshot, setSavedPageSnapshot] = useState({
+    url: '',
+    pageTitle: '',
+    faviconUrl: null as string | null
+  })
 
   const { isOpen: isZoomOpen } = useOverlayPanel(
     'zoom',
@@ -124,9 +134,24 @@ export function ToolbarPanel(): React.JSX.Element {
 
   const anyPaneLoading = Object.values(loadingStates).some(Boolean)
   const isLoading = navigating || anyPaneLoading
-  const canSaveProject = isCommittedPageUrl(committedUrl) && !navigating && !anyPaneLoading
-  const saveSuggestedName = canSaveProject ? suggestProjectName(pageTitle, committedUrl) : ''
-  const isSavedProject = canSaveProject ? hasProjectForUrl(projects, committedUrl) : false
+  const canSaveProject = isCommittedPageUrl(savedPageSnapshot.url)
+  const saveSuggestedName = canSaveProject
+    ? suggestProjectName(savedPageSnapshot.pageTitle, savedPageSnapshot.url)
+    : ''
+  const isSavedProject = canSaveProject
+    ? hasProjectForUrl(projects, savedPageSnapshot.url)
+    : false
+
+  useEffect(() => {
+    if (!isCommittedPageUrl(committedUrl) || navigating || anyPaneLoading) return
+    const nextSnapshot = {
+      url: committedUrl,
+      pageTitle,
+      faviconUrl
+    }
+    committedSnapshotRef.current = nextSnapshot
+    setSavedPageSnapshot(nextSnapshot)
+  }, [anyPaneLoading, committedUrl, faviconUrl, navigating, pageTitle])
 
   useEffect(() => {
     void window.panelApi.getNavigationState().then((state) => {
@@ -246,18 +271,16 @@ export function ToolbarPanel(): React.JSX.Element {
     void window.panelApi.stopLoading()
   }, [])
 
-  const handleToggleProject = useCallback(
-    async (name: string) => {
-      if (!canSaveProject) return
-      await window.panelApi.toggleProject({
-        name,
-        url: committedUrl,
-        faviconUrl,
-        pageTitle
-      })
-    },
-    [canSaveProject, committedUrl, faviconUrl, pageTitle]
-  )
+  const handleToggleProject = useCallback(async (name: string) => {
+    const snapshot = savedPageSnapshot
+    if (!isCommittedPageUrl(snapshot.url)) return
+    await window.panelApi.toggleProject({
+      name,
+      url: snapshot.url,
+      faviconUrl: snapshot.faviconUrl,
+      pageTitle: snapshot.pageTitle
+    })
+  }, [savedPageSnapshot])
 
   const toggleSidebar = useCallback((): void => {
     window.panelApi.sendAction({ type: 'toggle-sidebar' })
@@ -270,6 +293,13 @@ export function ToolbarPanel(): React.JSX.Element {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape' && isZoomOpen) {
+        event.preventDefault()
+        setZoomOpen(false)
+        void window.panelApi.closePanel('zoom')
+        return
+      }
+
       if (!event.metaKey && !event.ctrlKey) return
 
       if (event.key === '[') {
@@ -289,7 +319,7 @@ export function ToolbarPanel(): React.JSX.Element {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [toggleSidebar, toggleDiagnostics])
+  }, [toggleSidebar, toggleDiagnostics, isZoomOpen])
 
   useEffect(() => {
     const unsubscribeToggleDiagnostics = window.panelApi.onToggleDiagnostics(() => {
