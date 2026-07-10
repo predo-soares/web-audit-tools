@@ -1,7 +1,7 @@
 import type { BrowserWindow, Input } from 'electron'
-import type { DeviceProfile, PaneMount, ThemePreference } from '../shared/types'
-import type { ElementFingerprint, MirrorFailureLog } from '../shared/element-mirror'
-import type { ConsoleEvidenceEntry, NetworkEvidenceEntry } from '../shared/runtime-evidence'
+import type { DeviceProfile, PaneMount, ThemePreference } from '../../shared/types'
+import type { ElementFingerprint, MirrorFailureLog } from '../../shared/element-mirror'
+import type { ConsoleEvidenceEntry, NetworkEvidenceEntry } from '../../shared/runtime-evidence'
 
 export interface ValueSyncPayload {
   value: string

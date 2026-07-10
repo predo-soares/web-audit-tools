@@ -9,7 +9,7 @@ import {
   sortProjectsNewestFirst,
   type NewProjectInput,
   type Project
-} from '../shared/project'
+} from '../../shared/project'
 
 const WRITE_DEBOUNCE_MS = 250
 

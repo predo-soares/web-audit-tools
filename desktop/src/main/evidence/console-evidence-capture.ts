@@ -1,6 +1,6 @@
 import type { WebContents } from 'electron'
-import type { ConsoleEvidenceLevel } from '../shared/runtime-evidence'
-import type { ConsoleEvidenceEntry } from '../shared/runtime-evidence'
+import type { ConsoleEvidenceLevel } from '../../shared/runtime-evidence'
+import type { ConsoleEvidenceEntry } from '../../shared/runtime-evidence'
 
 type PushConsoleEntry = (
   entry: Omit<ConsoleEvidenceEntry, 'id' | 'timestamp'>

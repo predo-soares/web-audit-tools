@@ -1,13 +1,13 @@
 import { mkdir, writeFile } from 'fs/promises'
 import { homedir } from 'os'
 import { basename, join } from 'path'
-import { DEVICE_PRESETS } from '../shared/device-presets'
-import { isLocalhostUrl } from '../shared/dev-context'
-import { isConsoleProblem, isNetworkProblem } from '../shared/runtime-evidence'
-import type { DevContext } from '../shared/dev-context'
-import type { RuntimeEvidenceSnapshot } from '../shared/runtime-evidence'
-import type { PaneId } from '../shared/types'
-import type { SnapshotResult } from '../shared/snapshot'
+import { DEVICE_PRESETS } from '../../shared/device-presets'
+import { isLocalhostUrl } from '../../shared/dev-context'
+import { isConsoleProblem, isNetworkProblem } from '../../shared/runtime-evidence'
+import type { DevContext } from '../../shared/dev-context'
+import type { RuntimeEvidenceSnapshot } from '../../shared/runtime-evidence'
+import type { PaneId } from '../../shared/types'
+import type { SnapshotResult } from '../../shared/snapshot'
 
 export type { SnapshotResult }
 

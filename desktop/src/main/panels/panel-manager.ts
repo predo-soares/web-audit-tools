@@ -10,22 +10,22 @@ import type {
   PanelOpenOptions,
   PanelPlacement,
   PanelShowMessage
-} from '../shared/panel-types'
-import { PANEL_EXIT_MS } from '../shared/panel-animation'
+} from '../../shared/panel-types'
+import { PANEL_EXIT_MS } from '../../shared/panel-animation'
 import {
   ANCHORED_POPOVER_VIEW_OWNER,
   getPanelFixedSize,
   PANEL_MIN_SIZE,
   PANEL_STAGING_SIZE
-} from '../shared/panel-types'
-import { SIDEBAR_TRANSITION_MS, SIDEBAR_WIDTH_PX, TOOLBAR_HEIGHT_PX } from '../shared/sidebar'
+} from '../../shared/panel-types'
+import { SIDEBAR_TRANSITION_MS, SIDEBAR_WIDTH_PX, TOOLBAR_HEIGHT_PX } from '../../shared/sidebar'
 import {
   DIAGNOSTICS_DRAWER_WIDTH_PX,
   clampDiagnosticsDrawerWidth
-} from '../shared/runtime-evidence'
-import { computeFitZoom } from '../shared/mockup-layout'
-import type { Bounds, Size } from '../shared/types'
-import type { PaneManager } from './pane-manager'
+} from '../../shared/runtime-evidence'
+import { computeFitZoom } from '../../shared/mockup-layout'
+import type { Bounds, Size } from '../../shared/types'
+import type { PaneManager } from '../panes/pane-manager'
 import { computePanelBounds } from './panel-placement'
 
 interface PanelEntry {

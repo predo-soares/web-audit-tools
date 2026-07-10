@@ -1,6 +1,6 @@
 import type { WebContents } from 'electron'
-import type { NetworkEvidenceEntry } from '../shared/runtime-evidence'
-import { isNetworkProblem } from '../shared/runtime-evidence'
+import type { NetworkEvidenceEntry } from '../../shared/runtime-evidence'
+import { isNetworkProblem } from '../../shared/runtime-evidence'
 
 type PushNetworkEntry = (
   entry: Omit<NetworkEvidenceEntry, 'id' | 'timestamp' | 'failed'> &

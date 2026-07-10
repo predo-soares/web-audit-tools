@@ -1,23 +1,23 @@
 import { dialog, session, type BrowserWindow, type WebContents } from 'electron'
 import { writeFile } from 'fs/promises'
-import { DEVICE_PRESETS, PANE_IDS } from '../shared/device-presets'
-import type { ElementFingerprint } from '../shared/element-mirror'
-import type { PaneId, PaneMount, PaneNavigationState, ThemePreference } from '../shared/types'
+import { DEVICE_PRESETS, PANE_IDS } from '../../shared/device-presets'
+import type { ElementFingerprint } from '../../shared/element-mirror'
+import type { PaneId, PaneMount, PaneNavigationState, ThemePreference } from '../../shared/types'
 import {
   RUNTIME_EVIDENCE_EMIT_WINDOW_MS,
   type RuntimeEvidenceChannel,
   type RuntimeEvidenceProblemCount,
   type RuntimeEvidenceSnapshot
-} from '../shared/runtime-evidence'
-import type { DevContext } from '../shared/dev-context'
-import { isLocalhostUrl } from '../shared/dev-context'
-import { resolveDevContext } from './dev-context'
+} from '../../shared/runtime-evidence'
+import type { DevContext } from '../../shared/dev-context'
+import { isLocalhostUrl } from '../../shared/dev-context'
+import { resolveDevContext } from '../services/dev-context'
 import { createActivePaneTracker } from './active-pane-tracker'
 import { createEchoLedger } from './echo-ledger'
-import type { EngineView, EngineViewEventMap, ValueSyncPayload } from './engine-view'
-import { createRuntimeEvidenceBuffer, type RuntimeEvidenceBuffer } from './runtime-evidence-buffer'
-import { summarizeFingerprint, syncTrace, getSyncTraceLogs } from './sync-trace'
-import { getPanePreloadPath, WebContentsViewEngine } from './web-contents-view-engine'
+import type { EngineView, EngineViewEventMap, ValueSyncPayload } from '../engine/engine-view'
+import { createRuntimeEvidenceBuffer, type RuntimeEvidenceBuffer } from '../evidence/runtime-evidence-buffer'
+import { summarizeFingerprint, syncTrace, getSyncTraceLogs } from '../services/sync-trace'
+import { getPanePreloadPath, WebContentsViewEngine } from '../engine/web-contents-view-engine'
 
 const SHARED_PARTITION = 'persist:audit-screens-preview'
 
@@ -638,7 +638,7 @@ export class PaneManager {
     }
   }
 
-  getSyncTraceLogs(): ReturnType<typeof import('./sync-trace').getSyncTraceLogs> {
+  getSyncTraceLogs(): ReturnType<typeof import('../services/sync-trace').getSyncTraceLogs> {
     return getSyncTraceLogs()
   }
 

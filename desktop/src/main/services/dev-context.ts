@@ -2,7 +2,7 @@ import { execFile } from 'child_process'
 import { stat } from 'fs/promises'
 import { dirname, join } from 'path'
 import { promisify } from 'util'
-import type { DevContext } from '../shared/dev-context'
+import type { DevContext } from '../../shared/dev-context'
 
 const execFileAsync = promisify(execFile)
 

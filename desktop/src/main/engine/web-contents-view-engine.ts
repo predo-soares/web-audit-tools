@@ -7,19 +7,19 @@ import type {
   PaneMount,
   Size,
   ThemePreference
-} from '../shared/types'
+} from '../../shared/types'
 import {
   createElementMirror,
   type ElementFingerprint,
   type MirrorFailureLog
-} from '../shared/element-mirror'
-import { DEFAULT_ZOOM } from '../shared/mockup-layout'
-import { normalizeUrl } from '../shared/url'
-import type { ConsoleEvidenceEntry, NetworkEvidenceEntry } from '../shared/runtime-evidence'
-import { enableConsoleEvidenceCapture } from './console-evidence-capture'
-import { enableNetworkEvidenceCapture } from './network-evidence-capture'
+} from '../../shared/element-mirror'
+import { DEFAULT_ZOOM } from '../../shared/mockup-layout'
+import { normalizeUrl } from '../../shared/url'
+import type { ConsoleEvidenceEntry, NetworkEvidenceEntry } from '../../shared/runtime-evidence'
+import { enableConsoleEvidenceCapture } from '../evidence/console-evidence-capture'
+import { enableNetworkEvidenceCapture } from '../evidence/network-evidence-capture'
 import type { EngineView, EngineViewEventMap, ValueSyncPayload } from './engine-view'
-import { syncTrace } from './sync-trace'
+import { syncTrace } from '../services/sync-trace'
 
 interface RuntimeEvaluateResponse {
   result?: {

@@ -7,7 +7,7 @@ import {
   recordVisit,
   refreshHistoryMetadata,
   removeHistoryEntry
-} from '../shared/history'
+} from '../../shared/history'
 
 const WRITE_DEBOUNCE_MS = 250
 

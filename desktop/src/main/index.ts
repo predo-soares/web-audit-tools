@@ -2,12 +2,12 @@ import { app, shell, BrowserWindow, Menu, globalShortcut } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { HistoryStore } from './history-store'
+import { HistoryStore } from './stores/history-store'
 import { registerIpcHandlers, makeSnapshotPort } from './ipc'
-import { captureSnapshot } from './snapshot-service'
-import { PaneManager } from './pane-manager'
-import { PanelManager } from './panel-manager'
-import { ProjectStore } from './project-store'
+import { captureSnapshot } from './services/snapshot-service'
+import { PaneManager } from './panes/pane-manager'
+import { PanelManager } from './panels/panel-manager'
+import { ProjectStore } from './stores/project-store'
 
 // E2E runs get an isolated profile so parallel/leftover instances never share
 // caches or locks with the dev profile (a crashed instance corrupts the disk

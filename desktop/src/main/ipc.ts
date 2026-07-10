@@ -4,11 +4,11 @@ import type { ElementFingerprint } from '../shared/element-mirror'
 import type { NewProjectInput } from '../shared/project'
 import type { PanelAction, PanelId, PanelOpenOptions } from '../shared/panel-types'
 import type { PaneMount, PaneId, Size, ThemePreference } from '../shared/types'
-import type { PaneManager } from './pane-manager'
-import type { PanelManager } from './panel-manager'
-import type { HistoryStore } from './history-store'
-import type { ProjectStore } from './project-store'
-import { captureSnapshot, type SnapshotPort } from './snapshot-service'
+import type { PaneManager } from './panes/pane-manager'
+import type { PanelManager } from './panels/panel-manager'
+import type { HistoryStore } from './stores/history-store'
+import type { ProjectStore } from './stores/project-store'
+import { captureSnapshot, type SnapshotPort } from './services/snapshot-service'
 
 export function makeSnapshotPort(paneManager: PaneManager): SnapshotPort {
   return {
