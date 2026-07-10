@@ -725,12 +725,24 @@ export class WebContentsViewEngine implements EngineView {
 
         const element = match.element;
 
+        const rectBefore = element.getBoundingClientRect();
+        const wasOffscreen =
+          rectBefore.bottom < 0 ||
+          rectBefore.top > window.innerHeight ||
+          rectBefore.right < 0 ||
+          rectBefore.left > window.innerWidth;
+
         // Scroll the element into view before measuring its position.
         window.__suppressScrollReport = true;
-        element.scrollIntoView({ block: 'center', behavior: 'instant' });
+        element.scrollIntoView({ block: 'center', inline: 'center' });
         requestAnimationFrame(function () {
           window.__suppressScrollReport = false;
         });
+
+        if (wasOffscreen) {
+          element.click();
+          return { matched: true, handled: true };
+        }
 
         // Checkboxes and radios are not reliably toggled by native mouse/touch
         // events in device-emulated panes. Applying the browser-equivalent
