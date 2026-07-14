@@ -21,6 +21,7 @@ import type {
   RuntimeEvidenceSnapshot
 } from '../shared/runtime-evidence'
 import type { SnapshotResult } from '../shared/snapshot'
+import type { AuditRunResult, IndexingIntent } from '../shared/seo-audit'
 
 export interface PanelOverlayApi {
   onShow: (callback: (message: PanelShowMessage) => void) => () => void
@@ -83,6 +84,7 @@ export interface PanelOverlayApi {
   takeSnapshot: () => Promise<SnapshotResult>
   onSnapshotTaken: (callback: (result: SnapshotResult) => void) => () => void
   onSafariChromeEnabledChanged: (callback: (enabled: boolean) => void) => () => void
+  runSeoAudit: (indexingIntent: IndexingIntent) => Promise<AuditRunResult>
 }
 
 const panelApi: PanelOverlayApi = {
@@ -257,10 +259,12 @@ const panelApi: PanelOverlayApi = {
     return () => ipcRenderer.removeListener('snapshot:taken', listener)
   },
   onSafariChromeEnabledChanged: (callback) => {
-    const listener = (_event: Electron.IpcRendererEvent, enabled: boolean): void => callback(enabled)
+    const listener = (_event: Electron.IpcRendererEvent, enabled: boolean): void =>
+      callback(enabled)
     ipcRenderer.on('safari-chrome:enabled-changed', listener)
     return () => ipcRenderer.removeListener('safari-chrome:enabled-changed', listener)
-  }
+  },
+  runSeoAudit: (indexingIntent) => ipcRenderer.invoke('seo-audit:run', indexingIntent)
 }
 
 contextBridge.exposeInMainWorld('panelApi', panelApi)

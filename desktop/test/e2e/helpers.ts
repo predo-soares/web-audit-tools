@@ -22,12 +22,7 @@ interface LaunchedApp {
 function suppressMacRestorePrompt(): void {
   if (process.platform !== 'darwin') return
   try {
-    execFileSync('defaults', [
-      'write',
-      'com.github.Electron',
-      'ApplePersistenceIgnoreState',
-      'YES'
-    ])
+    execFileSync('defaults', ['write', 'com.github.Electron', 'ApplePersistenceIgnoreState', 'YES'])
   } catch {
     // Best effort — worth a warning but not a test failure.
     console.warn('Could not set ApplePersistenceIgnoreState for com.github.Electron')
@@ -104,7 +99,10 @@ export async function getToolbarPage(window: Page): Promise<Page> {
     await new Promise((resolve) => setTimeout(resolve, 100))
   }
   throw new Error(
-    `Toolbar overlay page not found. Pages: ${context.pages().map((page) => page.url()).join(', ')}`
+    `Toolbar overlay page not found. Pages: ${context
+      .pages()
+      .map((page) => page.url())
+      .join(', ')}`
   )
 }
 
@@ -126,7 +124,10 @@ export async function getPopoverOverlayPage(window: Page): Promise<Page> {
     await new Promise((resolve) => setTimeout(resolve, 100))
   }
   throw new Error(
-    `Popover overlay page not found. Pages: ${context.pages().map((page) => page.url()).join(', ')}`
+    `Popover overlay page not found. Pages: ${context
+      .pages()
+      .map((page) => page.url())
+      .join(', ')}`
   )
 }
 
@@ -144,7 +145,31 @@ export async function getDiagnosticsDrawerPage(window: Page): Promise<Page> {
     await new Promise((resolve) => setTimeout(resolve, 100))
   }
   throw new Error(
-    `Diagnostics drawer overlay page not found. Pages: ${context.pages().map((page) => page.url()).join(', ')}`
+    `Diagnostics drawer overlay page not found. Pages: ${context
+      .pages()
+      .map((page) => page.url())
+      .join(', ')}`
+  )
+}
+
+export async function getSeoPanelPage(window: Page): Promise<Page> {
+  const context = window.context()
+  const started = Date.now()
+  while (Date.now() - started < 10_000) {
+    for (const page of context.pages()) {
+      if (!page.url().includes('overlay.html')) continue
+      if ((await page.getByTestId('seo-panel').count()) > 0) {
+        await page.waitForLoadState('domcontentloaded')
+        return page
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  throw new Error(
+    `SEO panel overlay page not found. Pages: ${context
+      .pages()
+      .map((page) => page.url())
+      .join(', ')}`
   )
 }
 
@@ -162,7 +187,10 @@ export async function getSidebarPage(window: Page): Promise<Page> {
     await new Promise((resolve) => setTimeout(resolve, 100))
   }
   throw new Error(
-    `Sidebar overlay page not found. Pages: ${context.pages().map((page) => page.url()).join(', ')}`
+    `Sidebar overlay page not found. Pages: ${context
+      .pages()
+      .map((page) => page.url())
+      .join(', ')}`
   )
 }
 
@@ -172,8 +200,7 @@ export async function launchApp(existingUserDataDir?: string): Promise<LaunchedA
   const port = await getFreePort()
   const cwd = join(__dirname, '../..')
   const ownsUserDataDir = existingUserDataDir === undefined
-  const userDataDir =
-    existingUserDataDir ?? mkdtempSync(join(tmpdir(), 'audit-screens-e2e-'))
+  const userDataDir = existingUserDataDir ?? mkdtempSync(join(tmpdir(), 'audit-screens-e2e-'))
 
   const env = {
     ...process.env,
@@ -188,11 +215,11 @@ export async function launchApp(existingUserDataDir?: string): Promise<LaunchedA
     electronArgs.push('-ApplePersistenceIgnoreState', 'YES')
   }
 
-  const electronProcess: ChildProcess = spawn(
-    electronPath as unknown as string,
-    electronArgs,
-    { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] }
-  )
+  const electronProcess: ChildProcess = spawn(electronPath as unknown as string, electronArgs, {
+    cwd,
+    env,
+    stdio: ['ignore', 'pipe', 'pipe']
+  })
 
   // Keep the pipes drained (an undrained pipe can block the child) and keep
   // the output around so launch failures are diagnosable instead of a generic
@@ -384,7 +411,11 @@ export async function waitForPaneElement(
   const started = Date.now()
   while (Date.now() - started < timeoutMs) {
     try {
-      const found = await evaluateInPane<boolean>(window, paneId, `!!document.getElementById('${elementId}')`)
+      const found = await evaluateInPane<boolean>(
+        window,
+        paneId,
+        `!!document.getElementById('${elementId}')`
+      )
       if (found) return
     } catch {
       // JS context may be transitioning between navigations.

@@ -10,6 +10,24 @@ import type { SafariChromeManager } from './chrome/safari-chrome-manager'
 import type { HistoryStore } from './stores/history-store'
 import type { ProjectStore } from './stores/project-store'
 import { captureSnapshot, type SnapshotPort } from './services/snapshot-service'
+import { runAudit, type AuditPort } from './seo/audit-service'
+import {
+  RENDERED_EXTRACTION_EXPRESSION,
+  normalizeRenderedSnapshot
+} from './seo/rendered-extraction'
+import type { IndexingIntent } from '../shared/seo-audit'
+
+export function makeAuditPort(paneManager: PaneManager): AuditPort {
+  return {
+    getActivePaneId: () => paneManager.getNavigationState().activePane,
+    getActivePaneUrl: () => paneManager.getNavigationState().barUrl || null,
+    getLastNavTimestamp: (paneId) => paneManager.getLastNavTimestamp(paneId),
+    extractRendered: async (paneId) => {
+      const raw = await paneManager.evaluateInPane(paneId, RENDERED_EXTRACTION_EXPRESSION)
+      return normalizeRenderedSnapshot(raw)
+    }
+  }
+}
 
 export function makeSnapshotPort(paneManager: PaneManager): SnapshotPort {
   return {
@@ -33,6 +51,10 @@ export function registerIpcHandlers(
 ): void {
   ipcMain.handle('snapshot:take', async () => {
     return captureSnapshot(makeSnapshotPort(paneManager))
+  })
+
+  ipcMain.handle('seo-audit:run', async (_event, indexingIntent: IndexingIntent) => {
+    return runAudit(makeAuditPort(paneManager), { indexingIntent })
   })
 
   ipcMain.on('diagnostics:toggle', () => {
@@ -154,9 +176,12 @@ export function registerIpcHandlers(
     void paneManager.syncClick(paneId, fingerprint)
   })
 
-  ipcMain.on('pane:value', (_event, paneId: PaneId, fingerprint: ElementFingerprint, value: string) => {
-    void paneManager.syncValue(paneId, fingerprint, value)
-  })
+  ipcMain.on(
+    'pane:value',
+    (_event, paneId: PaneId, fingerprint: ElementFingerprint, value: string) => {
+      void paneManager.syncValue(paneId, fingerprint, value)
+    }
+  )
 
   ipcMain.on(
     'pane:select',
@@ -203,14 +228,11 @@ export function registerIpcHandlers(
     return panelManager.getDiagnosticsWidth()
   })
 
-  ipcMain.on(
-    'panel:docked-resize',
-    (event, width: number, phase: 'preview' | 'commit') => {
-      const panelId = panelManager.getPanelIdForWebContents(event.sender)
-      if (!panelId) return
-      panelManager.handleDockedResize(panelId, width, phase)
-    }
-  )
+  ipcMain.on('panel:docked-resize', (event, width: number, phase: 'preview' | 'commit') => {
+    const panelId = panelManager.getPanelIdForWebContents(event.sender)
+    if (!panelId) return
+    panelManager.handleDockedResize(panelId, width, phase)
+  })
 
   ipcMain.on('panel:size', (event, size: Size) => {
     const panelId = panelManager.getPanelIdForWebContents(event.sender)
@@ -342,11 +364,8 @@ export function registerIpcHandlers(
     return projectStore.list()
   })
 
-  ipcMain.handle(
-    'projects:toggle',
-    (_event, input: NewProjectInput & { pageTitle: string }) => {
-      const { pageTitle, ...projectInput } = input
-      return projectStore.toggle(projectInput, pageTitle)
-    }
-  )
+  ipcMain.handle('projects:toggle', (_event, input: NewProjectInput & { pageTitle: string }) => {
+    const { pageTitle, ...projectInput } = input
+    return projectStore.toggle(projectInput, pageTitle)
+  })
 }

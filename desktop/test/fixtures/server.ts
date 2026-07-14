@@ -36,7 +36,10 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
   const ua = req.headers['user-agent'] ?? ''
 
   if (pathname === '/') {
-    sendHtml(res, '<!doctype html><html><body><h1 id="fixture-home">Fixture Home</h1></body></html>')
+    sendHtml(
+      res,
+      '<!doctype html><html><body><h1 id="fixture-home">Fixture Home</h1></body></html>'
+    )
     return
   }
 
@@ -186,24 +189,33 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
 
   if (pathname === '/assets/image-1x.png') {
     res.writeHead(200, { 'Content-Type': 'image/png' })
-    res.end(Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489', 'hex'))
+    res.end(
+      Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489', 'hex')
+    )
     return
   }
 
   if (pathname === '/assets/image-2x.png') {
     res.writeHead(200, { 'Content-Type': 'image/png' })
-    res.end(Buffer.from('89504e470d0a1a0a0000000d49484452000000020000000208060000001f15c489', 'hex'))
+    res.end(
+      Buffer.from('89504e470d0a1a0a0000000d49484452000000020000000208060000001f15c489', 'hex')
+    )
     return
   }
 
   if (pathname === '/assets/image-3x.png') {
     res.writeHead(200, { 'Content-Type': 'image/png' })
-    res.end(Buffer.from('89504e470d0a1a0a0000000d49484452000000030000000308060000001f15c489', 'hex'))
+    res.end(
+      Buffer.from('89504e470d0a1a0a0000000d49484452000000030000000308060000001f15c489', 'hex')
+    )
     return
   }
 
   if (pathname === '/long-scroll') {
-    const sections = Array.from({ length: 40 }, (_, index) => `<section id="section-${index}">Section ${index}</section>`).join('')
+    const sections = Array.from(
+      { length: 40 },
+      (_, index) => `<section id="section-${index}">Section ${index}</section>`
+    ).join('')
     const body = `<!doctype html><html><head><style>
         section { height: 240px; border-bottom: 1px solid #ccc; padding: 1rem; box-sizing: border-box; }
       </style></head><body>${sections}<div id="scroll-probe"></div>
@@ -222,7 +234,8 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
       res,
       '<!doctype html><html><body><h1 id="strict-ok">Strict headers page</h1></body></html>',
       {
-        'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
+        'Content-Security-Policy':
+          "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
         'Cross-Origin-Opener-Policy': 'same-origin',
         'Cross-Origin-Embedder-Policy': 'require-corp',
         'X-Content-Type-Options': 'nosniff'
@@ -811,11 +824,43 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     return
   }
 
+  if (pathname === '/seo/with-title') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head><title>Fixture SEO Page</title></head><body>
+        <h1 id="seo-with-title">Has a title</h1>
+      </body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/no-title') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head></head><body>
+        <h1 id="seo-no-title">No title element</h1>
+      </body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/empty-title') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head><title></title></head><body>
+        <h1 id="seo-empty-title">Empty title element</h1>
+      </body></html>`
+    )
+    return
+  }
+
   res.writeHead(404)
   res.end('Not found')
 }
 
-export function startFixtureServer(port = DEFAULT_PORT): Promise<{ port: number; close: () => Promise<void> }> {
+export function startFixtureServer(
+  port = DEFAULT_PORT
+): Promise<{ port: number; close: () => Promise<void> }> {
   return new Promise((resolvePromise, reject) => {
     const server = createServer(handleRequest)
     server.on('error', reject)

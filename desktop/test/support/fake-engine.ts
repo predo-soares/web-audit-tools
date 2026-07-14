@@ -7,7 +7,11 @@ import type {
   ThemePreference
 } from '../../src/shared/types'
 import type { ElementFingerprint, MirrorFailureLog } from '../../src/shared/element-mirror'
-import type { EngineView, EngineViewEventMap, ValueSyncPayload } from '../../src/main/engine/engine-view'
+import type {
+  EngineView,
+  EngineViewEventMap,
+  ValueSyncPayload
+} from '../../src/main/engine/engine-view'
 import type { ConsoleEvidenceEntry, NetworkEvidenceEntry } from '../../src/shared/runtime-evidence'
 
 // Monotonic source of stable fake WebContents ids, so each FakeEngine gets a

@@ -13,6 +13,7 @@ const PANEL_SIZE_CLASS: Record<PanelId, string> = {
   theme: '',
   'sidebar-left': 'w-[280px]',
   'diagnostics-right': 'w-[320px]',
+  'seo-right': 'w-[380px]',
   'toolbar-top': 'w-full'
 }
 

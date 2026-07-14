@@ -24,6 +24,7 @@ import {
   clampDiagnosticsDrawerWidth
 } from '../../shared/runtime-evidence'
 import { computeFitZoom } from '../../shared/mockup-layout'
+import { SEO_PANEL_WIDTH_PX } from '../../shared/seo-audit'
 import type { Bounds, Size } from '../../shared/types'
 import type { PaneManager } from '../panes/pane-manager'
 import { computePanelBounds } from './panel-placement'
@@ -86,7 +87,13 @@ function computeDockedBounds(
   }
 }
 
-const ALL_PANEL_IDS: PanelId[] = ['sidebar-left', 'diagnostics-right', 'toolbar-top', 'zoom']
+const ALL_PANEL_IDS: PanelId[] = [
+  'sidebar-left',
+  'diagnostics-right',
+  'seo-right',
+  'toolbar-top',
+  'zoom'
+]
 
 const PANEL_Z_ORDER: PanelId[] = ALL_PANEL_IDS
 
@@ -180,12 +187,15 @@ export class PanelManager {
     if (!mainWindow || mainWindow.isDestroyed()) return 1
 
     const [windowWidth, windowHeight] = mainWindow.getContentSize()
-    const sidebarOpen = this.getOpenPanelIds().includes('sidebar-left')
-    const diagnosticsOpen = this.getOpenPanelIds().includes('diagnostics-right')
+    const openPanelIds = this.getOpenPanelIds()
+    const sidebarOpen = openPanelIds.includes('sidebar-left')
+    const diagnosticsOpen = openPanelIds.includes('diagnostics-right')
+    const seoOpen = openPanelIds.includes('seo-right')
     const viewportWidth =
       windowWidth -
       (sidebarOpen ? SIDEBAR_WIDTH_PX : 0) -
-      (diagnosticsOpen ? this.getDiagnosticsWidth() : 0)
+      (diagnosticsOpen ? this.getDiagnosticsWidth() : 0) -
+      (seoOpen ? SEO_PANEL_WIDTH_PX : 0)
     const viewportHeight = windowHeight - TOOLBAR_HEIGHT_PX
 
     return computeFitZoom(viewportWidth, viewportHeight)

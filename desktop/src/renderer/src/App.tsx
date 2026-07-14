@@ -4,6 +4,7 @@ import { isCommittedPageUrl } from '../../shared/project'
 import { PreviewCanvas } from '@renderer/components/preview-canvas'
 import { ToolbarProvider } from '@renderer/context/toolbar-context'
 import { DiagnosticsProvider } from '@renderer/context/diagnostics-context'
+import { SeoPanelProvider } from '@renderer/context/seo-panel-context'
 import { SidebarProvider } from '@renderer/context/sidebar-context'
 
 export default function App(): React.JSX.Element {
@@ -80,15 +81,17 @@ export default function App(): React.JSX.Element {
   return (
     <SidebarProvider>
       <DiagnosticsProvider>
-        <ToolbarProvider>
-          <PreviewCanvas
-            loadingStates={loadingStates}
-            errorStates={errorStates}
-            committedUrl={committedUrl}
-            activePane={activePane}
-            safariChromeEnabled={safariChromeEnabled}
-          />
-        </ToolbarProvider>
+        <SeoPanelProvider>
+          <ToolbarProvider>
+            <PreviewCanvas
+              loadingStates={loadingStates}
+              errorStates={errorStates}
+              committedUrl={committedUrl}
+              activePane={activePane}
+              safariChromeEnabled={safariChromeEnabled}
+            />
+          </ToolbarProvider>
+        </SeoPanelProvider>
       </DiagnosticsProvider>
     </SidebarProvider>
   )

@@ -1,0 +1,146 @@
+import type { PaneId } from './types'
+import { isLocalhostUrl } from './dev-context'
+
+// Bump when the set of rules, their identity, or their outcome semantics
+// change. An Audit result records the version that produced it so later rule
+// changes never obscure how an existing result was reached (see CONTEXT.md,
+// "Rule catalog"). Format: <catalog date>.<revision>.
+export const SEO_RULE_CATALOG_VERSION = '2026-07-13.1'
+
+// Width of the docked SEO panel. Fixed for now — unlike the diagnostics drawer
+// the SEO panel is not user-resizable yet.
+export const SEO_PANEL_WIDTH_PX = 380
+
+/**
+ * The user's declared expectation for how the audited page should be treated.
+ * It changes how discoverability evidence is interpreted without removing any
+ * check (see CONTEXT.md, "Indexing intent").
+ */
+export type IndexingIntent = 'indexable' | 'non-indexable' | 'local-private'
+
+/**
+ * The conclusion vocabulary shared by every finding. There is deliberately no
+ * numeric score — the product reports outcomes, not a proprietary grade.
+ */
+export type FindingOutcome = 'error' | 'warning' | 'opportunity' | 'passed' | 'unable-to-verify'
+
+/**
+ * Where a finding's evidence came from. Delivered evidence is the pre-render
+ * response; rendered evidence is the executed DOM. Kept distinct so an audit
+ * can expose crawler-visible discrepancies (see CONTEXT.md). Issue 01 produces
+ * only rendered evidence; delivered arrives in a later slice.
+ */
+export type EvidenceOrigin = 'delivered' | 'rendered'
+
+/**
+ * The nine decided primary audit categories. Overview is not a category.
+ */
+export type AuditCategory =
+  | 'search-appearance'
+  | 'indexability'
+  | 'social-sharing'
+  | 'structured-data'
+  | 'document-structure'
+  | 'links'
+  | 'images-media'
+  | 'internationalization'
+  | 'web-performance'
+
+export interface FindingEvidence {
+  origin: EvidenceOrigin
+  /** Human-readable, already-sanitized description of the observed value. */
+  detail: string
+}
+
+/**
+ * One evidence-backed conclusion within an audit result (see CONTEXT.md,
+ * "Finding"). Remediation is present only when action is useful.
+ */
+export interface Finding {
+  ruleId: string
+  category: AuditCategory
+  outcome: FindingOutcome
+  /** Short conclusion, e.g. "Page has a usable title". */
+  summary: string
+  /** Why it matters, framework-neutral. */
+  impact: string
+  /** Framework-neutral fix, or null when nothing to do (e.g. a Passed finding). */
+  remediation: string | null
+  evidence: FindingEvidence
+}
+
+/**
+ * The findings and supporting evidence produced by one completed Page SEO audit
+ * for a particular active-pane navigation (see CONTEXT.md, "Audit result").
+ */
+export interface AuditResult {
+  id: string
+  paneId: PaneId
+  /** Committed active-pane URL the audit describes. */
+  url: string
+  /** When the pane last navigated to `url`, or null when unknown. */
+  navigationTimestamp: number | null
+  startedAt: number
+  completedAt: number
+  ruleCatalogVersion: string
+  indexingIntent: IndexingIntent
+  findings: Finding[]
+}
+
+/**
+ * Rendered evidence extracted from the active pane (see CONTEXT.md, "Rendered
+ * evidence"). Grows as later categories land; Issue 01 needs only the title.
+ */
+export interface RenderedAuditSnapshot {
+  /**
+   * The page's `<title>` text: null when no `<title>` element exists, the raw
+   * text (possibly empty/whitespace) otherwise. The rule decides usability.
+   */
+  title: string | null
+}
+
+export type AuditRunResult = { ok: true; result: AuditResult } | { ok: false; reason: 'no-url' }
+
+export const OUTCOME_LABEL: Record<FindingOutcome, string> = {
+  error: 'Error',
+  warning: 'Warning',
+  opportunity: 'Opportunity',
+  passed: 'Passed',
+  'unable-to-verify': 'Unable to verify'
+}
+
+export const CATEGORY_LABEL: Record<AuditCategory, string> = {
+  'search-appearance': 'Search appearance',
+  indexability: 'Indexability',
+  'social-sharing': 'Social sharing',
+  'structured-data': 'Structured data',
+  'document-structure': 'Document structure',
+  links: 'Links',
+  'images-media': 'Images & media',
+  internationalization: 'Internationalization',
+  'web-performance': 'Web performance'
+}
+
+export const INDEXING_INTENT_LABEL: Record<IndexingIntent, string> = {
+  indexable: 'Indexable',
+  'non-indexable': 'Non-indexable',
+  'local-private': 'Local / private'
+}
+
+/**
+ * Whether a URL is a committed page worth auditing (not empty, not about:blank).
+ */
+export function isAuditableUrl(url: string | null | undefined): url is string {
+  if (!url) return false
+  const trimmed = url.trim()
+  return trimmed.length > 0 && trimmed !== 'about:blank'
+}
+
+/**
+ * Environment-aware default indexing intent. A localhost/private page is
+ * assumed to be a local/private environment; everything else defaults to
+ * indexable. The user can override before running the audit.
+ */
+export function inferIndexingIntent(url: string): IndexingIntent {
+  return isLocalhostUrl(url) ? 'local-private' : 'indexable'
+}

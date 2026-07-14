@@ -12,6 +12,7 @@ import type {
   ThemePreference
 } from '../shared/types'
 import type { SnapshotResult } from '../shared/snapshot'
+import type { AuditRunResult, IndexingIntent } from '../shared/seo-audit'
 
 export interface PreviewApi {
   closeWindow: () => Promise<void>
@@ -54,7 +55,10 @@ export interface PreviewApi {
   onPanelToggleSidebar: (callback: () => void) => () => void
   onPaneLoading: (callback: (state: { paneId: PaneId; loading: boolean }) => void) => () => void
   onPaneLoadError: (
-    callback: (state: { paneId: PaneId; error: { code: number; description: string } | null }) => void
+    callback: (state: {
+      paneId: PaneId
+      error: { code: number; description: string } | null
+    }) => void
   ) => () => void
   onPaneNavigation: (callback: (state: PaneNavigationState) => void) => () => void
   listProjects: () => Promise<Project[]>
@@ -64,7 +68,9 @@ export interface PreviewApi {
   evaluateInPane: <T>(paneId: PaneId, expression: string) => Promise<T>
   focusPane: (paneId: PaneId) => Promise<void>
   getMirrorFailureLogs: () => Promise<Record<PaneId, MirrorFailureLog[]>>
-  getSyncTraceLogs: () => Promise<Array<{ ts: number; event: string; data?: Record<string, unknown> }>>
+  getSyncTraceLogs: () => Promise<
+    Array<{ ts: number; event: string; data?: Record<string, unknown> }>
+  >
   getRuntimeEvidence: () => Promise<RuntimeEvidenceSnapshot>
   onRuntimeEvidenceChanged: (callback: (snapshot: RuntimeEvidenceSnapshot) => void) => () => void
   toggleDiagnosticsDrawer: () => void
@@ -73,6 +79,7 @@ export interface PreviewApi {
   takeSnapshot: () => Promise<SnapshotResult>
   getSafariChromeEnabled: () => Promise<boolean>
   onSafariChromeEnabledChanged: (callback: (enabled: boolean) => void) => () => void
+  runSeoAudit: (indexingIntent: IndexingIntent) => Promise<AuditRunResult>
 }
 
 const api: PreviewApi = {
@@ -223,10 +230,12 @@ const api: PreviewApi = {
   takeSnapshot: () => ipcRenderer.invoke('snapshot:take'),
   getSafariChromeEnabled: () => ipcRenderer.invoke('safari-chrome:get-enabled'),
   onSafariChromeEnabledChanged: (callback) => {
-    const listener = (_event: Electron.IpcRendererEvent, enabled: boolean): void => callback(enabled)
+    const listener = (_event: Electron.IpcRendererEvent, enabled: boolean): void =>
+      callback(enabled)
     ipcRenderer.on('safari-chrome:enabled-changed', listener)
     return () => ipcRenderer.removeListener('safari-chrome:enabled-changed', listener)
-  }
+  },
+  runSeoAudit: (indexingIntent) => ipcRenderer.invoke('seo-audit:run', indexingIntent)
 }
 
 contextBridge.exposeInMainWorld('api', api)
