@@ -14,8 +14,9 @@ import { TOOLBAR_HEIGHT_PX } from '../../../../../shared/sidebar'
 import { cn } from '@renderer/lib/utils'
 import { ArrowDown01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
+import { RenderingControls } from './rendering-controls'
 
-type DiagnosticsTab = RuntimeEvidenceChannel
+type DiagnosticsTab = RuntimeEvidenceChannel | 'rendering'
 
 const SCROLL_TAIL_THRESHOLD_PX = 24
 
@@ -254,13 +255,32 @@ export function DiagnosticsPanel(): React.JSX.Element {
           </button>
           <button
             type="button"
-            data-testid={`diagnostics-clear-${activeTab}`}
-            className="ml-auto rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
-            onClick={() => handleClear(activeTab)}
+            data-testid="diagnostics-tab-rendering"
+            aria-selected={activeTab === 'rendering'}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors',
+              activeTab === 'rendering'
+                ? 'bg-white/10 text-foreground'
+                : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
+            )}
+            onClick={() => setActiveTab('rendering')}
           >
-            Clear
+            Rendering
           </button>
+          {activeTab !== 'rendering' ? (
+            <button
+              type="button"
+              data-testid={`diagnostics-clear-${activeTab}`}
+              className="ml-auto rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+              onClick={() => handleClear(activeTab)}
+            >
+              Clear
+            </button>
+          ) : null}
         </header>
+        {activeTab === 'rendering' ? (
+          <RenderingControls />
+        ) : (
         <div
           ref={listRef}
           data-testid="diagnostics-list"
@@ -427,6 +447,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
             </ul>
           )}
         </div>
+        )}
       </div>
     </aside>
   )

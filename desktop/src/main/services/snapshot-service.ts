@@ -231,7 +231,7 @@ export async function captureSnapshot(
   const contextMd = buildContextMd({
     capturedAt,
     paneId,
-    url,
+    url: sanitizeUrl(url),
     title,
     lastNavTimestamp,
     evidence,
@@ -268,7 +268,8 @@ export async function captureSnapshot(
 }
 
 export function serializeSeoAudit(result: AuditResult): string {
-  const blocked = /^(cookie|cookies|authorization|storage|requestBody|responseBody|body|html)$/i
+  const blocked =
+    /^(cookie|cookies|set-cookie|authorization|proxy-authorization|storage|requestBody|responseBody|body|html)$/i
   return JSON.stringify(
     result,
     (key, value) => {

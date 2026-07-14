@@ -177,7 +177,8 @@ export interface AuditPort {
   ): Promise<SocialSharingResult>
   fetchInternational(
     url: string,
-    rendered: RenderedAuditSnapshot
+    rendered: RenderedAuditSnapshot,
+    delivered: DeliveredEvidence
   ): Promise<InternationalizationResult>
 }
 
@@ -216,7 +217,7 @@ export async function runAudit(
   const [delivered, accessContext] = await gatherReferencedEvidence(port, url)
   const indexability = await port.fetchIndexability(url, rendered, delivered)
   const socialSharing = await port.fetchSocial(url, rendered, delivered)
-  const internationalization = await port.fetchInternational(url, rendered)
+  const internationalization = await port.fetchInternational(url, rendered, delivered)
 
   const result = buildAuditResult(deps, {
     paneId,

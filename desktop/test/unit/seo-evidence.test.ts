@@ -51,6 +51,10 @@ describe('sanitizeUrl', () => {
     expect(sanitizeUrl('https://x.test/a?page=1')).toBe('https://x.test/a?page=1')
   })
 
+  it('removes embedded URL credentials', () => {
+    expect(sanitizeUrl('https://user:password@x.test/private')).toBe('https://x.test/private')
+  })
+
   it('returns non-URL strings unchanged', () => {
     expect(sanitizeUrl('not a url')).toBe('not a url')
   })

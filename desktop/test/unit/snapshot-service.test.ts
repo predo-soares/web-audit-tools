@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { captureSnapshot } from '../../src/main/services/snapshot-service'
+import { captureSnapshot, serializeSeoAudit } from '../../src/main/services/snapshot-service'
 import type { SnapshotPort, SnapshotDeps } from '../../src/main/services/snapshot-service'
 import type { RuntimeEvidenceSnapshot } from '../../src/shared/runtime-evidence'
 import type { PaneId } from '../../src/shared/types'
@@ -145,6 +145,21 @@ describe('captureSnapshot', () => {
     expect(data).toContain('Screenshot: ./iphone-16-pro.png')
     expect(data).toContain('### Console problems (0)')
     expect(data).toContain('### Network failures (0)')
+  })
+
+  it('redacts sensitive active-pane URL values in context.md', async () => {
+    const deps = makeDeps()
+    await captureSnapshot(
+      makePort({
+        getActivePaneUrl: () => 'https://user:password@site.test/private?token=topsecret&page=2'
+      }),
+      deps
+    )
+
+    const { data } = deps.writeMdCalls[0]
+    expect(data).toContain('URL: https://site.test/private?token=REDACTED&page=2')
+    expect(data).not.toContain('topsecret')
+    expect(data).not.toContain('password')
   })
 
   it('adds SEO summary and complete JSON only when explicitly requested', async () => {
@@ -439,5 +454,27 @@ describe('captureSnapshot', () => {
     const { data } = deps.writeMdCalls[0]
     expect(data).toContain('## Active Pane: Desktop')
     expect(deps.writePngCalls[0].path).toMatch(/desktop\.png$/)
+  })
+})
+
+describe('serializeSeoAudit', () => {
+  it('redacts URL credentials and removes sensitive transport and page payloads', () => {
+    const serialized = serializeSeoAudit({
+      url: 'https://user:password@site.test/private?token=topsecret',
+      accessContext: { authenticated: true },
+      delivered: {
+        headers: {
+          authorization: 'Bearer topsecret',
+          'set-cookie': 'session=topsecret'
+        },
+        body: '<html>topsecret</html>'
+      },
+      requestBody: 'topsecret',
+      storage: { session: 'topsecret' }
+    } as never)
+
+    expect(serialized).not.toContain('topsecret')
+    expect(serialized).not.toContain('password')
+    expect(JSON.parse(serialized).accessContext.authenticated).toBe(true)
   })
 })

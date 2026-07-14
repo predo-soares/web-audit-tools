@@ -111,7 +111,7 @@ export class AuditManager {
     if (runToken !== this.token) {
       return { ok: false, reason: 'cancelled' }
     }
-    const internationalization = await this.port.fetchInternational(url, rendered)
+    const internationalization = await this.port.fetchInternational(url, rendered, delivered)
     if (runToken !== this.token) return { ok: false, reason: 'cancelled' }
 
     const result = buildAuditResult(this.deps, {

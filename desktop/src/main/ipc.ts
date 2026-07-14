@@ -116,7 +116,7 @@ export function makeAuditPort(paneManager: PaneManager): AuditPort {
         return unavailableSocialSharing()
       }
     },
-    fetchInternational: async (url, rendered) => {
+    fetchInternational: async (url, rendered, delivered) => {
       try {
         const session = paneManager.getPreviewSession()
         const paneId = paneManager.getNavigationState().activePane ?? 'desktop'
@@ -125,7 +125,13 @@ export function makeAuditPort(paneManager: PaneManager): AuditPort {
         }
         const cookieHeader = await sessionCookieHeader(session, url)
         if (cookieHeader) headers.Cookie = cookieHeader
-        return await verifyInternationalization(url, rendered, nodeFetchTransport, headers)
+        return await verifyInternationalization(
+          url,
+          rendered,
+          nodeFetchTransport,
+          headers,
+          delivered
+        )
       } catch {
         return unavailableInternationalization(rendered)
       }

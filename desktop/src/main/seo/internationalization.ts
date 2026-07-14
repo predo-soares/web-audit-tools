@@ -1,5 +1,6 @@
 import type {
   AlternateTargetEvidence,
+  DeliveredEvidence,
   InternationalizationResult,
   RenderedAuditSnapshot
 } from '../../shared/seo-audit'
@@ -11,7 +12,8 @@ export async function verifyInternationalization(
   url: string,
   rendered: RenderedAuditSnapshot,
   transport: FetchTransport,
-  headers: Record<string, string> = {}
+  headers: Record<string, string> = {},
+  delivered?: DeliveredEvidence
 ): Promise<InternationalizationResult> {
   const declarations = rendered.hreflang ?? []
   const unique = [
@@ -19,20 +21,49 @@ export async function verifyInternationalization(
       declarations.map((item) => item.resolvedHref).filter((item): item is string => Boolean(item))
     )
   ].slice(0, 10)
+  const current = new URL(url).href
+  const canReuseCurrent = delivered?.available === true
+  const remote = unique.filter((target) => !canReuseCurrent || target !== current)
   const outcomes = await Promise.all(
-    unique.map((target) => fetchWithBudget(target, transport, BUDGET, headers))
+    remote.map((target) => fetchWithBudget(target, transport, BUDGET, headers))
   )
   return {
     declarations,
     localeMetadata: rendered.localeMetadata ?? [],
-    targets: unique.map((target, index) =>
-      targetEvidence(
-        target,
-        declarations.find((item) => item.resolvedHref === target)?.hreflang ?? '',
-        url,
-        outcomes[index]
-      )
+    targets: unique.map((target) =>
+      target === current && canReuseCurrent
+        ? selfTargetEvidence(
+            target,
+            declarations.find((item) => item.resolvedHref === target)?.hreflang ?? '',
+            delivered
+          )
+        : targetEvidence(
+            target,
+            declarations.find((item) => item.resolvedHref === target)?.hreflang ?? '',
+            url,
+            outcomes[remote.indexOf(target)]
+          )
     )
+  }
+}
+
+function selfTargetEvidence(
+  target: string,
+  hreflang: string,
+  delivered: DeliveredEvidence
+): AlternateTargetEvidence {
+  return {
+    url: sanitizeUrl(target),
+    hreflang,
+    available: true,
+    unavailableReason: null,
+    status: delivered.status,
+    finalUrl: delivered.finalUrl,
+    redirects: delivered.redirects,
+    truncated: delivered.truncated,
+    reciprocal: true,
+    targetLanguage: null,
+    targetCanonical: delivered.canonicals?.[0] ?? null
   }
 }
 export function unavailableInternationalization(

@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 import {
+  evaluateInPane,
   fixtureUrl,
   getSeoPanelPage,
   getToolbarPage,
@@ -49,6 +50,25 @@ test('runs a full audit and reports a passed title finding', async ({ fixturePor
       await panel.locator('[data-testid="seo-finding"][data-outcome="warning"]').count()
     )
     await overview.locator('[data-testid="seo-outcome-filter"][data-outcome="warning"]').click()
+    const searchAppearanceCategory = overview
+      .getByTestId('seo-category-row')
+      .filter({ hasText: 'Search appearance' })
+      .getByRole('button', { name: /^Search appearance ·/ })
+    await searchAppearanceCategory.click()
+    await expect
+      .poll(async () => panel.getByTestId('seo-finding').allTextContents())
+      .toEqual(expect.arrayContaining([expect.stringContaining('Search appearance')]))
+    expect(
+      (await panel.getByTestId('seo-finding').allTextContents()).every((text) =>
+        text.includes('Search appearance')
+      )
+    ).toBe(true)
+    await panel.getByText('Declared and resolved metadata').click()
+    await expect(panel.getByTestId('seo-declared-metadata')).toContainText(
+      'rendered · title #1: Fixture SEO Page'
+    )
+    await expect(panel.getByTestId('seo-resolved-metadata')).toContainText('Fixture SEO Page')
+    await searchAppearanceCategory.click()
     await panel.evaluate(() => {
       Object.defineProperty(navigator, 'clipboard', {
         configurable: true,
@@ -74,6 +94,14 @@ test('runs a full audit and reports a passed title finding', async ({ fixturePor
         () => (window as typeof window & { __copiedSeoMarkdown?: string }).__copiedSeoMarkdown
       )
     ).toContain('search-appearance/title-present')
+
+    await navigateTo(window, fixtureUrl(fixturePort, '/seo/no-title'))
+    await waitForPaneElement(window, 'desktop', 'seo-no-title')
+    await expect(panel.getByTestId('seo-stale-banner')).toBeVisible()
+    await panel.getByTestId('seo-run-audit').click()
+    await expect(titleFinding).toHaveAttribute('data-outcome', 'error')
+    await expect(panel.getByTestId('seo-stale-banner')).toHaveCount(0)
+
     await overview.getByTestId('seo-export-snapshot').click()
     await expect(overview.getByTestId('seo-export-status')).toContainText('SEO Snapshot exported')
     const captures = join(homedir(), '.audit-screens', 'captures')
@@ -95,6 +123,61 @@ test('runs a full audit and reports a passed title finding', async ({ fixturePor
     ).toBe(true)
     // No proprietary overall score is shown.
     await expect(result).not.toContainText('score')
+  } finally {
+    await close()
+  }
+})
+
+test('keeps authenticated audit secrets out of copied and persisted evidence', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  const secret = 'issue15-private-token'
+
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/login'))
+    await waitForAllPanes(window)
+    await evaluateInPane(window, 'desktop', `document.getElementById('login-btn')?.click()`)
+    await waitForAllPanes(window)
+    await navigateTo(window, fixtureUrl(fixturePort, `/auth-check?token=${secret}`))
+    await waitForPaneElement(window, 'desktop', 'auth-status')
+
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('seo-toggle').click()
+    const panel = await getSeoPanelPage(window)
+    await panel.evaluate(() => {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: {
+          writeText: (value: string) => {
+            ;(window as typeof window & { __copiedSeoMarkdown?: string }).__copiedSeoMarkdown =
+              value
+            return Promise.resolve()
+          }
+        }
+      })
+    })
+    await panel.getByTestId('seo-run-audit').click()
+    await expect(panel.getByTestId('seo-result')).toBeVisible()
+    await panel.getByTestId('seo-copy-result').click()
+    const copied = await panel.evaluate(
+      () => (window as typeof window & { __copiedSeoMarkdown?: string }).__copiedSeoMarkdown ?? ''
+    )
+    expect(copied).not.toContain(secret)
+    expect(copied).not.toContain('fixture_auth')
+
+    await panel.getByTestId('seo-export-snapshot').click()
+    await expect(panel.getByTestId('seo-export-status')).toContainText('SEO Snapshot exported')
+    const captures = join(homedir(), '.audit-screens', 'captures')
+    const latest = readdirSync(captures).sort().at(-1)
+    expect(latest).toBeTruthy()
+    const bundle = join(captures, latest!)
+    const context = readFileSync(join(bundle, 'context.md'), 'utf8')
+    const auditJson = readFileSync(join(bundle, 'seo-audit.json'), 'utf8')
+    expect(context).not.toContain(secret)
+    expect(auditJson).not.toContain(secret)
+    expect(auditJson).not.toContain('fixture_auth')
+    expect(JSON.parse(auditJson).accessContext.authenticated).toBe(true)
   } finally {
     await close()
   }

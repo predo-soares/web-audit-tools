@@ -6,7 +6,11 @@ import {
   hreflangSyntaxRule,
   type RuleContext
 } from '../../src/main/seo/rules'
-import type { InternationalizationResult, RenderedAuditSnapshot } from '../../src/shared/seo-audit'
+import type {
+  DeliveredEvidence,
+  InternationalizationResult,
+  RenderedAuditSnapshot
+} from '../../src/shared/seo-audit'
 
 function context(internationalization: InternationalizationResult): RuleContext {
   return {
@@ -61,6 +65,59 @@ describe('international targeting', () => {
       'https://site.test/pt-final'
     ])
     expect(result.targets.every((target) => target.reciprocal)).toBe(true)
+  })
+
+  it('reuses delivered evidence for the current URL instead of requesting it again', async () => {
+    const rendered: RenderedAuditSnapshot = {
+      title: 'English',
+      hreflang: [
+        { hreflang: 'en', href: '/en', resolvedHref: 'https://site.test/en', sourceIndex: 0 },
+        {
+          hreflang: 'pt-BR',
+          href: '/pt',
+          resolvedHref: 'https://site.test/pt',
+          sourceIndex: 1
+        }
+      ]
+    }
+    const delivered: DeliveredEvidence = {
+      available: true,
+      unavailableReason: null,
+      finalUrl: 'https://site.test/en',
+      status: 200,
+      redirects: [],
+      headers: {},
+      documentTitle: 'English',
+      canonicals: ['https://site.test/en'],
+      truncated: false
+    }
+    const calls: string[] = []
+    const result = await verifyInternationalization(
+      'https://site.test/en',
+      rendered,
+      async (url) => {
+        calls.push(url)
+        return {
+          status: 200,
+          headers: [],
+          location: null,
+          readBody: async () => ({
+            text: '<html lang="pt-BR"><link rel="alternate" hreflang="en" href="/en">',
+            truncated: false
+          })
+        }
+      },
+      {},
+      delivered
+    )
+
+    expect(calls).toEqual(['https://site.test/pt'])
+    expect(result.targets[0]).toMatchObject({
+      url: 'https://site.test/en',
+      status: 200,
+      reciprocal: true,
+      targetCanonical: 'https://site.test/en'
+    })
   })
 
   it('reports invalid/duplicate codes, canonical self gaps, and unavailable checks', () => {

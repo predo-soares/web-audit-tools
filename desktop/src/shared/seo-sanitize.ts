@@ -63,6 +63,11 @@ export function sanitizeUrl(rawUrl: string): string {
   }
 
   let changed = false
+  if (url.username || url.password) {
+    url.username = ''
+    url.password = ''
+    changed = true
+  }
   for (const key of [...url.searchParams.keys()]) {
     if (isSensitiveQueryParam(key)) {
       url.searchParams.set(key, REDACTED)
