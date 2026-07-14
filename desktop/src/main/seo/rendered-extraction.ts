@@ -31,6 +31,12 @@ export const RENDERED_EXTRACTION_EXPRESSION = `(() => {
   const sitemapLinks = Array.from(document.querySelectorAll('link[rel]'))
     .filter((el) => (el.getAttribute('rel') || '').toLowerCase().split(/\\s+/).includes('sitemap'))
     .map((el) => el.getAttribute('href') ?? '');
+  const social = Array.from(document.querySelectorAll('meta[property], meta[name]'))
+    .map((el) => ({
+      property: (el.getAttribute('property') || el.getAttribute('name') || '').toLowerCase(),
+      value: el.getAttribute('content') ?? ''
+    }))
+    .filter((item) => item.property.startsWith('og:') || item.property.startsWith('twitter:'));
   const measure = (text, font) => {
     if (!text) return 0;
     const canvas = document.createElement('canvas');
@@ -47,6 +53,7 @@ export const RENDERED_EXTRACTION_EXPRESSION = `(() => {
     favicons,
     robots,
     sitemapLinks,
+    social,
     titleWidthPx: title === null ? null : measure(title.trim(), '20px Arial'),
     descriptionWidthsPx: descriptions.map((value) => measure(value.trim(), '14px Arial') ?? 0)
   };
@@ -65,9 +72,22 @@ export function normalizeRenderedSnapshot(raw: unknown): RenderedAuditSnapshot {
     favicons: stringArray(value.favicons),
     robots: stringArray(value.robots),
     sitemapLinks: stringArray(value.sitemapLinks),
+    social: socialArray(value.social),
     titleWidthPx: typeof value.titleWidthPx === 'number' ? value.titleWidthPx : null,
     descriptionWidthsPx: numberArray(value.descriptionWidthsPx)
   }
+}
+
+function socialArray(value: unknown): { property: string; value: string }[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const property = (item as { property?: unknown }).property
+    const content = (item as { value?: unknown }).value
+    return typeof property === 'string' && typeof content === 'string'
+      ? [{ property, value: content }]
+      : []
+  })
 }
 
 function stringArray(value: unknown): string[] {

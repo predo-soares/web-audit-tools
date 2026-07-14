@@ -10,6 +10,7 @@ import {
 import { resolveSearchAppearance } from '../../src/main/seo/search-appearance'
 import type { DeliveredEvidence, RenderedAuditSnapshot } from '../../src/shared/seo-audit'
 import type { FetchTransport, RawResponse } from '../../src/main/seo/referenced-fetch'
+import { unavailableSocialSharing } from '../../src/main/seo/social-sharing'
 
 function response(status: number, body = '', location: string | null = null): RawResponse {
   return {
@@ -153,7 +154,8 @@ describe('indexability rules', () => {
       accessContext: { authenticated: options.authenticated ?? false },
       indexingIntent: options.intent ?? ('indexable' as const),
       searchAppearance,
-      indexability
+      indexability,
+      socialSharing: unavailableSocialSharing()
     }
   }
 

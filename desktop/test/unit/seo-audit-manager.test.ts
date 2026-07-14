@@ -8,6 +8,7 @@ import {
 } from '../../src/shared/seo-audit'
 import type { PaneId } from '../../src/shared/types'
 import { unavailableIndexability } from '../../src/main/seo/indexability'
+import { unavailableSocialSharing } from '../../src/main/seo/social-sharing'
 
 /**
  * A controllable extraction: each call returns a promise the test resolves by
@@ -46,6 +47,7 @@ function makePort(overrides?: Partial<AuditPort>): AuditPort {
     fetchDelivered: () => Promise.resolve(UNAVAILABLE_DELIVERED_EVIDENCE),
     getAccessContext: () => Promise.resolve({ authenticated: false }),
     fetchIndexability: (url) => Promise.resolve(unavailableIndexability(url)),
+    fetchSocial: () => Promise.resolve(unavailableSocialSharing()),
     ...overrides
   }
 }

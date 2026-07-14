@@ -59,6 +59,22 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     return
   }
 
+  if (pathname === '/seo/social-image-redirect') {
+    res.writeHead(302, { Location: '/seo/social-card.png' })
+    res.end()
+    return
+  }
+
+  if (pathname === '/seo/social-card.png') {
+    const bytes = Buffer.alloc(24)
+    bytes.set([0x89, 0x50, 0x4e, 0x47], 0)
+    bytes.writeUInt32BE(1200, 16)
+    bytes.writeUInt32BE(630, 20)
+    res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': bytes.length })
+    res.end(bytes)
+    return
+  }
+
   if (pathname === '/') {
     sendHtml(
       res,
@@ -867,6 +883,22 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
         <link rel="canonical" href="/seo/canonical-target">
         <link rel="sitemap" href="/sitemap.xml">
       </head><body><h1 id="seo-indexability-allowed">Indexable</h1></body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/social-sharing') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head>
+        <title>Social fallback title</title>
+        <meta name="description" content="Search description fallback">
+        <meta property="og:title" content="Social Fixture Card">
+        <meta property="og:description" content="A representative social card fixture.">
+        <meta property="og:image" content="/seo/social-image-redirect">
+        <meta property="og:url" content="/seo/social-sharing">
+        <meta name="twitter:card" content="summary_large_image">
+      </head><body><h1 id="seo-social-sharing">Social sharing</h1></body></html>`
     )
     return
   }

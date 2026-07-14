@@ -20,6 +20,7 @@ import { captureDeliveredEvidence } from './seo/delivered-evidence'
 import { nodeFetchTransport } from './seo/referenced-fetch'
 import { UNAVAILABLE_DELIVERED_EVIDENCE, type IndexingIntent } from '../shared/seo-audit'
 import { unavailableIndexability, verifyIndexability } from './seo/indexability'
+import { resolveSocialSharing, unavailableSocialSharing } from './seo/social-sharing'
 
 /**
  * Build a request Cookie header from the pane session so delivered evidence is
@@ -93,6 +94,20 @@ export function makeAuditPort(paneManager: PaneManager): AuditPort {
         )
       } catch {
         return unavailableIndexability(url, 'network')
+      }
+    },
+    fetchSocial: async (url, rendered, delivered) => {
+      try {
+        const session = paneManager.getPreviewSession()
+        const paneId = paneManager.getNavigationState().activePane ?? 'desktop'
+        const headers: Record<string, string> = {
+          'User-Agent': paneManager.getUserAgentForPane(paneId)
+        }
+        const cookieHeader = await sessionCookieHeader(session, url)
+        if (cookieHeader) headers.Cookie = cookieHeader
+        return await resolveSocialSharing(url, rendered, delivered, nodeFetchTransport, headers)
+      } catch {
+        return unavailableSocialSharing()
       }
     }
   }

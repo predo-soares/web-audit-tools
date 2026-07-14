@@ -8,7 +8,8 @@ import {
   type Finding,
   type IndexabilityResult,
   type IndexingIntent,
-  type RenderedAuditSnapshot
+  type RenderedAuditSnapshot,
+  type SocialSharingResult
 } from '../../shared/seo-audit'
 import { sanitizeUrl } from '../../shared/seo-sanitize'
 import type { PaneId } from '../../shared/types'
@@ -21,6 +22,7 @@ export interface AuditEvidence {
   delivered: DeliveredEvidence
   accessContext: AuditAccessContext
   indexability: IndexabilityResult
+  socialSharing: SocialSharingResult
 }
 
 /**
@@ -41,7 +43,8 @@ export function evaluateFindings(
         accessContext: evidence.accessContext,
         indexingIntent,
         searchAppearance,
-        indexability: evidence.indexability
+        indexability: evidence.indexability,
+        socialSharing: evidence.socialSharing
       })
     } catch (error) {
       return unableToVerifyFinding(rule, error)
@@ -88,6 +91,7 @@ export function buildAuditResult(
     delivered: input.evidence.delivered,
     searchAppearance,
     indexability: input.evidence.indexability,
+    socialSharing: input.evidence.socialSharing,
     findings: evaluateFindings(input.evidence, input.indexingIntent, searchAppearance)
   }
 }
@@ -128,6 +132,11 @@ export interface AuditPort {
     rendered: RenderedAuditSnapshot,
     delivered: DeliveredEvidence
   ): Promise<IndexabilityResult>
+  fetchSocial(
+    url: string,
+    rendered: RenderedAuditSnapshot,
+    delivered: DeliveredEvidence
+  ): Promise<SocialSharingResult>
 }
 
 export interface AuditDeps {
@@ -164,6 +173,7 @@ export async function runAudit(
   const rendered = await port.extractRendered(paneId)
   const [delivered, accessContext] = await gatherReferencedEvidence(port, url)
   const indexability = await port.fetchIndexability(url, rendered, delivered)
+  const socialSharing = await port.fetchSocial(url, rendered, delivered)
 
   const result = buildAuditResult(deps, {
     paneId,
@@ -171,7 +181,7 @@ export async function runAudit(
     navigationTimestamp: port.getLastNavTimestamp(paneId),
     startedAt,
     indexingIntent: options.indexingIntent,
-    evidence: { rendered, delivered, accessContext, indexability }
+    evidence: { rendered, delivered, accessContext, indexability, socialSharing }
   })
 
   return { ok: true, result }

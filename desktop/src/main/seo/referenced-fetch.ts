@@ -28,6 +28,7 @@ export interface RawResponse {
   location: string | null
   /** Read the response body up to `maxBytes`, decoded as UTF-8. */
   readBody: (maxBytes: number) => Promise<{ text: string; truncated: boolean }>
+  readBytes?: (maxBytes: number) => Promise<{ bytes: Uint8Array; truncated: boolean }>
 }
 
 /** Perform one request without following redirects. Injected for testability. */
@@ -152,19 +153,28 @@ export const nodeFetchTransport: FetchTransport = async (url, signal, headers) =
     credentials: 'omit'
   })
 
+  let cached: Promise<{ bytes: Uint8Array; truncated: boolean }> | null = null
+  const bytes = (maxBytes: number): Promise<{ bytes: Uint8Array; truncated: boolean }> => {
+    cached ??= readBytesCapped(response, maxBytes)
+    return cached
+  }
   return {
     status: response.status,
     headers: response.headers,
     location: response.headers.get('location'),
-    readBody: (maxBytes) => readBodyCapped(response, maxBytes)
+    readBody: async (maxBytes) => {
+      const value = await bytes(maxBytes)
+      return { text: new TextDecoder('utf-8').decode(value.bytes), truncated: value.truncated }
+    },
+    readBytes: bytes
   }
 }
 
-async function readBodyCapped(
+async function readBytesCapped(
   response: Response,
   maxBytes: number
-): Promise<{ text: string; truncated: boolean }> {
-  if (!response.body) return { text: '', truncated: false }
+): Promise<{ bytes: Uint8Array; truncated: boolean }> {
+  if (!response.body) return { bytes: new Uint8Array(), truncated: false }
 
   const reader = response.body.getReader()
   const chunks: Uint8Array[] = []
@@ -196,7 +206,7 @@ async function readBodyCapped(
     merged.set(chunk, offset)
     offset += chunk.byteLength
   }
-  return { text: new TextDecoder('utf-8').decode(merged), truncated }
+  return { bytes: merged, truncated }
 }
 
 /** Extract the `<title>` text from delivered HTML without a DOM. */
@@ -212,6 +222,7 @@ export interface DeliveredSearchMetadata {
   favicons: string[]
   robots: string[]
   sitemapLinks: string[]
+  social: { property: string; value: string }[]
 }
 
 /** Extract ordered search-appearance declarations from delivered HTML. */
@@ -221,11 +232,16 @@ export function extractDeliveredSearchMetadata(html: string): DeliveredSearchMet
   const favicons: string[] = []
   const robots: string[] = []
   const sitemapLinks: string[] = []
+  const social: { property: string; value: string }[] = []
   const tags = html.match(/<(?:meta|link)\b[^>]*>/gi) ?? []
 
   for (const tag of tags) {
     const attrs = parseAttributes(tag)
     if (tag.toLowerCase().startsWith('<meta')) {
+      const property = (attrs.property ?? attrs.name ?? '').toLowerCase()
+      if (property.startsWith('og:') || property.startsWith('twitter:')) {
+        social.push({ property, value: attrs.content ?? '' })
+      }
       if ((attrs.name ?? '').toLowerCase() === 'description') descriptions.push(attrs.content ?? '')
       if (['robots', 'googlebot'].includes((attrs.name ?? '').toLowerCase())) {
         robots.push(attrs.content ?? '')
@@ -240,7 +256,7 @@ export function extractDeliveredSearchMetadata(html: string): DeliveredSearchMet
     if (rel.includes('sitemap')) sitemapLinks.push(attrs.href ?? '')
   }
 
-  return { descriptions, canonicals, favicons, robots, sitemapLinks }
+  return { descriptions, canonicals, favicons, robots, sitemapLinks, social }
 }
 
 function parseAttributes(tag: string): Record<string, string> {

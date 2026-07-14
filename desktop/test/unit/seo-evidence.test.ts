@@ -96,7 +96,8 @@ describe('extractDeliveredSearchMetadata', () => {
       canonicals: ['/one', '/two'],
       favicons: ['/favicon.ico'],
       robots: [],
-      sitemapLinks: []
+      sitemapLinks: [],
+      social: []
     })
   })
 })

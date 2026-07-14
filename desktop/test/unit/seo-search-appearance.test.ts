@@ -12,6 +12,7 @@ import type {
   SearchAppearanceResult
 } from '../../src/shared/seo-audit'
 import { unavailableIndexability } from '../../src/main/seo/indexability'
+import { unavailableSocialSharing } from '../../src/main/seo/social-sharing'
 
 function delivered(overrides: Partial<DeliveredEvidence> = {}): DeliveredEvidence {
   return {
@@ -49,7 +50,8 @@ function context(searchAppearance: SearchAppearanceResult) {
     accessContext: { authenticated: false },
     indexingIntent: 'indexable' as const,
     searchAppearance,
-    indexability: unavailableIndexability('https://example.test/page')
+    indexability: unavailableIndexability('https://example.test/page'),
+    socialSharing: unavailableSocialSharing()
   }
 }
 

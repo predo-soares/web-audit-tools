@@ -289,3 +289,34 @@ test('reports contradictory noindex controls against indexable intent', async ({
     await close()
   }
 })
+
+test('resolves social fallbacks, verifies the image, and renders representative previews', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/seo/social-sharing'))
+    await waitForPaneElement(window, 'desktop', 'seo-social-sharing')
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('seo-toggle').click()
+    const panel = await getSeoPanelPage(window)
+    await panel.getByTestId('seo-run-audit').click()
+
+    await expect(panel.getByTestId('seo-social-previews')).toContainText(
+      'Representative approximation'
+    )
+    await expect(panel.getByTestId('seo-social-preview')).toHaveCount(5)
+    await expect(panel.getByTestId('seo-social-previews')).toContainText('Social Fixture Card')
+    const imageFinding = panel.locator(
+      '[data-testid="seo-finding"][data-rule-id="social-sharing/images-valid"]'
+    )
+    await expect(imageFinding).toHaveAttribute('data-outcome', 'passed')
+    await expect(imageFinding.getByTestId('seo-finding-evidence')).toContainText('1200×630')
+
+    await panel.getByText('Declared social metadata').click()
+    await expect(panel.getByTestId('seo-social-declarations')).toContainText('og:image')
+    await expect(panel.getByTestId('seo-social-declarations')).toContainText('twitter:card')
+  } finally {
+    await close()
+  }
+})

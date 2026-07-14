@@ -106,13 +106,19 @@ export class AuditManager {
       return { ok: false, reason: 'cancelled' }
     }
 
+    const socialSharing = await this.port.fetchSocial(url, rendered, delivered)
+
+    if (runToken !== this.token) {
+      return { ok: false, reason: 'cancelled' }
+    }
+
     const result = buildAuditResult(this.deps, {
       paneId,
       url,
       navigationTimestamp: this.port.getLastNavTimestamp(paneId),
       startedAt,
       indexingIntent: options.indexingIntent,
-      evidence: { rendered, delivered, accessContext, indexability }
+      evidence: { rendered, delivered, accessContext, indexability, socialSharing }
     })
 
     this.setState({

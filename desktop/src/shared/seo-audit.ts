@@ -5,7 +5,7 @@ import { isLocalhostUrl } from './dev-context'
 // change. An Audit result records the version that produced it so later rule
 // changes never obscure how an existing result was reached (see CONTEXT.md,
 // "Rule catalog"). Format: <catalog date>.<revision>.
-export const SEO_RULE_CATALOG_VERSION = '2026-07-13.3'
+export const SEO_RULE_CATALOG_VERSION = '2026-07-13.4'
 
 // Width of the docked SEO panel. Fixed for now — unlike the diagnostics drawer
 // the SEO panel is not user-resizable yet.
@@ -94,7 +94,37 @@ export interface AuditResult {
   searchAppearance: SearchAppearanceResult
   /** Bounded page, robots, canonical, and sitemap evidence used by Indexability. */
   indexability: IndexabilityResult
+  socialSharing: SocialSharingResult
   findings: Finding[]
+}
+
+export interface SocialDeclaration {
+  property: string
+  value: string
+  origin: EvidenceOrigin
+  order: number
+}
+
+export interface SocialCardMetadata {
+  title: ResolvedMetadataValue
+  description: ResolvedMetadataValue
+  image: ResolvedMetadataValue
+  url: ResolvedMetadataValue
+  card: ResolvedMetadataValue
+}
+
+export interface SocialImageEvidence extends ResourceVerification {
+  mediaType: string | null
+  byteSize: number | null
+  sha256: string | null
+  width: number | null
+  height: number | null
+}
+
+export interface SocialSharingResult {
+  declared: SocialDeclaration[]
+  resolved: { openGraph: SocialCardMetadata; x: SocialCardMetadata }
+  images: SocialImageEvidence[]
 }
 
 export interface ResourceVerification {
@@ -177,6 +207,7 @@ export interface RenderedAuditSnapshot {
   descriptionWidthsPx?: number[]
   robots?: string[]
   sitemapLinks?: string[]
+  social?: { property: string; value: string }[]
 }
 
 /** One hop in a redirect chain leading to the delivered document. */
@@ -210,6 +241,7 @@ export interface DeliveredEvidence {
   favicons?: string[]
   robots?: string[]
   sitemapLinks?: string[]
+  social?: { property: string; value: string }[]
   /** Whether the delivered body was truncated at the byte budget. */
   truncated: boolean
 }

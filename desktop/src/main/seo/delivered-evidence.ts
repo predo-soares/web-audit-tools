@@ -53,6 +53,7 @@ export async function captureDeliveredEvidence(
     favicons: metadata.favicons,
     robots: metadata.robots,
     sitemapLinks: metadata.sitemapLinks,
+    social: metadata.social,
     truncated: outcome.truncated
   }
 }
