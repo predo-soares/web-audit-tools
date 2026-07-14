@@ -1,13 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { SafariChromeStripState } from '../shared/safari-chrome'
+import type { SafariChromeState } from '../shared/safari-chrome'
 
 export interface SafariChromeApi {
-  onState: (callback: (state: SafariChromeStripState) => void) => () => void
+  onState: (callback: (state: SafariChromeState) => void) => () => void
 }
 
 const safariChromeApi: SafariChromeApi = {
   onState: (callback) => {
-    const listener = (_event: Electron.IpcRendererEvent, state: SafariChromeStripState): void => {
+    const listener = (_event: Electron.IpcRendererEvent, state: SafariChromeState): void => {
       callback(state)
     }
     ipcRenderer.on('safari-chrome:state', listener)

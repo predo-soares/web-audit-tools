@@ -3,30 +3,22 @@ import { join } from 'path'
 import { pathToFileURL } from 'url'
 import { is } from '@electron-toolkit/utils'
 import { DEVICE_PRESETS } from '../../shared/device-presets'
-import type { Bounds, PaneId, PaneMount } from '../../shared/types'
+import type { PaneId, PaneMount } from '../../shared/types'
 import {
-  getSafariBottomHeight,
-  getSafariTopHeight,
   SAFARI_CHROME_COMPACT_SCROLL_Y,
   SAFARI_CHROME_EXPAND_SCROLL_Y,
   SAFARI_CHROME_PANE_IDS,
-  type SafariChromeStrip,
-  type SafariChromeStripState
+  type SafariChromeState
 } from '../../shared/safari-chrome'
 import type { PaneManager } from '../panes/pane-manager'
 import { overlayPng } from './png-overlay'
 
-interface StripEntry {
-  strip: SafariChromeStrip
-  view: WebContentsView
-  ready: Promise<void>
-  mounted: boolean
-}
-
 interface PaneChromeState {
   compact: boolean
   url: string
-  strips: { top: StripEntry; bottom: StripEntry }
+  view: WebContentsView
+  ready: Promise<void>
+  mounted: boolean
 }
 
 const CHROME_PANE_IDS = SAFARI_CHROME_PANE_IDS
@@ -35,16 +27,12 @@ function getSafariChromePreloadPath(): string {
   return join(__dirname, '../preload/safari-chrome-preload.js')
 }
 
-function getSafariChromeUrl(strip: SafariChromeStrip, paneId: PaneId): string {
-  const params = new URLSearchParams({ strip, pane: paneId })
+function getSafariChromeUrl(paneId: PaneId): string {
+  const params = new URLSearchParams({ pane: paneId })
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     return `${process.env['ELECTRON_RENDERER_URL']}/safari-chrome.html?${params}`
   }
   return `${pathToFileURL(join(__dirname, '../renderer/safari-chrome.html')).href}?${params}`
-}
-
-function scaleRound(value: number, zoom: number): number {
-  return Math.max(0, Math.round(value * zoom))
 }
 
 function waitFrames(count: number): Promise<void> {
@@ -91,7 +79,7 @@ export class SafariChromeManager {
         this.enforceZOrder()
       })
     } else {
-      this.hideAllStrips()
+      this.hideAll()
     }
     this.broadcastEnabled()
     return this.enabled
@@ -105,7 +93,7 @@ export class SafariChromeManager {
       this.pushAllState()
       this.enforceZOrder()
     } else {
-      this.hideAllStrips()
+      this.hideAll()
     }
   }
 
@@ -132,8 +120,6 @@ export class SafariChromeManager {
     if (next === state.compact) return
 
     state.compact = next
-    const mount = this.paneManager.getLastMount(paneId)
-    if (mount) this.applyBounds(paneId, mount)
     this.pushPaneState(paneId)
   }
 
@@ -161,11 +147,6 @@ export class SafariChromeManager {
     }
   }
 
-  /**
-   * Runs `capturePage` while chrome strips are sized to logical device chrome
-   * heights, then CDP-captures the strips at the pane deviceScaleFactor and
-   * composites them onto the page PNG.
-   */
   async captureComposited(
     paneId: PaneId,
     capturePage: () => Promise<Buffer>
@@ -180,34 +161,24 @@ export class SafariChromeManager {
       return capturePage()
     }
 
-    await Promise.all([state.strips.top.ready, state.strips.bottom.ready])
+    await state.ready
 
     const profile = DEVICE_PRESETS[paneId]
     const scale = profile.deviceScaleFactor
     const width = mount.logicalSize.width
     const height = mount.logicalSize.height
-    const topCss = getSafariTopHeight(paneId, state.compact)
-    const bottomCss = getSafariBottomHeight(paneId)
     const originX = Math.round(mount.screenBounds.x)
     const originY = Math.round(mount.screenBounds.y)
 
     try {
-      this.applyLogicalCaptureBounds(paneId, originX, originY, width, height, state.compact)
+      state.view.setBounds({ x: originX, y: originY, width, height })
+      state.view.setVisible(true)
       this.pushPaneState(paneId)
       await waitFrames(2)
 
       const pagePng = await capturePage()
-
-      let result = pagePng
-      if (topCss > 0) {
-        const topPng = await this.captureStrip(state.strips.top, width, topCss, scale)
-        result = overlayPng(result, topPng, 0, 0)
-      }
-      if (bottomCss > 0) {
-        const bottomPng = await this.captureStrip(state.strips.bottom, width, bottomCss, scale)
-        result = overlayPng(result, bottomPng, 0, Math.round((height - bottomCss) * scale))
-      }
-      return result
+      const chromePng = await this.captureOverlay(state, width, height, scale)
+      return overlayPng(pagePng, chromePng, 0, 0)
     } finally {
       this.applyBounds(paneId, mount)
       this.enforceZOrder()
@@ -223,20 +194,15 @@ export class SafariChromeManager {
 
     for (const paneId of CHROME_PANE_IDS) {
       const state = this.paneState.get(paneId)
-      if (!state) continue
-      for (const strip of [state.strips.top, state.strips.bottom]) {
-        if (!strip.mounted) continue
-        mainWindow.contentView.addChildView(strip.view)
-      }
+      if (!state?.mounted) continue
+      mainWindow.contentView.addChildView(state.view)
     }
     this.reassertPanels?.()
   }
 
   destroy(): void {
     for (const state of this.paneState.values()) {
-      for (const strip of [state.strips.top, state.strips.bottom]) {
-        this.destroyStrip(strip)
-      }
+      this.destroyView(state)
     }
     this.paneState.clear()
     this.mainWindow = null
@@ -256,25 +222,17 @@ export class SafariChromeManager {
   private async ensurePane(paneId: PaneId): Promise<PaneChromeState> {
     const existing = this.paneState.get(paneId)
     if (existing) {
-      await Promise.all([existing.strips.top.ready, existing.strips.bottom.ready])
+      await existing.ready
       return existing
     }
 
-    const url = this.paneManager.getTrackedPaneUrl(paneId)
-    const state: PaneChromeState = {
-      compact: false,
-      url,
-      strips: {
-        top: this.createStrip(paneId, 'top'),
-        bottom: this.createStrip(paneId, 'bottom')
-      }
-    }
+    const state = this.createOverlay(paneId)
     this.paneState.set(paneId, state)
-    await Promise.all([state.strips.top.ready, state.strips.bottom.ready])
+    await state.ready
     return state
   }
 
-  private createStrip(paneId: PaneId, strip: SafariChromeStrip): StripEntry {
+  private createOverlay(paneId: PaneId): PaneChromeState {
     const mainWindow = this.mainWindow
     if (!mainWindow || mainWindow.isDestroyed()) {
       throw new Error('SafariChromeManager has no window')
@@ -290,70 +248,103 @@ export class SafariChromeManager {
     view.setBackgroundColor('#00000000')
     view.setBounds({ x: 0, y: 0, width: 0, height: 0 })
     view.setVisible(false)
+    // Sticky visual chrome: paint above the page, but never steal taps.
+    // Electron View API; typed narrowly in @types bundled with electron.
+    ;(view as WebContentsView & {
+      setIgnoreMouseEvents: (ignore: boolean, options?: { forward: boolean }) => void
+    }).setIgnoreMouseEvents(true, { forward: true })
 
-    const entry: StripEntry = {
-      strip,
+    const state: PaneChromeState = {
+      compact: false,
+      url: this.paneManager.getTrackedPaneUrl(paneId),
       view,
       mounted: false,
       ready: Promise.resolve()
     }
 
-    entry.ready = new Promise<void>((resolve, reject) => {
+    state.ready = new Promise<void>((resolve, reject) => {
       const onReady = (): void => resolve()
       const onFail = (_event: Electron.Event, _code: number, description: string): void => {
-        reject(new Error(`Safari chrome strip failed to load: ${description}`))
+        reject(new Error(`Safari chrome overlay failed to load: ${description}`))
       }
 
       mainWindow.contentView.addChildView(view)
-      entry.mounted = true
+      state.mounted = true
       view.webContents.once('did-finish-load', onReady)
       view.webContents.once('did-fail-load', onFail)
-      void view.webContents.loadURL(getSafariChromeUrl(strip, paneId))
+      void view.webContents.loadURL(getSafariChromeUrl(paneId))
     })
 
-    return entry
+    return state
   }
 
-  private applyLogicalCaptureBounds(
-    paneId: PaneId,
-    originX: number,
-    originY: number,
-    logicalWidth: number,
-    logicalHeight: number,
-    compact: boolean
-  ): void {
+  private refreshAllBounds(): void {
+    for (const paneId of CHROME_PANE_IDS) {
+      const mount = this.paneManager.getLastMount(paneId)
+      if (mount) this.applyBounds(paneId, mount)
+    }
+  }
+
+  private applyBounds(paneId: PaneId, mount: PaneMount): void {
     const state = this.paneState.get(paneId)
     if (!state) return
 
-    const topHeight = getSafariTopHeight(paneId, compact)
-    const bottomHeight = getSafariBottomHeight(paneId)
+    if (!this.enabled || !this.panesVisible) {
+      this.zeroView(state)
+      return
+    }
 
-    state.strips.top.view.setBounds({
-      x: originX,
-      y: originY,
-      width: logicalWidth,
-      height: topHeight
+    const { screenBounds } = mount
+    state.view.setBounds({
+      x: Math.round(screenBounds.x),
+      y: Math.round(screenBounds.y),
+      width: Math.round(screenBounds.width),
+      height: Math.round(screenBounds.height)
     })
-    state.strips.top.view.setVisible(topHeight > 0)
-
-    state.strips.bottom.view.setBounds({
-      x: originX,
-      y: originY + logicalHeight - bottomHeight,
-      width: logicalWidth,
-      height: bottomHeight
-    })
-    state.strips.bottom.view.setVisible(bottomHeight > 0)
+    state.view.setVisible(true)
+    ;(state.view as WebContentsView & {
+      setIgnoreMouseEvents: (ignore: boolean, options?: { forward: boolean }) => void
+    }).setIgnoreMouseEvents(true, { forward: true })
   }
 
-  private async captureStrip(
-    strip: StripEntry,
+  private hideAll(): void {
+    for (const state of this.paneState.values()) {
+      this.zeroView(state)
+    }
+  }
+
+  private zeroView(state: PaneChromeState): void {
+    state.view.setVisible(false)
+    state.view.setBounds({ x: 0, y: 0, width: 0, height: 0 })
+  }
+
+  private pushAllState(): void {
+    for (const paneId of CHROME_PANE_IDS) {
+      this.pushPaneState(paneId)
+    }
+  }
+
+  private pushPaneState(paneId: PaneId): void {
+    const state = this.paneState.get(paneId)
+    if (!state || state.view.webContents.isDestroyed()) return
+    const payload: SafariChromeState = {
+      paneId,
+      url: state.url,
+      compact: state.compact,
+      visible: this.enabled && this.panesVisible
+    }
+    state.view.webContents.send('safari-chrome:state', payload)
+  }
+
+  private async captureOverlay(
+    state: PaneChromeState,
     cssWidth: number,
     cssHeight: number,
     scale: number
   ): Promise<Buffer> {
-    const webContents = strip.view.webContents
-    if (webContents.isDestroyed() || cssWidth <= 0 || cssHeight <= 0) {
-      throw new Error('Safari chrome strip is not capturable')
+    const webContents = state.view.webContents
+    if (webContents.isDestroyed()) {
+      throw new Error('Safari chrome overlay is not capturable')
     }
 
     if (!webContents.debugger.isAttached()) {
@@ -375,99 +366,23 @@ export class SafariChromeManager {
     })) as { data?: string }
 
     if (!response.data) {
-      throw new Error('Safari chrome strip capture returned no data')
+      throw new Error('Safari chrome overlay capture returned no data')
     }
 
     return Buffer.from(response.data, 'base64')
   }
 
-  private refreshAllBounds(): void {
-    for (const paneId of CHROME_PANE_IDS) {
-      const mount = this.paneManager.getLastMount(paneId)
-      if (mount) this.applyBounds(paneId, mount)
-    }
-  }
-
-  private applyBounds(paneId: PaneId, mount: PaneMount): void {
-    const state = this.paneState.get(paneId)
+  private destroyView(state: PaneChromeState): void {
     const mainWindow = this.mainWindow
-    if (!state || !mainWindow || mainWindow.isDestroyed()) return
-
-    if (!this.enabled || !this.panesVisible) {
-      this.zeroStrip(state.strips.top)
-      this.zeroStrip(state.strips.bottom)
-      return
-    }
-
-    const { screenBounds, zoom } = mount
-    const topHeight = scaleRound(getSafariTopHeight(paneId, state.compact), zoom)
-    const bottomHeight = scaleRound(getSafariBottomHeight(paneId), zoom)
-
-    const topBounds: Bounds = {
-      x: Math.round(screenBounds.x),
-      y: Math.round(screenBounds.y),
-      width: Math.round(screenBounds.width),
-      height: topHeight
-    }
-    const bottomBounds: Bounds = {
-      x: Math.round(screenBounds.x),
-      y: Math.round(screenBounds.y + screenBounds.height - bottomHeight),
-      width: Math.round(screenBounds.width),
-      height: bottomHeight
-    }
-
-    state.strips.top.view.setBounds(topBounds)
-    state.strips.top.view.setVisible(topHeight > 0)
-    state.strips.bottom.view.setBounds(bottomBounds)
-    state.strips.bottom.view.setVisible(bottomHeight > 0)
-  }
-
-  private hideAllStrips(): void {
-    for (const state of this.paneState.values()) {
-      this.zeroStrip(state.strips.top)
-      this.zeroStrip(state.strips.bottom)
-    }
-  }
-
-  private zeroStrip(strip: StripEntry): void {
-    strip.view.setVisible(false)
-    strip.view.setBounds({ x: 0, y: 0, width: 0, height: 0 })
-  }
-
-  private pushAllState(): void {
-    for (const paneId of CHROME_PANE_IDS) {
-      this.pushPaneState(paneId)
-    }
-  }
-
-  private pushPaneState(paneId: PaneId): void {
-    const state = this.paneState.get(paneId)
-    if (!state) return
-    const visible = this.enabled && this.panesVisible
-    for (const strip of [state.strips.top, state.strips.bottom]) {
-      if (strip.view.webContents.isDestroyed()) continue
-      const payload: SafariChromeStripState = {
-        paneId,
-        strip: strip.strip,
-        url: state.url,
-        compact: state.compact,
-        visible
-      }
-      strip.view.webContents.send('safari-chrome:state', payload)
-    }
-  }
-
-  private destroyStrip(strip: StripEntry): void {
-    const mainWindow = this.mainWindow
-    if (mainWindow && !mainWindow.isDestroyed() && strip.mounted) {
+    if (mainWindow && !mainWindow.isDestroyed() && state.mounted) {
       try {
-        mainWindow.contentView.removeChildView(strip.view)
+        mainWindow.contentView.removeChildView(state.view)
       } catch {
         // already detached
       }
     }
-    if (!strip.view.webContents.isDestroyed()) {
-      strip.view.webContents.close()
+    if (!state.view.webContents.isDestroyed()) {
+      state.view.webContents.close()
     }
   }
 }
