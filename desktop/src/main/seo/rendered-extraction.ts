@@ -1,4 +1,5 @@
 import type { RenderedAuditSnapshot } from '../../shared/seo-audit'
+import { sanitizeUrl } from '../../shared/seo-sanitize'
 
 /**
  * JavaScript evaluated inside the active pane to collect rendered evidence
@@ -96,6 +97,35 @@ export const RENDERED_EXTRACTION_EXPRESSION = `(() => {
     visibleTextCharacters: visibleText.length,
     repeatedText: Object.entries(repeated).filter(([, count]) => count > 1).map(([text, count]) => ({ text, count })).slice(0, 10)
   };
+  const links = Array.from(document.querySelectorAll('a')).map((el, sourceIndex) => {
+    const rawHref = el.getAttribute('href');
+    const normalized = (rawHref || '').trim().toLowerCase();
+    let kind = 'missing-destination';
+    if (el.hasAttribute('download')) kind = 'download';
+    else if (normalized.startsWith('#')) kind = 'fragment';
+    else if (normalized.startsWith('mailto:')) kind = 'email';
+    else if (normalized.startsWith('tel:')) kind = 'telephone';
+    else if (normalized.startsWith('javascript:')) kind = 'javascript';
+    else if (rawHref) {
+      try {
+        const destination = new URL(el.href, document.baseURI);
+        kind = ['http:', 'https:'].includes(destination.protocol) ? (destination.origin === location.origin ? 'internal' : 'external') : 'other-scheme';
+      } catch { kind = 'missing-destination'; }
+    }
+    return {
+      sourceIndex,
+      rawHref,
+      resolvedHref: rawHref && !normalized.startsWith('javascript:') ? el.href : null,
+      text: (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim(),
+      accessibleName: (el.getAttribute('aria-label') || (el.getAttribute('aria-labelledby') ? document.getElementById(el.getAttribute('aria-labelledby'))?.textContent : '') || el.innerText || el.textContent || el.querySelector('img')?.getAttribute('alt') || '').replace(/\\s+/g, ' ').trim(),
+      target: el.getAttribute('target'),
+      rel: (el.getAttribute('rel') || '').toLowerCase().split(/\\s+/).filter(Boolean),
+      rawRel: el.getAttribute('rel') || '',
+      visible: isVisible(el),
+      kind,
+      fragmentTargetExists: kind === 'fragment' ? Boolean(document.getElementById((rawHref || '').slice(1))) : null
+    };
+  });
   const measure = (text, font) => {
     if (!text) return 0;
     const canvas = document.createElement('canvas');
@@ -115,6 +145,7 @@ export const RENDERED_EXTRACTION_EXPRESSION = `(() => {
     social,
     structuredSources,
     documentStructure,
+    links,
     titleWidthPx: title === null ? null : measure(title.trim(), '20px Arial'),
     descriptionWidthsPx: descriptions.map((value) => measure(value.trim(), '14px Arial') ?? 0)
   };
@@ -136,9 +167,63 @@ export function normalizeRenderedSnapshot(raw: unknown): RenderedAuditSnapshot {
     social: socialArray(value.social),
     structuredSources: structuredSourceArray(value.structuredSources),
     documentStructure: documentStructureValue(value.documentStructure),
+    links: linkArray(value.links),
     titleWidthPx: typeof value.titleWidthPx === 'number' ? value.titleWidthPx : null,
     descriptionWidthsPx: numberArray(value.descriptionWidthsPx)
   }
+}
+
+function linkArray(value: unknown): RenderedAuditSnapshot['links'] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const link = item as Record<string, unknown>
+    const kinds = [
+      'internal',
+      'external',
+      'fragment',
+      'email',
+      'telephone',
+      'download',
+      'javascript',
+      'other-scheme',
+      'missing-destination'
+    ]
+    if (
+      typeof link.sourceIndex !== 'number' ||
+      typeof link.text !== 'string' ||
+      typeof link.accessibleName !== 'string' ||
+      typeof link.visible !== 'boolean' ||
+      !kinds.includes(String(link.kind))
+    )
+      return []
+    const rawHref = typeof link.rawHref === 'string' ? safeLinkUrl(link.rawHref) : null
+    const resolvedHref =
+      typeof link.resolvedHref === 'string' ? safeLinkUrl(link.resolvedHref) : null
+    return [
+      {
+        sourceIndex: link.sourceIndex,
+        rawHref,
+        resolvedHref,
+        text: link.text,
+        accessibleName: link.accessibleName,
+        target: typeof link.target === 'string' ? link.target : null,
+        rel: Array.isArray(link.rel)
+          ? link.rel.filter((token): token is string => typeof token === 'string')
+          : [],
+        rawRel: typeof link.rawRel === 'string' ? link.rawRel : '',
+        visible: link.visible,
+        kind: link.kind as NonNullable<RenderedAuditSnapshot['links']>[number]['kind'],
+        fragmentTargetExists:
+          typeof link.fragmentTargetExists === 'boolean' ? link.fragmentTargetExists : null
+      }
+    ]
+  })
+}
+
+function safeLinkUrl(value: string): string {
+  if (/^javascript:/i.test(value)) return 'javascript:[redacted]'
+  return sanitizeUrl(value)
 }
 
 function documentStructureValue(value: unknown): RenderedAuditSnapshot['documentStructure'] {

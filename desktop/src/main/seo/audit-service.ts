@@ -36,7 +36,8 @@ export function evaluateFindings(
   indexingIntent: IndexingIntent,
   searchAppearance: AuditResult['searchAppearance'],
   structuredData: AuditResult['structuredData'],
-  documentStructure: AuditResult['documentStructure']
+  documentStructure: AuditResult['documentStructure'],
+  links: AuditResult['links']
 ): Finding[] {
   return SEO_RULES.map((rule) => {
     try {
@@ -49,7 +50,8 @@ export function evaluateFindings(
         indexability: evidence.indexability,
         socialSharing: evidence.socialSharing,
         structuredData,
-        documentStructure
+        documentStructure,
+        links
       })
     } catch (error) {
       return unableToVerifyFinding(rule, error)
@@ -90,6 +92,7 @@ export function buildAuditResult(
     visibleTextCharacters: 0,
     repeatedText: []
   }
+  const links = input.evidence.rendered.links ?? []
   return {
     id: deps.newId(),
     paneId: input.paneId,
@@ -107,12 +110,14 @@ export function buildAuditResult(
     socialSharing: input.evidence.socialSharing,
     structuredData,
     documentStructure,
+    links,
     findings: evaluateFindings(
       input.evidence,
       input.indexingIntent,
       searchAppearance,
       structuredData,
-      documentStructure
+      documentStructure,
+      links
     )
   }
 }

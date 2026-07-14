@@ -440,3 +440,37 @@ test('reports missing language, heading defects, and an empty main landmark', as
     await close()
   }
 })
+
+test('inventories and filters rendered links without crawling ordinary destinations', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/seo/links'))
+    await waitForPaneElement(window, 'desktop', 'client-links')
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('seo-toggle').click()
+    const panel = await getSeoPanelPage(window)
+    await panel.getByTestId('seo-run-audit').click()
+
+    const inventory = panel.getByTestId('seo-link-inventory')
+    await expect(inventory).toContainText('12 anchors')
+    await expect(inventory).toContainText('javascript')
+    await expect(inventory).toContainText('Hidden responsive link')
+    await inventory.getByTestId('seo-link-filter').fill('client-rendered')
+    await expect(inventory.getByTestId('seo-link-item')).toHaveCount(1)
+    await expect(inventory.getByTestId('seo-link-item')).toContainText('/client-rendered')
+
+    await expect(
+      panel.locator('[data-testid="seo-finding"][data-rule-id="links/destinations-valid"]')
+    ).toHaveAttribute('data-outcome', 'error')
+    await expect(
+      panel.locator('[data-testid="seo-finding"][data-rule-id="links/directives-consistent"]')
+    ).toHaveAttribute('data-outcome', 'warning')
+    await expect(
+      panel.locator('[data-testid="seo-finding"][data-rule-id="links/inventory"]')
+    ).toHaveAttribute('data-outcome', 'opportunity')
+  } finally {
+    await close()
+  }
+})

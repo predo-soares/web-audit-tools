@@ -951,6 +951,29 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     return
   }
 
+  if (pathname === '/seo/links') {
+    sendHtml(
+      res,
+      `<!doctype html><html lang="en"><head><title>Links fixture</title><style>.hidden-link { display: none }</style></head><body>
+        <main><h1>Links</h1>
+          <a href="/relative-target">Relative destination</a>
+          <a href="/relative-target">Duplicate destination</a>
+          <a href="#details">Jump to details</a><div id="details">Details</div>
+          <a href="mailto:hello@example.test">Email</a><a href="tel:+55110000">Telephone</a>
+          <a href="/guide.pdf" download>Download guide</a>
+          <a href="/account" aria-label="Account"><svg></svg></a>
+          <a href="/sponsored" rel="nofollow sponsored">Sponsor</a>
+          <a href="javascript:window.fixtureLinkRan=true">Script link</a>
+          <a href="/bad-rel" rel="follow,nofollow">Bad relationship</a>
+          <a class="hidden-link" href="/desktop-only">Hidden responsive link</a>
+          <div id="client-links"></div>
+        </main>
+        <script>document.getElementById('client-links').innerHTML = '<a href="/client-rendered">Client-rendered link</a>';</script>
+      </body></html>`
+    )
+    return
+  }
+
   if (pathname === '/seo/indexability-blocked') {
     sendHtml(
       res,

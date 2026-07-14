@@ -31,6 +31,7 @@ export function SeoPanel(): React.JSX.Element {
   const [url, setUrl] = useState('')
   const [pageTitle, setPageTitle] = useState('')
   const [intent, setIntent] = useState<IndexingIntent>('indexable')
+  const [linkFilter, setLinkFilter] = useState('')
   // The audit job is owned by the main process; the panel is a view of its
   // broadcast state so closing/reopening restores progress instead of losing it.
   const [job, setJob] = useState<AuditJobState>(IDLE_AUDIT_STATE)
@@ -437,6 +438,73 @@ export function SeoPanel(): React.JSX.Element {
                 <p className="mt-2 text-[10px] leading-4 text-muted-foreground">
                   These observations do not evaluate keyword density, prose quality, or general WCAG
                   conformance.
+                </p>
+              </section>
+
+              <section
+                data-testid="seo-link-inventory"
+                className="mb-3 rounded-lg border border-white/10 bg-white/[0.03] p-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Link inventory
+                  </p>
+                  <span className="text-[10px] text-muted-foreground">
+                    {result.links.length} anchors
+                  </span>
+                </div>
+                <input
+                  data-testid="seo-link-filter"
+                  type="search"
+                  value={linkFilter}
+                  onChange={(event) => setLinkFilter(event.target.value)}
+                  placeholder="Filter links"
+                  aria-label="Filter link inventory"
+                  className="mt-2 w-full rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs outline-none placeholder:text-muted-foreground"
+                />
+                <ul
+                  data-testid="seo-link-list"
+                  className="mt-2 max-h-64 space-y-1 overflow-auto text-[10px]"
+                >
+                  {result.links
+                    .filter((link) => {
+                      const query = linkFilter.trim().toLowerCase()
+                      return (
+                        !query ||
+                        [
+                          link.accessibleName,
+                          link.text,
+                          link.resolvedHref,
+                          link.rawHref,
+                          link.kind,
+                          ...link.rel
+                        ]
+                          .filter(Boolean)
+                          .some((value) => String(value).toLowerCase().includes(query))
+                      )
+                    })
+                    .map((link) => (
+                      <li
+                        key={link.sourceIndex}
+                        data-testid="seo-link-item"
+                        className="rounded border border-white/10 p-2"
+                      >
+                        <p className="text-foreground">
+                          {link.accessibleName || link.text || '(unnamed link)'}
+                        </p>
+                        <p className="break-all text-muted-foreground">
+                          source {link.sourceIndex} · {link.kind} ·{' '}
+                          {link.visible ? 'visible' : 'hidden'} ·{' '}
+                          {link.resolvedHref ?? link.rawHref ?? '(no destination)'}
+                        </p>
+                        <p className="text-muted-foreground">
+                          target {link.target ?? '_self'} · rel {link.rel.join(' ') || '(none)'}
+                        </p>
+                      </li>
+                    ))}
+                </ul>
+                <p className="mt-2 text-[10px] text-muted-foreground">
+                  Ordinary destinations are classified from rendered anchors and are not fetched.
                 </p>
               </section>
 
