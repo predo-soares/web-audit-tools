@@ -844,6 +844,19 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     return
   }
 
+  // Delivered <title> differs from the title after client-side rendering, so an
+  // audit's delivered-vs-rendered check should warn.
+  if (pathname === '/seo/hydrated-title') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head><title>Delivered Title</title></head><body>
+        <h1 id="seo-hydrated-title">Hydrated</h1>
+        <script>document.title = 'Rendered Title';</script>
+      </body></html>`
+    )
+    return
+  }
+
   if (pathname === '/seo/empty-title') {
     sendHtml(
       res,

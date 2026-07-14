@@ -867,6 +867,11 @@ export class PaneManager {
     return this.sharedSession
   }
 
+  /** The shared preview session, or null before initialize(). */
+  getPreviewSession(): Electron.Session | null {
+    return this.sharedSession
+  }
+
   private getEngine(paneId: PaneId): EngineView {
     const engine = this.engines.get(paneId)
     if (!engine) throw new Error(`Unknown pane: ${paneId}`)

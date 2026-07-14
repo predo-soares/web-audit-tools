@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import { AuditManager } from '../../src/main/seo/audit-manager'
 import type { AuditPort } from '../../src/main/seo/audit-service'
-import type { AuditJobState, RenderedAuditSnapshot } from '../../src/shared/seo-audit'
+import {
+  UNAVAILABLE_DELIVERED_EVIDENCE,
+  type AuditJobState,
+  type RenderedAuditSnapshot
+} from '../../src/shared/seo-audit'
 import type { PaneId } from '../../src/shared/types'
 
 /**
@@ -38,6 +42,8 @@ function makePort(overrides?: Partial<AuditPort>): AuditPort {
     getActivePaneUrl: () => 'https://example.com/',
     getLastNavTimestamp: () => 1000,
     extractRendered: () => Promise.resolve({ title: 'ok' }),
+    fetchDelivered: () => Promise.resolve(UNAVAILABLE_DELIVERED_EVIDENCE),
+    getAccessContext: () => Promise.resolve({ authenticated: false }),
     ...overrides
   }
 }

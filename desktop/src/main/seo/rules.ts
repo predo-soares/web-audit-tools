@@ -1,5 +1,7 @@
 import type {
+  AuditAccessContext,
   AuditCategory,
+  DeliveredEvidence,
   Finding,
   IndexingIntent,
   RenderedAuditSnapshot
@@ -7,11 +9,13 @@ import type {
 
 /**
  * Everything a rule may read when evaluating the audited page. Grows with the
- * evidence model (delivered evidence, referenced-resource results) as later
- * categories land; Issue 01 exposes only the rendered snapshot and intent.
+ * evidence model as later categories land. A rule may cite either the rendered
+ * or the delivered origin and may compare them to report a discrepancy.
  */
 export interface RuleContext {
   rendered: RenderedAuditSnapshot
+  delivered: DeliveredEvidence
+  accessContext: AuditAccessContext
   indexingIntent: IndexingIntent
 }
 
@@ -81,8 +85,75 @@ export const titlePresenceRule: Rule = {
   }
 }
 
+// A page whose delivered <title> differs from the one present after client-side
+// rendering can appear one way to crawlers that do not execute scripts and
+// another way to users. This is advisory, not an error: hydration legitimately
+// changes titles. When delivered evidence is unavailable the check cannot run,
+// so it reports Unable to verify rather than guessing.
+export const titleHydrationRule: Rule = {
+  id: 'search-appearance/title-delivered-vs-rendered',
+  category: 'search-appearance',
+  evaluate({ delivered, rendered, accessContext }): Finding {
+    const renderedTitle = rendered.title?.trim() ?? ''
+
+    if (!delivered.available) {
+      return {
+        ruleId: this.id,
+        category: this.category,
+        outcome: 'unable-to-verify',
+        summary: 'Delivered title could not be compared',
+        impact:
+          'Without the pre-render response, the audit cannot tell whether crawlers see the same title as users.',
+        remediation: null,
+        evidence: {
+          origin: 'delivered',
+          detail: `Delivered evidence is unavailable (${delivered.unavailableReason ?? 'unknown'}).`
+        }
+      }
+    }
+
+    const deliveredTitle = delivered.documentTitle?.trim() ?? ''
+    const authNote = accessContext.authenticated
+      ? ' Observed through an authenticated session, which may differ from the public page.'
+      : ''
+
+    if (deliveredTitle && renderedTitle && deliveredTitle !== renderedTitle) {
+      return {
+        ruleId: this.id,
+        category: this.category,
+        outcome: 'warning',
+        summary: 'Title differs before and after rendering',
+        impact:
+          'Crawlers that do not run scripts may index the delivered title while users see the rendered one.' +
+          authNote,
+        remediation:
+          'Serve the final title in the delivered HTML so crawlers and users see the same value.',
+        evidence: {
+          origin: 'delivered',
+          detail: `Delivered: “${deliveredTitle}” · Rendered: “${renderedTitle}”`
+        }
+      }
+    }
+
+    return {
+      ruleId: this.id,
+      category: this.category,
+      outcome: 'passed',
+      summary: 'Delivered and rendered titles agree',
+      impact: 'Crawlers and users see a consistent title.',
+      remediation: null,
+      evidence: {
+        origin: 'delivered',
+        detail: deliveredTitle
+          ? `Delivered title: “${deliveredTitle}”`
+          : 'No delivered title to compare.'
+      }
+    }
+  }
+}
+
 /**
  * The Rule catalog for a Page SEO audit, in display order. Later slices append
  * category rules here.
  */
-export const SEO_RULES: Rule[] = [titlePresenceRule]
+export const SEO_RULES: Rule[] = [titlePresenceRule, titleHydrationRule]

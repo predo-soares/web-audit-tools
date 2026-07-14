@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   SEO_RULE_CATALOG_VERSION,
+  UNAVAILABLE_DELIVERED_EVIDENCE,
   inferIndexingIntent,
   isAuditableUrl,
   type Finding,
@@ -17,6 +18,8 @@ function makePort(overrides?: Partial<AuditPort>): AuditPort {
     getActivePaneUrl: () => 'https://example.com/',
     getLastNavTimestamp: () => 1000,
     extractRendered: () => Promise.resolve({ title: 'Example' }),
+    fetchDelivered: () => Promise.resolve(UNAVAILABLE_DELIVERED_EVIDENCE),
+    getAccessContext: () => Promise.resolve({ authenticated: false }),
     ...overrides
   }
 }
@@ -66,6 +69,8 @@ describe('titlePresenceRule', () => {
   const evaluate = (title: string | null): Finding =>
     titlePresenceRule.evaluate({
       rendered: { title } as RenderedAuditSnapshot,
+      delivered: UNAVAILABLE_DELIVERED_EVIDENCE,
+      accessContext: { authenticated: false },
       indexingIntent: 'indexable'
     })
 

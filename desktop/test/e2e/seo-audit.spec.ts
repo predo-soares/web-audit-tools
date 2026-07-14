@@ -126,6 +126,39 @@ test('marks a completed result stale after the pane navigates', async ({ fixture
   }
 })
 
+test('captures delivered evidence and flags a delivered-vs-rendered title discrepancy', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/seo/hydrated-title'))
+    await waitForPaneElement(window, 'desktop', 'seo-hydrated-title')
+
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('seo-toggle').click()
+
+    const panel = await getSeoPanelPage(window)
+    await panel.getByTestId('seo-run-audit').click()
+    await expect(panel.getByTestId('seo-result')).toBeVisible()
+
+    // The rendered title is present and usable.
+    await expect(
+      panel.locator('[data-testid="seo-finding"][data-rule-id="search-appearance/title-present"]')
+    ).toHaveAttribute('data-outcome', 'passed')
+
+    // Delivered evidence was fetched and compared against the rendered title.
+    const hydration = panel.locator(
+      '[data-testid="seo-finding"][data-rule-id="search-appearance/title-delivered-vs-rendered"]'
+    )
+    await expect(hydration).toHaveAttribute('data-outcome', 'warning')
+    await expect(hydration.getByTestId('seo-finding-evidence')).toContainText('Delivered Title')
+    await expect(hydration.getByTestId('seo-finding-evidence')).toContainText('Rendered Title')
+  } finally {
+    await close()
+  }
+})
+
 test('explains there is nothing to audit before a page is committed', async () => {
   const { window, close } = await launchApp()
 

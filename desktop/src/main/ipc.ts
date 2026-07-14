@@ -16,7 +16,28 @@ import {
   RENDERED_EXTRACTION_EXPRESSION,
   normalizeRenderedSnapshot
 } from './seo/rendered-extraction'
-import type { IndexingIntent } from '../shared/seo-audit'
+import { captureDeliveredEvidence } from './seo/delivered-evidence'
+import { nodeFetchTransport } from './seo/referenced-fetch'
+import { UNAVAILABLE_DELIVERED_EVIDENCE, type IndexingIntent } from '../shared/seo-audit'
+
+/**
+ * Build a request Cookie header from the pane session so delivered evidence is
+ * fetched with the same authentication the user sees. The header is sent but
+ * never stored in the resulting evidence (privacy boundary).
+ */
+async function sessionCookieHeader(
+  session: Electron.Session | null,
+  url: string
+): Promise<string | null> {
+  if (!session) return null
+  try {
+    const cookies = await session.cookies.get({ url })
+    if (cookies.length === 0) return null
+    return cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ')
+  } catch {
+    return null
+  }
+}
 
 export function makeAuditPort(paneManager: PaneManager): AuditPort {
   return {
@@ -26,6 +47,32 @@ export function makeAuditPort(paneManager: PaneManager): AuditPort {
     extractRendered: async (paneId) => {
       const raw = await paneManager.evaluateInPane(paneId, RENDERED_EXTRACTION_EXPRESSION)
       return normalizeRenderedSnapshot(raw)
+    },
+    fetchDelivered: async (url) => {
+      try {
+        const session = paneManager.getPreviewSession()
+        const paneId = paneManager.getNavigationState().activePane ?? 'desktop'
+        const cookieHeader = await sessionCookieHeader(session, url)
+        const headers: Record<string, string> = {
+          'User-Agent': paneManager.getUserAgentForPane(paneId)
+        }
+        if (cookieHeader) headers.Cookie = cookieHeader
+        return await captureDeliveredEvidence(url, nodeFetchTransport, headers)
+      } catch {
+        // The port contract forbids throwing: a broken fetch is unavailable
+        // evidence, not an audit failure.
+        return { ...UNAVAILABLE_DELIVERED_EVIDENCE, unavailableReason: 'network' }
+      }
+    },
+    getAccessContext: async (url) => {
+      try {
+        const session = paneManager.getPreviewSession()
+        if (!session) return { authenticated: false }
+        const cookies = await session.cookies.get({ url })
+        return { authenticated: cookies.length > 0 }
+      } catch {
+        return { authenticated: false }
+      }
     }
   }
 }

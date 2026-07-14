@@ -1,14 +1,17 @@
 import {
   IDLE_AUDIT_STATE,
-  SEO_RULE_CATALOG_VERSION,
   isAuditableUrl,
   type AuditJobState,
-  type AuditResult,
   type AuditRunResult,
   type IndexingIntent
 } from '../../shared/seo-audit'
 import type { PaneId } from '../../shared/types'
-import { evaluateFindings, type AuditDeps, type AuditPort } from './audit-service'
+import {
+  buildAuditResult,
+  gatherReferencedEvidence,
+  type AuditDeps,
+  type AuditPort
+} from './audit-service'
 
 const defaultDeps: AuditDeps = {
   nowMs: () => Date.now(),
@@ -87,17 +90,23 @@ export class AuditManager {
       return { ok: false, reason: 'cancelled' }
     }
 
-    const result: AuditResult = {
-      id: this.deps.newId(),
+    // Delivered evidence and access context never throw; a blocked or timed-out
+    // fetch resolves to unavailable evidence handled by the rules.
+    const [delivered, accessContext] = await gatherReferencedEvidence(this.port, url)
+
+    if (runToken !== this.token) {
+      // The pane navigated while delivered evidence was in flight.
+      return { ok: false, reason: 'cancelled' }
+    }
+
+    const result = buildAuditResult(this.deps, {
       paneId,
       url,
       navigationTimestamp: this.port.getLastNavTimestamp(paneId),
       startedAt,
-      completedAt: this.deps.nowMs(),
-      ruleCatalogVersion: SEO_RULE_CATALOG_VERSION,
       indexingIntent: options.indexingIntent,
-      findings: evaluateFindings(rendered, options.indexingIntent)
-    }
+      evidence: { rendered, delivered, accessContext }
+    })
 
     this.setState({
       phase: 'completed',

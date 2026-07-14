@@ -1,14 +1,24 @@
 import {
   SEO_RULE_CATALOG_VERSION,
   isAuditableUrl,
+  type AuditAccessContext,
   type AuditResult,
   type AuditRunResult,
+  type DeliveredEvidence,
   type Finding,
   type IndexingIntent,
   type RenderedAuditSnapshot
 } from '../../shared/seo-audit'
+import { sanitizeUrl } from '../../shared/seo-sanitize'
 import type { PaneId } from '../../shared/types'
 import { SEO_RULES, type Rule } from './rules'
+
+/** The three evidence origins an audit gathers for a single navigation. */
+export interface AuditEvidence {
+  rendered: RenderedAuditSnapshot
+  delivered: DeliveredEvidence
+  accessContext: AuditAccessContext
+}
 
 /**
  * Evaluate every rule against the gathered evidence. A rule that throws becomes
@@ -16,16 +26,61 @@ import { SEO_RULES, type Rule } from './rules'
  * unrelated siblings.
  */
 export function evaluateFindings(
-  rendered: RenderedAuditSnapshot,
+  evidence: AuditEvidence,
   indexingIntent: IndexingIntent
 ): Finding[] {
   return SEO_RULES.map((rule) => {
     try {
-      return rule.evaluate({ rendered, indexingIntent })
+      return rule.evaluate({
+        rendered: evidence.rendered,
+        delivered: evidence.delivered,
+        accessContext: evidence.accessContext,
+        indexingIntent
+      })
     } catch (error) {
       return unableToVerifyFinding(rule, error)
     }
   })
+}
+
+/**
+ * Gather delivered evidence and access context in parallel. Neither throws — a
+ * blocked or timed-out delivered fetch resolves to unavailable evidence — so
+ * only a rendered-evidence failure is treated as an engine failure.
+ */
+export function gatherReferencedEvidence(
+  port: AuditPort,
+  url: string
+): Promise<[DeliveredEvidence, AuditAccessContext]> {
+  return Promise.all([port.fetchDelivered(url), port.getAccessContext(url)])
+}
+
+/** Assemble a stable, sanitized {@link AuditResult} from gathered evidence. */
+export function buildAuditResult(
+  deps: AuditDeps,
+  input: {
+    paneId: PaneId
+    url: string
+    navigationTimestamp: number | null
+    startedAt: number
+    indexingIntent: IndexingIntent
+    evidence: AuditEvidence
+  }
+): AuditResult {
+  return {
+    id: deps.newId(),
+    paneId: input.paneId,
+    url: sanitizeUrl(input.url),
+    navigationTimestamp: input.navigationTimestamp,
+    startedAt: input.startedAt,
+    completedAt: deps.nowMs(),
+    ruleCatalogVersion: SEO_RULE_CATALOG_VERSION,
+    indexingIntent: input.indexingIntent,
+    accessContext: input.evidence.accessContext,
+    rendered: input.evidence.rendered,
+    delivered: input.evidence.delivered,
+    findings: evaluateFindings(input.evidence, input.indexingIntent)
+  }
 }
 
 function unableToVerifyFinding(rule: Rule, error: unknown): Finding {
@@ -54,6 +109,10 @@ export interface AuditPort {
   getLastNavTimestamp(paneId: PaneId): number | null
   /** Extract rendered evidence from the pane without mutating or reloading it. */
   extractRendered(paneId: PaneId): Promise<RenderedAuditSnapshot>
+  /** Bounded fetch of delivered (pre-render) evidence. Must not throw. */
+  fetchDelivered(url: string): Promise<DeliveredEvidence>
+  /** Whether the pane session is authenticated for `url`. Must not throw. */
+  getAccessContext(url: string): Promise<AuditAccessContext>
 }
 
 export interface AuditDeps {
@@ -88,20 +147,16 @@ export async function runAudit(
   const paneId = port.getActivePaneId() ?? 'desktop'
   const startedAt = deps.nowMs()
   const rendered = await port.extractRendered(paneId)
+  const [delivered, accessContext] = await gatherReferencedEvidence(port, url)
 
-  const findings = evaluateFindings(rendered, options.indexingIntent)
-
-  const result: AuditResult = {
-    id: deps.newId(),
+  const result = buildAuditResult(deps, {
     paneId,
     url,
     navigationTimestamp: port.getLastNavTimestamp(paneId),
     startedAt,
-    completedAt: deps.nowMs(),
-    ruleCatalogVersion: SEO_RULE_CATALOG_VERSION,
     indexingIntent: options.indexingIntent,
-    findings
-  }
+    evidence: { rendered, delivered, accessContext }
+  })
 
   return { ok: true, result }
 }

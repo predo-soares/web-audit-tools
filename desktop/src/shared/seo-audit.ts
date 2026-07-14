@@ -84,6 +84,12 @@ export interface AuditResult {
   completedAt: number
   ruleCatalogVersion: string
   indexingIntent: IndexingIntent
+  /** Whether the page was observed through an authenticated pane session. */
+  accessContext: AuditAccessContext
+  /** Rendered evidence the findings were computed from. */
+  rendered: RenderedAuditSnapshot
+  /** Delivered (pre-render) evidence; may be unavailable. */
+  delivered: DeliveredEvidence
   findings: Finding[]
 }
 
@@ -97,6 +103,56 @@ export interface RenderedAuditSnapshot {
    * text (possibly empty/whitespace) otherwise. The rule decides usability.
    */
   title: string | null
+}
+
+/** One hop in a redirect chain leading to the delivered document. */
+export interface RedirectHop {
+  from: string
+  to: string
+  status: number
+}
+
+/**
+ * Delivered evidence: the page as supplied before client-side rendering (see
+ * CONTEXT.md, "Delivered evidence"). Captured via a bounded fetch of the
+ * committed URL, so it can be unavailable (blocked / timed out / too large),
+ * in which case dependent checks report Unable to verify. All URLs and headers
+ * are already sanitized (see {@link import('./seo-sanitize')}).
+ */
+export interface DeliveredEvidence {
+  available: boolean
+  /** Why delivered evidence is unavailable, when `available` is false. */
+  unavailableReason: string | null
+  /** Final response URL after redirects (sanitized). */
+  finalUrl: string | null
+  status: number | null
+  redirects: RedirectHop[]
+  /** Sanitized response headers of the final document response. */
+  headers: Record<string, string>
+  /** `<title>` parsed from the delivered HTML, when present. */
+  documentTitle: string | null
+  /** Whether the delivered body was truncated at the byte budget. */
+  truncated: boolean
+}
+
+/**
+ * Whether the audit observed the page through an authenticated or
+ * unauthenticated pane session (see CONTEXT.md, "Audit access context").
+ * Qualifies crawler-oriented conclusions.
+ */
+export interface AuditAccessContext {
+  authenticated: boolean
+}
+
+export const UNAVAILABLE_DELIVERED_EVIDENCE: DeliveredEvidence = {
+  available: false,
+  unavailableReason: 'not-fetched',
+  finalUrl: null,
+  status: null,
+  redirects: [],
+  headers: {},
+  documentTitle: null,
+  truncated: false
 }
 
 export type AuditRunFailureReason = 'no-url' | 'busy' | 'cancelled' | 'failed'
