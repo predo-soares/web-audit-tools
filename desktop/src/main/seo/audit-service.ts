@@ -15,6 +15,7 @@ import { sanitizeUrl } from '../../shared/seo-sanitize'
 import type { PaneId } from '../../shared/types'
 import { SEO_RULES, type Rule } from './rules'
 import { resolveSearchAppearance } from './search-appearance'
+import { analyzeStructuredData } from './structured-data'
 
 /** The three evidence origins an audit gathers for a single navigation. */
 export interface AuditEvidence {
@@ -33,7 +34,8 @@ export interface AuditEvidence {
 export function evaluateFindings(
   evidence: AuditEvidence,
   indexingIntent: IndexingIntent,
-  searchAppearance: AuditResult['searchAppearance']
+  searchAppearance: AuditResult['searchAppearance'],
+  structuredData: AuditResult['structuredData']
 ): Finding[] {
   return SEO_RULES.map((rule) => {
     try {
@@ -44,7 +46,8 @@ export function evaluateFindings(
         indexingIntent,
         searchAppearance,
         indexability: evidence.indexability,
-        socialSharing: evidence.socialSharing
+        socialSharing: evidence.socialSharing,
+        structuredData
       })
     } catch (error) {
       return unableToVerifyFinding(rule, error)
@@ -77,6 +80,7 @@ export function buildAuditResult(
   }
 ): AuditResult {
   const searchAppearance = resolveSearchAppearance(input.evidence, input.url)
+  const structuredData = analyzeStructuredData(input.evidence.rendered.structuredSources ?? [])
   return {
     id: deps.newId(),
     paneId: input.paneId,
@@ -92,7 +96,13 @@ export function buildAuditResult(
     searchAppearance,
     indexability: input.evidence.indexability,
     socialSharing: input.evidence.socialSharing,
-    findings: evaluateFindings(input.evidence, input.indexingIntent, searchAppearance)
+    structuredData,
+    findings: evaluateFindings(
+      input.evidence,
+      input.indexingIntent,
+      searchAppearance,
+      structuredData
+    )
   }
 }
 

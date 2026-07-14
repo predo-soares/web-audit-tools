@@ -320,3 +320,60 @@ test('resolves social fallbacks, verifies the image, and renders representative 
     await close()
   }
 })
+
+test('inspects JSON-LD, Microdata, RDFa, and attributed enhancement eligibility', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/seo/structured-data'))
+    await waitForPaneElement(window, 'desktop', 'seo-structured-data')
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('seo-toggle').click()
+    const panel = await getSeoPanelPage(window)
+    await panel.getByTestId('seo-run-audit').click()
+
+    const inspector = panel.getByTestId('seo-structured-data')
+    await expect(inspector).toContainText('does not guarantee a rich result')
+    await expect(inspector.getByTestId('seo-structured-source')).toHaveCount(3)
+    await expect(inspector).toContainText('CustomThing')
+    await expect(
+      inspector.getByTestId('seo-search-enhancement').filter({ hasText: 'Article · eligible' })
+    ).toHaveCount(1)
+    await expect(
+      panel.locator('[data-testid="seo-finding"][data-rule-id="structured-data/standards-valid"]')
+    ).toHaveAttribute('data-outcome', 'passed')
+  } finally {
+    await close()
+  }
+})
+
+test('reports malformed sources, missing requirements, and broken entity relationships', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/seo/structured-data-invalid'))
+    await waitForPaneElement(window, 'desktop', 'seo-structured-data-invalid')
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('seo-toggle').click()
+    const panel = await getSeoPanelPage(window)
+    await panel.getByTestId('seo-run-audit').click()
+
+    await expect(
+      panel.locator('[data-testid="seo-finding"][data-rule-id="structured-data/standards-valid"]')
+    ).toHaveAttribute('data-outcome', 'error')
+    await expect(
+      panel.locator(
+        '[data-testid="seo-finding"][data-rule-id="structured-data/relationships-valid"]'
+      )
+    ).toHaveAttribute('data-outcome', 'warning')
+    await expect(
+      panel.locator(
+        '[data-testid="seo-finding"][data-rule-id="structured-data/search-enhancement-eligibility"]'
+      )
+    ).toHaveAttribute('data-outcome', 'warning')
+  } finally {
+    await close()
+  }
+})

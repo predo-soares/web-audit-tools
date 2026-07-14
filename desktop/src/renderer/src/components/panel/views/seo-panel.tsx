@@ -313,6 +313,76 @@ export function SeoPanel(): React.JSX.Element {
                 </details>
               </section>
 
+              <section
+                data-testid="seo-structured-data"
+                className="mb-3 rounded-lg border border-white/10 bg-white/[0.03] p-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Structured data
+                  </p>
+                  <span className="text-[10px] text-muted-foreground">
+                    {result.structuredData.entities.length} entities
+                  </span>
+                </div>
+                <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+                  Search enhancement eligibility uses a versioned profile and does not guarantee a
+                  rich result.
+                </p>
+                <div className="mt-2 space-y-2">
+                  {result.structuredData.sources.map((source) => (
+                    <details
+                      key={`${source.format}-${source.sourceIndex}`}
+                      data-testid="seo-structured-source"
+                      className="rounded-md border border-white/10 p-2"
+                    >
+                      <summary className="cursor-pointer text-xs">
+                        {source.format.toUpperCase()} source {source.sourceIndex + 1}
+                      </summary>
+                      <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all text-[10px] text-muted-foreground">
+                        {source.raw}
+                      </pre>
+                    </details>
+                  ))}
+                  {result.structuredData.entities.map((entity, index) => (
+                    <details
+                      key={`${entity.format}-${entity.sourceIndex}-${entity.path}-${index}`}
+                      data-testid="seo-structured-entity"
+                      className="rounded-md border border-white/10 p-2"
+                    >
+                      <summary className="cursor-pointer text-xs">
+                        {entity.types.join(', ') || 'Untyped entity'}
+                      </summary>
+                      <p className="mt-1 text-[10px] text-muted-foreground">
+                        {entity.format} source {entity.sourceIndex + 1} · {entity.path}
+                        {entity.id ? ` · ${entity.id}` : ''}
+                      </p>
+                      <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all text-[10px] text-muted-foreground">
+                        {JSON.stringify(entity.properties, null, 2)}
+                      </pre>
+                    </details>
+                  ))}
+                </div>
+                <ul className="mt-2 space-y-1 border-t border-white/10 pt-2">
+                  {result.structuredData.enhancements.map((assessment, index) => (
+                    <li
+                      key={`${assessment.entityPath}-${assessment.type}-${index}`}
+                      data-testid="seo-search-enhancement"
+                      className="text-[10px] text-muted-foreground"
+                    >
+                      <span className="text-foreground">{assessment.type}</span> ·{' '}
+                      {assessment.status.replaceAll('-', ' ')} · {assessment.profileVersion}
+                      {assessment.missingRequired.length
+                        ? ` · missing required: ${assessment.missingRequired.join(', ')}`
+                        : ''}
+                      {assessment.missingRecommended.length
+                        ? ` · missing recommended: ${assessment.missingRecommended.join(', ')}`
+                        : ''}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+
               <details className="mb-3 rounded-md border border-white/10 p-2.5">
                 <summary className="cursor-pointer text-xs font-medium text-foreground">
                   Declared and resolved metadata

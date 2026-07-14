@@ -903,6 +903,30 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     return
   }
 
+  if (pathname === '/seo/structured-data') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head><title>Structured data fixture</title>
+        <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@id":"#product","@type":"Product","name":"Audit Desk","image":"/seo/social-card.png","offers":{"@type":"Offer","price":"100"}},{"@type":"https://example.test/vocab/CustomThing","custom":true}]}</script>
+      </head><body><h1 id="seo-structured-data">Structured data</h1>
+        <div itemscope itemtype="https://schema.org/Product"><span itemprop="name">Microdata desk</span></div>
+        <article vocab="https://schema.org/" typeof="Article"><h2 property="headline">RDFa story</h2></article>
+      </body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/structured-data-invalid') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head><title>Invalid structured data fixture</title>
+        <script type="application/ld+json">{"@type":</script>
+        <script type="application/ld+json">{"@graph":[{"@id":"#product","@type":"Product","brand":{"@id":"#missing"}},{"@id":"#product","@type":"Product","name":"Conflict"}]}</script>
+      </head><body><h1 id="seo-structured-data-invalid">Invalid structured data</h1></body></html>`
+    )
+    return
+  }
+
   if (pathname === '/seo/indexability-blocked') {
     sendHtml(
       res,

@@ -5,7 +5,8 @@ import { isLocalhostUrl } from './dev-context'
 // change. An Audit result records the version that produced it so later rule
 // changes never obscure how an existing result was reached (see CONTEXT.md,
 // "Rule catalog"). Format: <catalog date>.<revision>.
-export const SEO_RULE_CATALOG_VERSION = '2026-07-13.4'
+export const SEO_RULE_CATALOG_VERSION = '2026-07-13.5'
+export const SEARCH_ENHANCEMENT_PROFILE_VERSION = 'google-search-gallery-2026-07-13'
 
 // Width of the docked SEO panel. Fixed for now — unlike the diagnostics drawer
 // the SEO panel is not user-resizable yet.
@@ -95,7 +96,49 @@ export interface AuditResult {
   /** Bounded page, robots, canonical, and sitemap evidence used by Indexability. */
   indexability: IndexabilityResult
   socialSharing: SocialSharingResult
+  structuredData: StructuredDataResult
   findings: Finding[]
+}
+
+export type StructuredDataFormat = 'json-ld' | 'microdata' | 'rdfa'
+
+export interface RawStructuredSource {
+  format: StructuredDataFormat
+  sourceIndex: number
+  raw: string
+}
+
+export interface StructuredEntity {
+  format: StructuredDataFormat
+  sourceIndex: number
+  path: string
+  id: string | null
+  types: string[]
+  properties: Record<string, unknown>
+}
+
+export interface StructuredDataProblem {
+  severity: 'error' | 'warning'
+  sourceIndex: number
+  path: string
+  message: string
+}
+
+export interface SearchEnhancementAssessment {
+  entityPath: string
+  type: string
+  profileVersion: string
+  status: 'eligible' | 'ineligible' | 'unable-to-verify' | 'not-supported'
+  missingRequired: string[]
+  missingRecommended: string[]
+  note: string
+}
+
+export interface StructuredDataResult {
+  sources: RawStructuredSource[]
+  entities: StructuredEntity[]
+  problems: StructuredDataProblem[]
+  enhancements: SearchEnhancementAssessment[]
 }
 
 export interface SocialDeclaration {
@@ -208,6 +251,7 @@ export interface RenderedAuditSnapshot {
   robots?: string[]
   sitemapLinks?: string[]
   social?: { property: string; value: string }[]
+  structuredSources?: RawStructuredSource[]
 }
 
 /** One hop in a redirect chain leading to the delivered document. */
