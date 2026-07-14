@@ -1,6 +1,7 @@
 import type { DeliveredEvidence } from '../../shared/seo-audit'
 import {
   DEFAULT_FETCH_BUDGET,
+  extractDeliveredSearchMetadata,
   extractDeliveredTitle,
   fetchWithBudget,
   type FetchBudget,
@@ -37,6 +38,8 @@ export async function captureDeliveredEvidence(
     }
   }
 
+  const metadata = extractDeliveredSearchMetadata(outcome.body)
+
   return {
     available: true,
     unavailableReason: null,
@@ -45,6 +48,9 @@ export async function captureDeliveredEvidence(
     redirects: outcome.redirects,
     headers: outcome.headers,
     documentTitle: extractDeliveredTitle(outcome.body),
+    descriptions: metadata.descriptions,
+    canonicals: metadata.canonicals,
+    favicons: metadata.favicons,
     truncated: outcome.truncated
   }
 }

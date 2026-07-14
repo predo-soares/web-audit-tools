@@ -834,6 +834,41 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     return
   }
 
+  if (pathname === '/seo/search-appearance') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head>
+        <title>Search Appearance Fixture</title>
+        <meta name="description" content="A precise fixture description for the representative search preview.">
+        <link rel="canonical" href="/seo/search-appearance">
+        <link rel="icon" href="/favicon.ico">
+      </head><body>
+        <h1 id="seo-search-appearance">Search appearance</h1>
+      </body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/conflicting-metadata') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head>
+        <title>Delivered Conflict Title</title>
+        <meta name="description" content="First description">
+        <meta name="description" content="Second description">
+        <link rel="canonical" href="https://example.test/first">
+        <link rel="canonical" href="https://example.test/second">
+      </head><body>
+        <h1 id="seo-conflicting-metadata">Conflicting metadata</h1>
+        <script>
+          document.title = 'Rendered Conflict Title';
+          document.querySelector('meta[name="description"]').content = 'Rendered description';
+        </script>
+      </body></html>`
+    )
+    return
+  }
+
   if (pathname === '/seo/no-title') {
     sendHtml(
       res,

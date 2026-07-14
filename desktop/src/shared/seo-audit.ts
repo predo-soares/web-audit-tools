@@ -5,7 +5,7 @@ import { isLocalhostUrl } from './dev-context'
 // change. An Audit result records the version that produced it so later rule
 // changes never obscure how an existing result was reached (see CONTEXT.md,
 // "Rule catalog"). Format: <catalog date>.<revision>.
-export const SEO_RULE_CATALOG_VERSION = '2026-07-13.1'
+export const SEO_RULE_CATALOG_VERSION = '2026-07-13.2'
 
 // Width of the docked SEO panel. Fixed for now — unlike the diagnostics drawer
 // the SEO panel is not user-resizable yet.
@@ -90,7 +90,44 @@ export interface AuditResult {
   rendered: RenderedAuditSnapshot
   /** Delivered (pre-render) evidence; may be unavailable. */
   delivered: DeliveredEvidence
+  /** Declared and explicitly resolved metadata used by Search appearance. */
+  searchAppearance: SearchAppearanceResult
   findings: Finding[]
+}
+
+export type SearchMetadataKind = 'title' | 'description' | 'canonical' | 'favicon'
+
+/** One metadata declaration, retained even when another declaration wins. */
+export interface MetadataDeclaration {
+  kind: SearchMetadataKind
+  value: string
+  origin: EvidenceOrigin
+  order: number
+  /** Human-readable element/response source, e.g. `<meta name="description">`. */
+  source: string
+}
+
+export interface ResolvedMetadataValue {
+  value: string | null
+  origin: EvidenceOrigin | null
+  /** The deterministic selection/fallback rule that produced `value`. */
+  reason: string
+}
+
+export interface SearchAppearanceResult {
+  declared: MetadataDeclaration[]
+  resolved: {
+    title: ResolvedMetadataValue
+    description: ResolvedMetadataValue
+    canonical: ResolvedMetadataValue
+    favicon: ResolvedMetadataValue
+  }
+  measurements: {
+    titleCharacters: number
+    titleWidthPx: number | null
+    descriptionCharacters: number
+    descriptionWidthPx: number | null
+  }
 }
 
 /**
@@ -103,6 +140,12 @@ export interface RenderedAuditSnapshot {
    * text (possibly empty/whitespace) otherwise. The rule decides usability.
    */
   title: string | null
+  descriptions?: string[]
+  canonicals?: string[]
+  favicons?: string[]
+  /** Browser-measured preview width using the audit's documented preview font. */
+  titleWidthPx?: number | null
+  descriptionWidthsPx?: number[]
 }
 
 /** One hop in a redirect chain leading to the delivered document. */
@@ -131,6 +174,9 @@ export interface DeliveredEvidence {
   headers: Record<string, string>
   /** `<title>` parsed from the delivered HTML, when present. */
   documentTitle: string | null
+  descriptions?: string[]
+  canonicals?: string[]
+  favicons?: string[]
   /** Whether the delivered body was truncated at the byte budget. */
   truncated: boolean
 }

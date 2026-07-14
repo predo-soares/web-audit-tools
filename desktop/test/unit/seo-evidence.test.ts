@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { sanitizeResponseHeaders, sanitizeUrl, REDACTED } from '../../src/shared/seo-sanitize'
 import {
   extractDeliveredTitle,
+  extractDeliveredSearchMetadata,
   fetchWithBudget,
   type FetchTransport,
   type RawResponse
@@ -78,6 +79,23 @@ describe('extractDeliveredTitle', () => {
 
   it('returns null when there is no title', () => {
     expect(extractDeliveredTitle('<html><body>no head</body></html>')).toBeNull()
+  })
+})
+
+describe('extractDeliveredSearchMetadata', () => {
+  it('preserves duplicate descriptions, canonicals, and favicons in document order', () => {
+    const metadata = extractDeliveredSearchMetadata(`
+      <meta name="description" content="First &amp; best">
+      <meta content='Second' NAME='DESCRIPTION'>
+      <link rel="canonical" href="/one">
+      <link href="/two" rel="canonical alternate">
+      <link rel="shortcut icon" href="/favicon.ico">
+    `)
+    expect(metadata).toEqual({
+      descriptions: ['First & best', 'Second'],
+      canonicals: ['/one', '/two'],
+      favicons: ['/favicon.ico']
+    })
   })
 })
 

@@ -12,6 +12,7 @@ import {
 import { sanitizeUrl } from '../../shared/seo-sanitize'
 import type { PaneId } from '../../shared/types'
 import { SEO_RULES, type Rule } from './rules'
+import { resolveSearchAppearance } from './search-appearance'
 
 /** The three evidence origins an audit gathers for a single navigation. */
 export interface AuditEvidence {
@@ -27,7 +28,8 @@ export interface AuditEvidence {
  */
 export function evaluateFindings(
   evidence: AuditEvidence,
-  indexingIntent: IndexingIntent
+  indexingIntent: IndexingIntent,
+  searchAppearance: AuditResult['searchAppearance']
 ): Finding[] {
   return SEO_RULES.map((rule) => {
     try {
@@ -35,7 +37,8 @@ export function evaluateFindings(
         rendered: evidence.rendered,
         delivered: evidence.delivered,
         accessContext: evidence.accessContext,
-        indexingIntent
+        indexingIntent,
+        searchAppearance
       })
     } catch (error) {
       return unableToVerifyFinding(rule, error)
@@ -67,6 +70,7 @@ export function buildAuditResult(
     evidence: AuditEvidence
   }
 ): AuditResult {
+  const searchAppearance = resolveSearchAppearance(input.evidence, input.url)
   return {
     id: deps.newId(),
     paneId: input.paneId,
@@ -79,7 +83,8 @@ export function buildAuditResult(
     accessContext: input.evidence.accessContext,
     rendered: input.evidence.rendered,
     delivered: input.evidence.delivered,
-    findings: evaluateFindings(input.evidence, input.indexingIntent)
+    searchAppearance,
+    findings: evaluateFindings(input.evidence, input.indexingIntent, searchAppearance)
   }
 }
 

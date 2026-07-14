@@ -174,3 +174,62 @@ test('explains there is nothing to audit before a page is committed', async () =
     await close()
   }
 })
+
+test('renders a resolved search preview and preserves declared metadata', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/seo/search-appearance'))
+    await waitForPaneElement(window, 'desktop', 'seo-search-appearance')
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('seo-toggle').click()
+    const panel = await getSeoPanelPage(window)
+    await panel.getByTestId('seo-run-audit').click()
+
+    await expect(panel.getByTestId('seo-preview-title')).toHaveText('Search Appearance Fixture')
+    await expect(panel.getByTestId('seo-preview-description')).toContainText(
+      'precise fixture description'
+    )
+    await expect(panel.getByTestId('seo-preview-url')).toContainText('/seo/search-appearance')
+    await expect(panel.getByTestId('seo-preview-measurements')).toContainText('characters')
+
+    await panel.getByText('Declared and resolved metadata').click()
+    await expect(panel.getByTestId('seo-declared-metadata')).toContainText('rendered · description')
+    await expect(panel.getByTestId('seo-resolved-metadata')).toContainText(
+      'first non-empty rendered description'
+    )
+  } finally {
+    await close()
+  }
+})
+
+test('reports duplicate and conflicting search metadata without hiding declarations', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/seo/conflicting-metadata'))
+    await waitForPaneElement(window, 'desktop', 'seo-conflicting-metadata')
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('seo-toggle').click()
+    const panel = await getSeoPanelPage(window)
+    await panel.getByTestId('seo-run-audit').click()
+
+    const finding = panel.locator(
+      '[data-testid="seo-finding"][data-rule-id="search-appearance/declarations-consistent"]'
+    )
+    await expect(finding).toHaveAttribute('data-outcome', 'warning')
+    await expect(finding.getByTestId('seo-finding-evidence')).toContainText('declarations conflict')
+
+    await panel.getByText('Declared and resolved metadata').click()
+    const declared = panel.getByTestId('seo-declared-metadata')
+    await expect(declared).toContainText('First description')
+    await expect(declared).toContainText('Second description')
+    await expect(declared).toContainText('Rendered description')
+  } finally {
+    await close()
+  }
+})

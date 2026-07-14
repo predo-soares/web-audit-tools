@@ -4,7 +4,8 @@ import type {
   DeliveredEvidence,
   Finding,
   IndexingIntent,
-  RenderedAuditSnapshot
+  RenderedAuditSnapshot,
+  SearchAppearanceResult
 } from '../../shared/seo-audit'
 
 /**
@@ -17,6 +18,7 @@ export interface RuleContext {
   delivered: DeliveredEvidence
   accessContext: AuditAccessContext
   indexingIntent: IndexingIntent
+  searchAppearance: SearchAppearanceResult
 }
 
 /**
@@ -152,8 +154,200 @@ export const titleHydrationRule: Rule = {
   }
 }
 
+export const descriptionPresenceRule: Rule = {
+  id: 'search-appearance/description-present',
+  category: 'search-appearance',
+  evaluate({ searchAppearance }): Finding {
+    const description = searchAppearance.resolved.description
+    if (!description.value) {
+      return {
+        ruleId: this.id,
+        category: this.category,
+        outcome: 'warning',
+        summary: 'Page has no usable meta description',
+        impact:
+          'Search engines may generate a snippet from page content when no usable description is declared, reducing control over search appearance.',
+        remediation:
+          'Add one concise <meta name="description"> that accurately summarizes this page.',
+        evidence: { origin: 'rendered', detail: description.reason }
+      }
+    }
+    return {
+      ruleId: this.id,
+      category: this.category,
+      outcome: 'passed',
+      summary: 'Page has a usable meta description',
+      impact: 'A description gives search engines a relevant candidate for the result snippet.',
+      remediation: null,
+      evidence: {
+        origin: description.origin ?? 'rendered',
+        detail: `Description: “${description.value}”`
+      }
+    }
+  }
+}
+
+export const canonicalRule: Rule = {
+  id: 'search-appearance/canonical-valid',
+  category: 'search-appearance',
+  evaluate({ searchAppearance }): Finding {
+    const canonical = searchAppearance.resolved.canonical
+    if (!canonical.value) {
+      return {
+        ruleId: this.id,
+        category: this.category,
+        outcome: 'opportunity',
+        summary: 'Page has no canonical declaration',
+        impact: 'A canonical can clarify the preferred URL when substantially similar URLs exist.',
+        remediation:
+          'Add one absolute canonical URL when this page can be reached through variants.',
+        evidence: { origin: 'rendered', detail: canonical.reason }
+      }
+    }
+    try {
+      const url = new URL(canonical.value)
+      if (!['http:', 'https:'].includes(url.protocol)) throw new Error('unsupported protocol')
+    } catch {
+      return {
+        ruleId: this.id,
+        category: this.category,
+        outcome: 'error',
+        summary: 'Canonical URL is malformed',
+        impact: 'Search engines cannot reliably interpret a malformed canonical target.',
+        remediation: 'Use one valid absolute HTTP(S) URL in the canonical link.',
+        evidence: {
+          origin: canonical.origin ?? 'rendered',
+          detail: `Canonical: “${canonical.value}”`
+        }
+      }
+    }
+    return {
+      ruleId: this.id,
+      category: this.category,
+      outcome: 'passed',
+      summary: 'Canonical URL is usable',
+      impact: 'The page declares an unambiguous preferred URL candidate.',
+      remediation: null,
+      evidence: { origin: canonical.origin ?? 'rendered', detail: `Canonical: ${canonical.value}` }
+    }
+  }
+}
+
+export const metadataDeclarationsRule: Rule = {
+  id: 'search-appearance/declarations-consistent',
+  category: 'search-appearance',
+  evaluate({ searchAppearance }): Finding {
+    const kinds = ['title', 'description', 'canonical', 'favicon'] as const
+    const problems: string[] = []
+    for (const kind of kinds) {
+      for (const origin of ['delivered', 'rendered'] as const) {
+        const declarations = searchAppearance.declared.filter(
+          (item) => item.kind === kind && item.origin === origin
+        )
+        if (declarations.length > 1) {
+          const distinct = new Set(declarations.map((item) => item.value.trim()))
+          problems.push(
+            `${origin} ${kind}: ${declarations.length} declarations${distinct.size > 1 ? ' conflict' : ' repeat'}`
+          )
+        }
+      }
+      const delivered = firstValue(searchAppearance, kind, 'delivered')
+      const rendered = firstValue(searchAppearance, kind, 'rendered')
+      if (delivered && rendered && delivered !== rendered) {
+        problems.push(`${kind} differs between delivered and rendered evidence`)
+      }
+    }
+    if (problems.length === 0) {
+      return {
+        ruleId: this.id,
+        category: this.category,
+        outcome: 'passed',
+        summary: 'Search metadata declarations are consistent',
+        impact: 'Each search-appearance signal has an unambiguous declaration.',
+        remediation: null,
+        evidence: { origin: 'rendered', detail: 'No duplicate or conflicting declarations found.' }
+      }
+    }
+    return {
+      ruleId: this.id,
+      category: this.category,
+      outcome: 'warning',
+      summary: 'Search metadata has duplicate or conflicting declarations',
+      impact: 'Consumers may select different values when declarations repeat or disagree.',
+      remediation: 'Keep one authoritative declaration for each signal in the delivered document.',
+      evidence: { origin: 'rendered', detail: problems.join(' · ') }
+    }
+  }
+}
+
+export const searchSnippetLengthRule: Rule = {
+  id: 'search-appearance/snippet-likely-truncation',
+  category: 'search-appearance',
+  evaluate({ searchAppearance }): Finding {
+    const { measurements } = searchAppearance
+    const likely: string[] = []
+    if (measurements.titleWidthPx !== null && measurements.titleWidthPx > 600) {
+      likely.push(
+        `title ${measurements.titleCharacters} characters / ${measurements.titleWidthPx}px`
+      )
+    }
+    if (measurements.descriptionWidthPx !== null && measurements.descriptionWidthPx > 920) {
+      likely.push(
+        `description ${measurements.descriptionCharacters} characters / ${measurements.descriptionWidthPx}px`
+      )
+    }
+    const detail = `Title: ${measurements.titleCharacters} characters${width(measurements.titleWidthPx)} · Description: ${measurements.descriptionCharacters} characters${width(measurements.descriptionWidthPx)}`
+    if (likely.length === 0) {
+      return {
+        ruleId: this.id,
+        category: this.category,
+        outcome: 'passed',
+        summary: 'Snippet text fits the representative preview',
+        impact: 'The current values are not likely to truncate in this representative layout.',
+        remediation: null,
+        evidence: { origin: 'rendered', detail }
+      }
+    }
+    return {
+      ruleId: this.id,
+      category: this.category,
+      outcome: 'opportunity',
+      summary: 'Snippet text may be truncated',
+      impact: 'Search layouts vary, but the representative preview may shorten these values.',
+      remediation: 'Review the preview and put the most distinctive information earlier if needed.',
+      evidence: {
+        origin: 'rendered',
+        detail: `${detail} · Likely truncation: ${likely.join(', ')}`
+      }
+    }
+  }
+}
+
+function firstValue(
+  searchAppearance: SearchAppearanceResult,
+  kind: 'title' | 'description' | 'canonical' | 'favicon',
+  origin: 'delivered' | 'rendered'
+): string | null {
+  return (
+    searchAppearance.declared
+      .find((item) => item.kind === kind && item.origin === origin && item.value.trim())
+      ?.value.trim() ?? null
+  )
+}
+
+function width(value: number | null): string {
+  return value === null ? ' / width unavailable' : ` / ${value}px`
+}
+
 /**
  * The Rule catalog for a Page SEO audit, in display order. Later slices append
  * category rules here.
  */
-export const SEO_RULES: Rule[] = [titlePresenceRule, titleHydrationRule]
+export const SEO_RULES: Rule[] = [
+  titlePresenceRule,
+  titleHydrationRule,
+  descriptionPresenceRule,
+  canonicalRule,
+  metadataDeclarationsRule,
+  searchSnippetLengthRule
+]

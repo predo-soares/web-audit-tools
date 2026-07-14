@@ -53,15 +53,15 @@ describe('inferIndexingIntent', () => {
 
 describe('normalizeRenderedSnapshot', () => {
   it('preserves a string title', () => {
-    expect(normalizeRenderedSnapshot({ title: 'Hi' })).toEqual({ title: 'Hi' })
-    expect(normalizeRenderedSnapshot({ title: '' })).toEqual({ title: '' })
+    expect(normalizeRenderedSnapshot({ title: 'Hi' })).toMatchObject({ title: 'Hi' })
+    expect(normalizeRenderedSnapshot({ title: '' })).toMatchObject({ title: '' })
   })
 
   it('coerces missing/garbage payloads to a null title', () => {
-    expect(normalizeRenderedSnapshot(undefined)).toEqual({ title: null })
-    expect(normalizeRenderedSnapshot(null)).toEqual({ title: null })
-    expect(normalizeRenderedSnapshot({})).toEqual({ title: null })
-    expect(normalizeRenderedSnapshot({ title: 42 })).toEqual({ title: null })
+    expect(normalizeRenderedSnapshot(undefined)).toMatchObject({ title: null })
+    expect(normalizeRenderedSnapshot(null)).toMatchObject({ title: null })
+    expect(normalizeRenderedSnapshot({})).toMatchObject({ title: null })
+    expect(normalizeRenderedSnapshot({ title: 42 })).toMatchObject({ title: null })
   })
 })
 

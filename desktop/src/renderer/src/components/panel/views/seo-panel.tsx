@@ -200,6 +200,86 @@ export function SeoPanel(): React.JSX.Element {
                 </span>
                 <span data-testid="seo-catalog-version">Rules {result.ruleCatalogVersion}</span>
               </div>
+              <section
+                data-testid="seo-search-preview"
+                className="mb-3 rounded-lg border border-white/10 bg-white/[0.03] p-3"
+              >
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Representative search preview
+                </p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {result.searchAppearance.resolved.favicon.value ? (
+                    <img
+                      data-testid="seo-preview-favicon"
+                      src={result.searchAppearance.resolved.favicon.value}
+                      alt=""
+                      className="size-4 rounded-sm"
+                    />
+                  ) : (
+                    <span className="size-4 rounded-full bg-white/10" aria-hidden="true" />
+                  )}
+                  <span data-testid="seo-preview-url" className="truncate">
+                    {result.searchAppearance.resolved.canonical.value ?? result.url}
+                  </span>
+                </div>
+                <p
+                  data-testid="seo-preview-title"
+                  className="mt-1.5 line-clamp-1 text-base font-medium text-sky-400"
+                >
+                  {result.searchAppearance.resolved.title.value ?? result.url}
+                </p>
+                <p
+                  data-testid="seo-preview-description"
+                  className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground"
+                >
+                  {result.searchAppearance.resolved.description.value ??
+                    'No meta description is available for this preview.'}
+                </p>
+                <p
+                  data-testid="seo-preview-measurements"
+                  className="mt-2 text-[10px] text-muted-foreground"
+                >
+                  Title {result.searchAppearance.measurements.titleCharacters} characters
+                  {result.searchAppearance.measurements.titleWidthPx === null
+                    ? ''
+                    : ` / ${result.searchAppearance.measurements.titleWidthPx}px`}
+                  {' · '}Description {result.searchAppearance.measurements.descriptionCharacters}{' '}
+                  characters
+                  {result.searchAppearance.measurements.descriptionWidthPx === null
+                    ? ''
+                    : ` / ${result.searchAppearance.measurements.descriptionWidthPx}px`}
+                </p>
+              </section>
+
+              <details className="mb-3 rounded-md border border-white/10 p-2.5">
+                <summary className="cursor-pointer text-xs font-medium text-foreground">
+                  Declared and resolved metadata
+                </summary>
+                <div data-testid="seo-resolved-metadata" className="mt-2 space-y-1 text-xs">
+                  {Object.entries(result.searchAppearance.resolved).map(([kind, resolved]) => (
+                    <div key={kind} data-metadata-kind={kind}>
+                      <span className="capitalize text-muted-foreground">{kind}: </span>
+                      <span>{resolved.value ?? 'Not resolved'}</span>
+                      <p className="pl-2 text-[10px] text-muted-foreground">{resolved.reason}</p>
+                    </div>
+                  ))}
+                </div>
+                <ul
+                  data-testid="seo-declared-metadata"
+                  className="mt-2 space-y-1 border-t border-white/10 pt-2 text-xs"
+                >
+                  {result.searchAppearance.declared.map((declaration, index) => (
+                    <li
+                      key={`${declaration.origin}-${declaration.kind}-${declaration.order}-${index}`}
+                    >
+                      <span className="text-muted-foreground">
+                        {declaration.origin} · {declaration.kind} #{declaration.order + 1}:{' '}
+                      </span>
+                      <span>{declaration.value || '(empty)'}</span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
               <ul className="flex flex-col gap-2">
                 {result.findings.map((finding) => (
                   <li

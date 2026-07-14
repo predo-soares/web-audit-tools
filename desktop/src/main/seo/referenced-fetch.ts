@@ -206,6 +206,45 @@ export function extractDeliveredTitle(html: string): string | null {
   return decodeBasicEntities(match[1].trim())
 }
 
+export interface DeliveredSearchMetadata {
+  descriptions: string[]
+  canonicals: string[]
+  favicons: string[]
+}
+
+/** Extract ordered search-appearance declarations from delivered HTML. */
+export function extractDeliveredSearchMetadata(html: string): DeliveredSearchMetadata {
+  const descriptions: string[] = []
+  const canonicals: string[] = []
+  const favicons: string[] = []
+  const tags = html.match(/<(?:meta|link)\b[^>]*>/gi) ?? []
+
+  for (const tag of tags) {
+    const attrs = parseAttributes(tag)
+    if (tag.toLowerCase().startsWith('<meta')) {
+      if ((attrs.name ?? '').toLowerCase() === 'description') descriptions.push(attrs.content ?? '')
+      continue
+    }
+    const rel = (attrs.rel ?? '').toLowerCase().split(/\s+/).filter(Boolean)
+    if (rel.includes('canonical')) canonicals.push(attrs.href ?? '')
+    if (rel.includes('icon') || (rel.includes('shortcut') && rel.includes('icon'))) {
+      favicons.push(attrs.href ?? '')
+    }
+  }
+
+  return { descriptions, canonicals, favicons }
+}
+
+function parseAttributes(tag: string): Record<string, string> {
+  const attrs: Record<string, string> = {}
+  const pattern = /([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g
+  pattern.lastIndex = tag.indexOf(' ') + 1
+  for (let match = pattern.exec(tag); match; match = pattern.exec(tag)) {
+    attrs[match[1].toLowerCase()] = decodeBasicEntities(match[2] ?? match[3] ?? match[4] ?? '')
+  }
+  return attrs
+}
+
 function decodeBasicEntities(text: string): string {
   return text
     .replace(/&amp;/g, '&')
