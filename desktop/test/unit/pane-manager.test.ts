@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ElementFingerprint } from '../../src/shared/element-mirror'
-import { PaneManager } from '../../src/main/pane-manager'
-import { createRuntimeEvidenceBuffer } from '../../src/main/runtime-evidence-buffer'
+import { PaneManager } from '../../src/main/panes/pane-manager'
+import { createRuntimeEvidenceBuffer } from '../../src/main/evidence/runtime-evidence-buffer'
 import { RUNTIME_EVIDENCE_EMIT_WINDOW_MS } from '../../src/shared/runtime-evidence'
 import { FakeEngine } from '../support/fake-engine'
 

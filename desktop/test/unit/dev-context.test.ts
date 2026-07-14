@@ -12,7 +12,7 @@ vi.mock('fs/promises', () => ({
 
 import { execFile } from 'child_process'
 import { stat } from 'fs/promises'
-import { resolveDevContext } from '../../src/main/dev-context'
+import { resolveDevContext } from '../../src/main/services/dev-context'
 
 const mockExecFile = execFile as unknown as ReturnType<typeof vi.fn>
 const mockStat = stat as unknown as ReturnType<typeof vi.fn>
@@ -98,7 +98,7 @@ describe('resolveDevContext', () => {
       makeExecFileImpl({
         'rev-parse --abbrev-ref HEAD': 'feature/my-branch\n',
         'rev-parse HEAD': 'deadbeef\n',
-        'status --porcelain': ' M src/main/dev-context.ts\n?? new-file.ts\n'
+        'status --porcelain': ' M src/main/services/dev-context.ts\n?? new-file.ts\n'
       })
     )
 

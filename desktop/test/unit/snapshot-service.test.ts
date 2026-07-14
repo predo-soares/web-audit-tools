@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { captureSnapshot } from '../../src/main/snapshot-service'
-import type { SnapshotPort, SnapshotDeps } from '../../src/main/snapshot-service'
+import { captureSnapshot } from '../../src/main/services/snapshot-service'
+import type { SnapshotPort, SnapshotDeps } from '../../src/main/services/snapshot-service'
 import type { RuntimeEvidenceSnapshot } from '../../src/shared/runtime-evidence'
 import type { PaneId } from '../../src/shared/types'
 import type { DevContext } from '../../src/shared/dev-context'

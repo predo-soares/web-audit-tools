@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createEchoLedger } from '../../src/main/echo-ledger'
+import { createEchoLedger } from '../../src/main/panes/echo-ledger'
 
 function createFakeClock(start = 1_000_000) {
   let now = start

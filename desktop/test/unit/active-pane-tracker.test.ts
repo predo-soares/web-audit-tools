@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createActivePaneTracker } from '../../src/main/active-pane-tracker'
+import { createActivePaneTracker } from '../../src/main/panes/active-pane-tracker'
 
 describe('createActivePaneTracker', () => {
   describe('initial state', () => {

@@ -234,6 +234,14 @@ export class FakeEngine implements EngineView {
 
   async evaluate<T = unknown>(_expression: string): Promise<T> {
     this.calls.evaluate.push(_expression)
+    // PaneManager drives per-pane history through the page history API rather
+    // than the engine's goBack/goForward methods, so mirror those calls onto
+    // the in-memory history model to keep the seam observable in tests.
+    if (_expression === 'history.back()') {
+      this.goBack()
+    } else if (_expression === 'history.forward()') {
+      this.goForward()
+    }
     return this.evaluateResult as T
   }
 

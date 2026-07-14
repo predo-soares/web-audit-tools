@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computePanelBounds, crossAxisX } from '../../src/main/panel-placement'
+import { computePanelBounds, crossAxisX } from '../../src/main/panels/panel-placement'
 
 describe('computePanelBounds', () => {
   const anchor = { x: 900, y: 20, width: 28, height: 28 }
