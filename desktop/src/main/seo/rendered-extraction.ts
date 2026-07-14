@@ -126,6 +126,28 @@ export const RENDERED_EXTRACTION_EXPRESSION = `(() => {
       fragmentTargetExists: kind === 'fragment' ? Boolean(document.getElementById((rawHref || '').slice(1))) : null
     };
   });
+  const images = Array.from(document.querySelectorAll('img')).map((el, sourceIndex) => {
+    const rect = el.getBoundingClientRect();
+    return {
+      sourceIndex, src: el.getAttribute('src'), currentSrc: el.currentSrc || null,
+      alt: el.hasAttribute('alt') ? el.getAttribute('alt') : null, role: el.getAttribute('role'),
+      visible: isVisible(el), complete: el.complete, intrinsicWidth: el.naturalWidth, intrinsicHeight: el.naturalHeight,
+      renderedWidth: Math.round(rect.width), renderedHeight: Math.round(rect.height),
+      widthAttribute: el.hasAttribute('width') ? Number(el.getAttribute('width')) : null,
+      heightAttribute: el.hasAttribute('height') ? Number(el.getAttribute('height')) : null,
+      srcset: el.getAttribute('srcset') || '', sizes: el.getAttribute('sizes') || '',
+      pictureSources: Array.from(el.closest('picture')?.querySelectorAll('source') || []).map((source) => ({ srcset: source.getAttribute('srcset') || '', sizes: source.getAttribute('sizes') || '', media: source.getAttribute('media') || '', type: source.getAttribute('type') || '' })),
+      loading: el.getAttribute('loading') || 'auto', decoding: el.getAttribute('decoding') || 'auto'
+    };
+  });
+  const media = Array.from(document.querySelectorAll('video, audio')).map((el, sourceIndex) => ({
+    sourceIndex, kind: el.tagName.toLowerCase(), src: el.getAttribute('src'), currentSrc: el.currentSrc || null,
+    poster: el.tagName === 'VIDEO' ? el.getAttribute('poster') : null,
+    sources: Array.from(el.querySelectorAll('source')).map((source) => ({ src: source.getAttribute('src') || '', type: source.getAttribute('type') || '', media: source.getAttribute('media') || '' })),
+    tracks: Array.from(el.querySelectorAll('track')).map((track) => ({ kind: track.getAttribute('kind') || '', srclang: track.getAttribute('srclang') || '', label: track.getAttribute('label') || '' })),
+    controls: el.hasAttribute('controls'), autoplay: el.autoplay, muted: el.muted, preload: el.preload, visible: isVisible(el)
+  }));
+  const imagesMedia = { images, media };
   const measure = (text, font) => {
     if (!text) return 0;
     const canvas = document.createElement('canvas');
@@ -146,6 +168,7 @@ export const RENDERED_EXTRACTION_EXPRESSION = `(() => {
     structuredSources,
     documentStructure,
     links,
+    imagesMedia,
     titleWidthPx: title === null ? null : measure(title.trim(), '20px Arial'),
     descriptionWidthsPx: descriptions.map((value) => measure(value.trim(), '14px Arial') ?? 0)
   };
@@ -168,8 +191,35 @@ export function normalizeRenderedSnapshot(raw: unknown): RenderedAuditSnapshot {
     structuredSources: structuredSourceArray(value.structuredSources),
     documentStructure: documentStructureValue(value.documentStructure),
     links: linkArray(value.links),
+    imagesMedia: imagesMediaValue(value.imagesMedia),
     titleWidthPx: typeof value.titleWidthPx === 'number' ? value.titleWidthPx : null,
     descriptionWidthsPx: numberArray(value.descriptionWidthsPx)
+  }
+}
+
+function imagesMediaValue(value: unknown): RenderedAuditSnapshot['imagesMedia'] {
+  if (!value || typeof value !== 'object') return { images: [], media: [] }
+  const candidate = value as { images?: unknown; media?: unknown }
+  return {
+    images: Array.isArray(candidate.images)
+      ? (candidate.images as NonNullable<RenderedAuditSnapshot['imagesMedia']>['images']).map(
+          (image) => ({
+            ...image,
+            src: image.src ? safeLinkUrl(image.src) : null,
+            currentSrc: image.currentSrc ? safeLinkUrl(image.currentSrc) : null
+          })
+        )
+      : [],
+    media: Array.isArray(candidate.media)
+      ? (candidate.media as NonNullable<RenderedAuditSnapshot['imagesMedia']>['media']).map(
+          (media) => ({
+            ...media,
+            src: media.src ? safeLinkUrl(media.src) : null,
+            currentSrc: media.currentSrc ? safeLinkUrl(media.currentSrc) : null,
+            poster: media.poster ? safeLinkUrl(media.poster) : null
+          })
+        )
+      : []
   }
 }
 

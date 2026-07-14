@@ -474,3 +474,36 @@ test('inventories and filters rendered links without crawling ordinary destinati
     await close()
   }
 })
+
+test('inspects selected responsive images and client-inserted media evidence', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/seo/images-media'))
+    await waitForPaneElement(window, 'desktop', 'client-media')
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('seo-toggle').click()
+    const panel = await getSeoPanelPage(window)
+    await panel.getByTestId('seo-run-audit').click()
+
+    const inventory = panel.getByTestId('seo-images-media')
+    await expect(inventory).toContainText('6 images · 1 media')
+    await expect(inventory).toContainText('decorative')
+    await expect(inventory).toContainText('Client inserted image')
+    await expect(inventory).toContainText('srcset')
+    await expect(inventory).toContainText('picture source')
+    await expect(inventory.getByTestId('seo-media-item')).toContainText('1 tracks')
+    await expect(
+      panel.locator('[data-testid="seo-finding"][data-rule-id="images-media/alternatives"]')
+    ).toHaveAttribute('data-outcome', 'warning')
+    await expect(
+      panel.locator('[data-testid="seo-finding"][data-rule-id="images-media/sources-available"]')
+    ).toHaveAttribute('data-outcome', 'error')
+    await expect(
+      panel.locator('[data-testid="seo-finding"][data-rule-id="images-media/dimensions"]')
+    ).toHaveAttribute('data-outcome', 'warning')
+  } finally {
+    await close()
+  }
+})

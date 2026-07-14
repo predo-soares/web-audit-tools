@@ -508,6 +508,71 @@ export function SeoPanel(): React.JSX.Element {
                 </p>
               </section>
 
+              <section
+                data-testid="seo-images-media"
+                className="mb-3 rounded-lg border border-white/10 bg-white/[0.03] p-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Images &amp; media
+                  </p>
+                  <span className="text-[10px] text-muted-foreground">
+                    {result.imagesMedia.images.length} images · {result.imagesMedia.media.length}{' '}
+                    media
+                  </span>
+                </div>
+                <div className="mt-2 max-h-72 space-y-2 overflow-auto">
+                  {result.imagesMedia.images.map((image) => (
+                    <article
+                      key={image.sourceIndex}
+                      data-testid="seo-image-item"
+                      className="rounded-md border border-white/10 p-2 text-[10px]"
+                    >
+                      <p className="text-foreground">
+                        {image.alt === '' ? '(decorative)' : (image.alt ?? '(missing alt)')}
+                      </p>
+                      <p className="break-all text-muted-foreground">
+                        source {image.sourceIndex} · {image.visible ? 'visible' : 'hidden'} ·{' '}
+                        {image.currentSrc ?? image.src ?? '(empty source)'}
+                      </p>
+                      <p className="text-muted-foreground">
+                        intrinsic {image.intrinsicWidth}×{image.intrinsicHeight} · rendered{' '}
+                        {image.renderedWidth}×{image.renderedHeight} · loading {image.loading}
+                      </p>
+                      <p className="break-all text-muted-foreground">
+                        srcset {image.srcset || '(none)'} · sizes {image.sizes || '(none)'}
+                      </p>
+                      {image.pictureSources.map((source, index) => (
+                        <p key={index} className="break-all text-muted-foreground">
+                          picture source {index}: {source.srcset} · {source.media || 'all media'} ·{' '}
+                          {source.type || 'unspecified type'}
+                        </p>
+                      ))}
+                    </article>
+                  ))}
+                  {result.imagesMedia.media.map((media) => (
+                    <article
+                      key={`${media.kind}-${media.sourceIndex}`}
+                      data-testid="seo-media-item"
+                      className="rounded-md border border-white/10 p-2 text-[10px]"
+                    >
+                      <p className="text-foreground">
+                        {media.kind} source {media.sourceIndex}
+                      </p>
+                      <p className="break-all text-muted-foreground">
+                        {media.currentSrc ?? media.src ?? '(source candidates only)'} · preload{' '}
+                        {media.preload} · {media.controls ? 'controls' : 'no controls'} ·{' '}
+                        {media.tracks.length} tracks
+                      </p>
+                    </article>
+                  ))}
+                </div>
+                <p className="mt-2 text-[10px] text-muted-foreground">
+                  Selected assets use browser evidence. File-size and format guidance is contextual;
+                  social-card assets remain under Social sharing.
+                </p>
+              </section>
+
               <details className="mb-3 rounded-md border border-white/10 p-2.5">
                 <summary className="cursor-pointer text-xs font-medium text-foreground">
                   Declared and resolved metadata

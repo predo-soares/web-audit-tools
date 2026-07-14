@@ -974,6 +974,22 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     return
   }
 
+  if (pathname === '/seo/images-media') {
+    sendHtml(
+      res,
+      `<!doctype html><html lang="en"><head><title>Images media fixture</title></head><body><main><h1>Images and media</h1>
+        <img src="/seo/social-card.png" alt="" width="1200" height="630">
+        <img src="/seo/social-card.png" style="width:100px;height:100px" loading="lazy">
+        <img src="/seo/missing-image.png" alt="Broken product image">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Crect width='20' height='20'/%3E%3C/svg%3E" alt="Distorted SVG" style="width:100px;height:50px">
+        <picture><source media="(min-width: 1px)" type="image/png" srcset="/seo/social-card.png 1x"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'/%3E" alt="Responsive illustration" srcset="/seo/social-card.png 2x" sizes="50vw"></picture>
+        <div id="client-media"></div>
+        <video controls preload="metadata"><source src="/media/movie.mp4" type="video/mp4"><track kind="captions" srclang="en" label="English"></video>
+      </main><script>document.getElementById('client-media').innerHTML = '<img src="/seo/social-card.png" alt="Client inserted image" width="1200" height="630">';</script></body></html>`
+    )
+    return
+  }
+
   if (pathname === '/seo/indexability-blocked') {
     sendHtml(
       res,

@@ -5,7 +5,7 @@ import { isLocalhostUrl } from './dev-context'
 // change. An Audit result records the version that produced it so later rule
 // changes never obscure how an existing result was reached (see CONTEXT.md,
 // "Rule catalog"). Format: <catalog date>.<revision>.
-export const SEO_RULE_CATALOG_VERSION = '2026-07-13.7'
+export const SEO_RULE_CATALOG_VERSION = '2026-07-14.1'
 export const SEARCH_ENHANCEMENT_PROFILE_VERSION = 'google-search-gallery-2026-07-13'
 
 // Width of the docked SEO panel. Fixed for now — unlike the diagnostics drawer
@@ -99,7 +99,49 @@ export interface AuditResult {
   structuredData: StructuredDataResult
   documentStructure: DocumentStructureEvidence
   links: LinkEvidence[]
+  imagesMedia: ImagesMediaEvidence
   findings: Finding[]
+}
+
+export interface ImageEvidence {
+  sourceIndex: number
+  src: string | null
+  currentSrc: string | null
+  alt: string | null
+  role: string | null
+  visible: boolean
+  complete: boolean
+  intrinsicWidth: number
+  intrinsicHeight: number
+  renderedWidth: number
+  renderedHeight: number
+  widthAttribute: number | null
+  heightAttribute: number | null
+  srcset: string
+  sizes: string
+  pictureSources: { srcset: string; sizes: string; media: string; type: string }[]
+  loading: string
+  decoding: string
+}
+
+export interface MediaEvidence {
+  sourceIndex: number
+  kind: 'video' | 'audio'
+  src: string | null
+  currentSrc: string | null
+  poster: string | null
+  sources: { src: string; type: string; media: string }[]
+  tracks: { kind: string; srclang: string; label: string }[]
+  controls: boolean
+  autoplay: boolean
+  muted: boolean
+  preload: string
+  visible: boolean
+}
+
+export interface ImagesMediaEvidence {
+  images: ImageEvidence[]
+  media: MediaEvidence[]
 }
 
 export type LinkKind =
@@ -305,6 +347,7 @@ export interface RenderedAuditSnapshot {
   structuredSources?: RawStructuredSource[]
   documentStructure?: DocumentStructureEvidence
   links?: LinkEvidence[]
+  imagesMedia?: ImagesMediaEvidence
 }
 
 /** One hop in a redirect chain leading to the delivered document. */

@@ -37,7 +37,8 @@ export function evaluateFindings(
   searchAppearance: AuditResult['searchAppearance'],
   structuredData: AuditResult['structuredData'],
   documentStructure: AuditResult['documentStructure'],
-  links: AuditResult['links']
+  links: AuditResult['links'],
+  imagesMedia: AuditResult['imagesMedia']
 ): Finding[] {
   return SEO_RULES.map((rule) => {
     try {
@@ -51,7 +52,8 @@ export function evaluateFindings(
         socialSharing: evidence.socialSharing,
         structuredData,
         documentStructure,
-        links
+        links,
+        imagesMedia
       })
     } catch (error) {
       return unableToVerifyFinding(rule, error)
@@ -93,6 +95,7 @@ export function buildAuditResult(
     repeatedText: []
   }
   const links = input.evidence.rendered.links ?? []
+  const imagesMedia = input.evidence.rendered.imagesMedia ?? { images: [], media: [] }
   return {
     id: deps.newId(),
     paneId: input.paneId,
@@ -111,13 +114,15 @@ export function buildAuditResult(
     structuredData,
     documentStructure,
     links,
+    imagesMedia,
     findings: evaluateFindings(
       input.evidence,
       input.indexingIntent,
       searchAppearance,
       structuredData,
       documentStructure,
-      links
+      links,
+      imagesMedia
     )
   }
 }
