@@ -14,9 +14,13 @@ function displayHost(url: string): string {
 
 function TopChrome({ state }: { state: SafariChromeStripState }): React.JSX.Element {
   const host = displayHost(state.url)
+  const isIphone = state.paneId === 'iphone'
+  const statusHeight = state.compact ? '100%' : isIphone ? 54 : 24
+
   return (
     <div
       data-testid="safari-chrome-top"
+      data-pane={state.paneId}
       style={{
         height: '100%',
         display: 'flex',
@@ -31,12 +35,12 @@ function TopChrome({ state }: { state: SafariChromeStripState }): React.JSX.Elem
     >
       <div
         style={{
-          height: state.compact ? '100%' : 54,
+          height: statusHeight,
           display: 'flex',
           alignItems: 'flex-end',
           justifyContent: 'space-between',
-          padding: '0 18px 8px',
-          fontSize: 15,
+          padding: isIphone ? '0 18px 8px' : '0 24px 4px',
+          fontSize: isIphone ? 15 : 12,
           fontWeight: 600,
           letterSpacing: '-0.02em',
           position: 'relative',
@@ -44,19 +48,21 @@ function TopChrome({ state }: { state: SafariChromeStripState }): React.JSX.Elem
         }}
       >
         <span>9:41</span>
-        <div
-          style={{
-            position: 'absolute',
-            left: '50%',
-            top: 10,
-            transform: 'translateX(-50%)',
-            width: 110,
-            height: 32,
-            borderRadius: 20,
-            background: '#000'
-          }}
-        />
-        <span style={{ fontSize: 13, fontWeight: 500 }}>■■■ 100%</span>
+        {isIphone ? (
+          <div
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: 10,
+              transform: 'translateX(-50%)',
+              width: 110,
+              height: 32,
+              borderRadius: 20,
+              background: '#000'
+            }}
+          />
+        ) : null}
+        <span style={{ fontSize: isIphone ? 13 : 11, fontWeight: 500 }}>■■■ 100%</span>
       </div>
       {!state.compact ? (
         <div
@@ -64,15 +70,15 @@ function TopChrome({ state }: { state: SafariChromeStripState }): React.JSX.Elem
             flex: 1,
             display: 'flex',
             alignItems: 'center',
-            padding: '0 12px 10px',
+            padding: isIphone ? '0 12px 10px' : '0 16px 8px',
             minHeight: 0
           }}
         >
           <div
             style={{
               flex: 1,
-              height: 36,
-              borderRadius: 12,
+              height: isIphone ? 36 : 34,
+              borderRadius: isIphone ? 12 : 10,
               background: 'rgba(0,0,0,0.06)',
               display: 'flex',
               alignItems: 'center',
@@ -96,9 +102,11 @@ function TopChrome({ state }: { state: SafariChromeStripState }): React.JSX.Elem
 }
 
 function BottomChrome({ state }: { state: SafariChromeStripState }): React.JSX.Element {
+  const isIphone = state.paneId === 'iphone'
   return (
     <div
       data-testid="safari-chrome-bottom"
+      data-pane={state.paneId}
       style={{
         height: '100%',
         display: 'flex',
@@ -114,11 +122,11 @@ function BottomChrome({ state }: { state: SafariChromeStripState }): React.JSX.E
     >
       <div
         style={{
-          height: 44,
+          height: isIphone ? 44 : 50,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-around',
-          padding: '0 8px',
+          padding: isIphone ? '0 8px' : '0 48px',
           fontSize: 22,
           fontWeight: 300
         }}
@@ -135,24 +143,26 @@ function BottomChrome({ state }: { state: SafariChromeStripState }): React.JSX.E
           +
         </span>
       </div>
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'flex-end',
-          justifyContent: 'center',
-          paddingBottom: 8
-        }}
-      >
+      {isIphone ? (
         <div
           style={{
-            width: 128,
-            height: 5,
-            borderRadius: 3,
-            background: '#000'
+            flex: 1,
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'center',
+            paddingBottom: 8
           }}
-        />
-      </div>
+        >
+          <div
+            style={{
+              width: 128,
+              height: 5,
+              borderRadius: 3,
+              background: '#000'
+            }}
+          />
+        </div>
+      ) : null}
       <span style={{ display: 'none' }}>{state.url}</span>
     </div>
   )

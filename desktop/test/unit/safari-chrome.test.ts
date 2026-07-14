@@ -13,8 +13,14 @@ describe('safari-chrome layout', () => {
     expect(getSafariBottomHeight('iphone')).toBe(heights.bottom)
   })
 
+  it('returns iPad heights for the tablet skin', () => {
+    const heights = SAFARI_CHROME_HEIGHTS.ipad!
+    expect(getSafariTopHeight('ipad', false)).toBe(heights.status + heights.urlExpanded)
+    expect(getSafariBottomHeight('ipad')).toBe(heights.bottom)
+  })
+
   it('returns zero heights for panes without a skin yet', () => {
-    expect(getSafariTopHeight('ipad', false)).toBe(0)
+    expect(getSafariTopHeight('desktop', false)).toBe(0)
     expect(getSafariBottomHeight('desktop')).toBe(0)
   })
 })

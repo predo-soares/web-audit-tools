@@ -9,6 +9,7 @@ import {
   getSafariTopHeight,
   SAFARI_CHROME_COMPACT_SCROLL_Y,
   SAFARI_CHROME_EXPAND_SCROLL_Y,
+  SAFARI_CHROME_PANE_IDS,
   type SafariChromeStrip,
   type SafariChromeStripState
 } from '../../shared/safari-chrome'
@@ -28,7 +29,7 @@ interface PaneChromeState {
   strips: { top: StripEntry; bottom: StripEntry }
 }
 
-const CHROME_PANE_IDS: PaneId[] = ['iphone']
+const CHROME_PANE_IDS = SAFARI_CHROME_PANE_IDS
 
 function getSafariChromePreloadPath(): string {
   return join(__dirname, '../preload/safari-chrome-preload.js')

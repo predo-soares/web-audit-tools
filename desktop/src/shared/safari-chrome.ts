@@ -16,8 +16,16 @@ export const SAFARI_CHROME_HEIGHTS: Partial<Record<PaneId, SafariChromeHeights>>
     urlExpanded: 52,
     urlCompact: 0,
     bottom: 83
+  },
+  ipad: {
+    status: 24,
+    urlExpanded: 50,
+    urlCompact: 0,
+    bottom: 50
   }
 }
+
+export const SAFARI_CHROME_PANE_IDS: PaneId[] = ['iphone', 'ipad']
 
 export function getSafariTopHeight(paneId: PaneId, compact: boolean): number {
   const heights = SAFARI_CHROME_HEIGHTS[paneId]
@@ -27,6 +35,10 @@ export function getSafariTopHeight(paneId: PaneId, compact: boolean): number {
 
 export function getSafariBottomHeight(paneId: PaneId): number {
   return SAFARI_CHROME_HEIGHTS[paneId]?.bottom ?? 0
+}
+
+export function supportsSafariChrome(paneId: PaneId): boolean {
+  return SAFARI_CHROME_PANE_IDS.includes(paneId)
 }
 
 export type SafariChromeStrip = 'top' | 'bottom'
