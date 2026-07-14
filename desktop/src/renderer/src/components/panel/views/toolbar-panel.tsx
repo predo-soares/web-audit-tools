@@ -3,7 +3,7 @@ import { cn } from '@renderer/lib/utils'
 import { UrlBar } from '@renderer/components/url-bar'
 import { useOverlayPanel } from '@renderer/hooks/use-overlay-panel'
 import { DIAGNOSTICS_DRAWER_WIDTH_PX } from '../../../../../shared/runtime-evidence'
-import type { ThemePreference } from '../../../../../shared/types'
+import type { MediaFeatureState, ThemePreference } from '../../../../../shared/types'
 import { TOOLBAR_HEIGHT_PX } from '../../../../../shared/sidebar'
 import {
   hasProjectForUrl,
@@ -21,7 +21,6 @@ import {
   Monitor,
   Moon01Icon,
   PanelLeftIcon,
-  SmartPhone01Icon,
   Sun01Icon,
   Unlink01Icon,
   SourceCodeIcon,
@@ -33,6 +32,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SnapshotResult } from '../../../../../shared/snapshot'
 
 const THEME_STORAGE_KEY = 'audit-screens-theme-preference'
+const MEDIA_FEATURES_STORAGE_KEY = 'audit-screens-media-features'
 
 const THEME_CYCLE: ThemePreference[] = ['system', 'light', 'dark']
 
@@ -88,7 +88,6 @@ export function ToolbarPanel(): React.JSX.Element {
     desktop: false
   })
   const [syncEnabled, setSyncEnabled] = useState(true)
-  const [safariChromeEnabled, setSafariChromeEnabled] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
   const [committedUrl, setCommittedUrl] = useState('')
   const [zoom, setZoom] = useState(1)
@@ -168,7 +167,6 @@ export function ToolbarPanel(): React.JSX.Element {
     })
     void window.panelApi.getLoadingStates().then(setLoadingStates)
     void window.panelApi.getSyncEnabled().then(setSyncEnabled)
-    void window.panelApi.getSafariChromeEnabled().then(setSafariChromeEnabled)
     void window.panelApi.listProjects().then(setProjects)
     void window.panelApi.getOpenPanels().then((openPanels) => {
       setSidebarOpen(openPanels.includes('sidebar-left'))
@@ -218,8 +216,6 @@ export function ToolbarPanel(): React.JSX.Element {
     })
     const unsubscribeDiagnosticsWidth =
       window.panelApi.onDiagnosticsWidthChanged(setDiagnosticsWidth)
-    const unsubscribeSafariChrome =
-      window.panelApi.onSafariChromeEnabledChanged(setSafariChromeEnabled)
 
     return () => {
       unsubscribeNavigation()
@@ -231,7 +227,6 @@ export function ToolbarPanel(): React.JSX.Element {
       unsubscribeSettled()
       unsubscribeFocus()
       unsubscribeDiagnosticsWidth()
-      unsubscribeSafariChrome()
     }
   }, [])
 
@@ -252,6 +247,20 @@ export function ToolbarPanel(): React.JSX.Element {
     window.localStorage.setItem(THEME_STORAGE_KEY, themePreference)
     void window.panelApi.setPaneThemePreference(themePreference)
   }, [themePreference])
+
+  // Re-apply persisted media-feature overrides at launch. The toolbar is the
+  // always-mounted panel, so it owns startup restore; the Rendering tab (only
+  // mounted when the drawer is open) is the editor.
+  useEffect(() => {
+    const stored = window.localStorage.getItem(MEDIA_FEATURES_STORAGE_KEY)
+    if (!stored) return
+    try {
+      const parsed = JSON.parse(stored) as MediaFeatureState
+      void window.panelApi.setMediaFeatures(parsed)
+    } catch {
+      // Ignore malformed persisted media features.
+    }
+  }, [])
 
   const handleNavigate = useCallback(async (nextUrl: string) => {
     setNavigating(true)
@@ -507,22 +516,6 @@ export function ToolbarPanel(): React.JSX.Element {
           onClick={() => void handleSnapshot()}
         >
           <Icon icon={Camera01Icon} size={14} />
-        </button>
-        <button
-          type="button"
-          data-testid="safari-chrome-toggle"
-          className={buttonVariants({ variant: 'ghost', size: 'icon-xs' })}
-          onClick={() => {
-            void window.panelApi
-              .setSafariChromeEnabled(!safariChromeEnabled)
-              .then(setSafariChromeEnabled)
-          }}
-          aria-label={
-            safariChromeEnabled ? 'Hide Safari chrome on devices' : 'Show Safari chrome on devices'
-          }
-          aria-pressed={safariChromeEnabled}
-        >
-          <Icon icon={SmartPhone01Icon} size={14} />
         </button>
         <button
           type="button"
