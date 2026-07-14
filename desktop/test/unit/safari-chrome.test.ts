@@ -19,8 +19,9 @@ describe('safari-chrome layout', () => {
     expect(getSafariBottomHeight('ipad')).toBe(heights.bottom)
   })
 
-  it('returns zero heights for panes without a skin yet', () => {
-    expect(getSafariTopHeight('desktop', false)).toBe(0)
+  it('returns desktop toolbar height with no bottom strip', () => {
+    const heights = SAFARI_CHROME_HEIGHTS.desktop!
+    expect(getSafariTopHeight('desktop', false)).toBe(heights.urlExpanded)
     expect(getSafariBottomHeight('desktop')).toBe(0)
   })
 })

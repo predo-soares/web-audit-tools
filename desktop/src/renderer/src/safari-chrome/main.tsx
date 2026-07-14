@@ -12,7 +12,65 @@ function displayHost(url: string): string {
   }
 }
 
+function DesktopTopChrome({ state }: { state: SafariChromeStripState }): React.JSX.Element {
+  const host = displayHost(state.url)
+  return (
+    <div
+      data-testid="safari-chrome-top"
+      data-pane="desktop"
+      style={{
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '0 12px',
+        boxSizing: 'border-box',
+        background: 'rgba(246, 246, 246, 0.96)',
+        borderBottom: '0.5px solid rgba(0,0,0,0.12)',
+        color: '#1d1d1f',
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif'
+      }}
+    >
+      <div style={{ display: 'flex', gap: 14, color: '#007aff', fontSize: 18, paddingLeft: 4 }}>
+        <span aria-hidden>‹</span>
+        <span aria-hidden style={{ opacity: 0.35 }}>
+          ›
+        </span>
+      </div>
+      <div
+        style={{
+          flex: 1,
+          height: 28,
+          borderRadius: 6,
+          background: '#fff',
+          border: '0.5px solid rgba(0,0,0,0.12)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '0 10px',
+          fontSize: 13,
+          overflow: 'hidden',
+          whiteSpace: 'nowrap',
+          textOverflow: 'ellipsis'
+        }}
+        data-testid="safari-chrome-url"
+      >
+        {host}
+      </div>
+      <div style={{ display: 'flex', gap: 12, color: '#007aff', fontSize: 14, paddingRight: 4 }}>
+        <span aria-hidden>↗</span>
+        <span aria-hidden>+</span>
+      </div>
+    </div>
+  )
+}
+
 function TopChrome({ state }: { state: SafariChromeStripState }): React.JSX.Element {
+  if (state.paneId === 'desktop') {
+    return <DesktopTopChrome state={state} />
+  }
+
   const host = displayHost(state.url)
   const isIphone = state.paneId === 'iphone'
   const statusHeight = state.compact ? '100%' : isIphone ? 54 : 24
@@ -181,6 +239,10 @@ function SafariChromeApp(): React.JSX.Element | null {
   }, [strip])
 
   if (!state?.visible) {
+    return <div style={{ width: '100%', height: '100%', background: 'transparent' }} />
+  }
+
+  if (strip === 'bottom' && state.paneId === 'desktop') {
     return <div style={{ width: '100%', height: '100%', background: 'transparent' }} />
   }
 

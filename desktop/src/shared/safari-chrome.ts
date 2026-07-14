@@ -22,10 +22,16 @@ export const SAFARI_CHROME_HEIGHTS: Partial<Record<PaneId, SafariChromeHeights>>
     urlExpanded: 50,
     urlCompact: 0,
     bottom: 50
+  },
+  desktop: {
+    status: 0,
+    urlExpanded: 52,
+    urlCompact: 52,
+    bottom: 0
   }
 }
 
-export const SAFARI_CHROME_PANE_IDS: PaneId[] = ['iphone', 'ipad']
+export const SAFARI_CHROME_PANE_IDS: PaneId[] = ['iphone', 'ipad', 'desktop']
 
 export function getSafariTopHeight(paneId: PaneId, compact: boolean): number {
   const heights = SAFARI_CHROME_HEIGHTS[paneId]
