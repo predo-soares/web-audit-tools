@@ -152,8 +152,11 @@ export function registerIpcHandlers(
   safariChromeManager: SafariChromeManager,
   auditManager: AuditManager
 ): void {
-  ipcMain.handle('snapshot:take', async () => {
-    return captureSnapshot(makeSnapshotPort(paneManager))
+  ipcMain.handle('snapshot:take', async (_event, includeSeoAudit = false) => {
+    return captureSnapshot(makeSnapshotPort(paneManager), undefined, {
+      includeSeoAudit,
+      seoAuditState: includeSeoAudit ? auditManager.getState() : undefined
+    })
   })
 
   ipcMain.handle('seo-audit:run', async (_event, indexingIntent: IndexingIntent) => {

@@ -76,7 +76,7 @@ export interface PreviewApi {
   toggleDiagnosticsDrawer: () => void
   getDiagnosticsWidth: () => Promise<number>
   onDiagnosticsWidthChanged: (callback: (width: number) => void) => () => void
-  takeSnapshot: () => Promise<SnapshotResult>
+  takeSnapshot: (includeSeoAudit?: boolean) => Promise<SnapshotResult>
   getSafariChromeEnabled: () => Promise<boolean>
   onSafariChromeEnabledChanged: (callback: (enabled: boolean) => void) => () => void
   runSeoAudit: (indexingIntent: IndexingIntent) => Promise<AuditRunResult>
@@ -229,7 +229,7 @@ const api: PreviewApi = {
     ipcRenderer.on('panel:diagnostics-width', listener)
     return () => ipcRenderer.removeListener('panel:diagnostics-width', listener)
   },
-  takeSnapshot: () => ipcRenderer.invoke('snapshot:take'),
+  takeSnapshot: (includeSeoAudit = false) => ipcRenderer.invoke('snapshot:take', includeSeoAudit),
   getSafariChromeEnabled: () => ipcRenderer.invoke('safari-chrome:get-enabled'),
   onSafariChromeEnabledChanged: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, enabled: boolean): void =>

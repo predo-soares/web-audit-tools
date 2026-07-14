@@ -81,7 +81,7 @@ export interface PanelOverlayApi {
   getDiagnosticsWidth: () => Promise<number>
   resizeDockedPanel: (width: number, phase: 'preview' | 'commit') => void
   onDiagnosticsWidthChanged: (callback: (width: number) => void) => () => void
-  takeSnapshot: () => Promise<SnapshotResult>
+  takeSnapshot: (includeSeoAudit?: boolean) => Promise<SnapshotResult>
   onSnapshotTaken: (callback: (result: SnapshotResult) => void) => () => void
   onSafariChromeEnabledChanged: (callback: (enabled: boolean) => void) => () => void
   runSeoAudit: (indexingIntent: IndexingIntent) => Promise<AuditRunResult>
@@ -254,7 +254,7 @@ const panelApi: PanelOverlayApi = {
     ipcRenderer.on('panel:diagnostics-width', listener)
     return () => ipcRenderer.removeListener('panel:diagnostics-width', listener)
   },
-  takeSnapshot: () => ipcRenderer.invoke('snapshot:take'),
+  takeSnapshot: (includeSeoAudit = false) => ipcRenderer.invoke('snapshot:take', includeSeoAudit),
   onSnapshotTaken: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, result: SnapshotResult): void =>
       callback(result)

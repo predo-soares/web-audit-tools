@@ -1,4 +1,7 @@
 import { test, expect } from './fixtures'
+import { existsSync, readFileSync, readdirSync } from 'fs'
+import { homedir } from 'os'
+import { join } from 'path'
 import {
   fixtureUrl,
   getSeoPanelPage,
@@ -71,6 +74,25 @@ test('runs a full audit and reports a passed title finding', async ({ fixturePor
         () => (window as typeof window & { __copiedSeoMarkdown?: string }).__copiedSeoMarkdown
       )
     ).toContain('search-appearance/title-present')
+    await overview.getByTestId('seo-export-snapshot').click()
+    await expect(overview.getByTestId('seo-export-status')).toContainText('SEO Snapshot exported')
+    const captures = join(homedir(), '.audit-screens', 'captures')
+    const latest = readdirSync(captures).sort().at(-1)
+    expect(latest).toBeTruthy()
+    const bundle = join(captures, latest!)
+    expect(existsSync(join(bundle, 'context.md'))).toBe(true)
+    expect(
+      existsSync(join(bundle, 'iphone-16-pro.png')) || existsSync(join(bundle, 'desktop.png'))
+    ).toBe(true)
+    expect(existsSync(join(bundle, 'seo-audit.json'))).toBe(true)
+    expect(readFileSync(join(bundle, 'context.md'), 'utf8')).toContain('## Page SEO Audit')
+    const exported = JSON.parse(readFileSync(join(bundle, 'seo-audit.json'), 'utf8'))
+    expect(exported.ruleCatalogVersion).toBeTruthy()
+    expect(
+      exported.findings.some(
+        (item: { ruleId: string }) => item.ruleId === 'search-appearance/title-present'
+      )
+    ).toBe(true)
     // No proprietary overall score is shown.
     await expect(result).not.toContainText('score')
   } finally {

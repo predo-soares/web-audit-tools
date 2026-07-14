@@ -8,6 +8,8 @@ import type { DevContext } from '../../shared/dev-context'
 import type { RuntimeEvidenceSnapshot } from '../../shared/runtime-evidence'
 import type { PaneId } from '../../shared/types'
 import type { SnapshotResult } from '../../shared/snapshot'
+import { CATEGORY_LABEL, type AuditJobState, type AuditResult } from '../../shared/seo-audit'
+import { sanitizeUrl } from '../../shared/seo-sanitize'
 
 export type { SnapshotResult }
 
@@ -30,6 +32,11 @@ export interface SnapshotDeps {
   mkdirBundle?: (path: string) => Promise<void>
   writePng?: (path: string, data: Buffer) => Promise<void>
   writeMd?: (path: string, data: string) => Promise<void>
+  writeJson?: (path: string, data: string) => Promise<void>
+}
+export interface SnapshotOptions {
+  includeSeoAudit?: boolean
+  seoAuditState?: AuditJobState
 }
 
 const CONSOLE_SNAPSHOT_CAP = 100
@@ -37,11 +44,20 @@ const SOFT_WAIT_CEILING_MS = 2000
 const SOFT_WAIT_INTERVAL_MS = 100
 
 const HTTP_STATUS_TEXT: Record<number, string> = {
-  400: 'Bad Request', 401: 'Unauthorized', 402: 'Payment Required',
-  403: 'Forbidden', 404: 'Not Found', 405: 'Method Not Allowed',
-  408: 'Request Timeout', 409: 'Conflict', 410: 'Gone',
-  429: 'Too Many Requests', 500: 'Internal Server Error',
-  501: 'Not Implemented', 502: 'Bad Gateway', 503: 'Service Unavailable',
+  400: 'Bad Request',
+  401: 'Unauthorized',
+  402: 'Payment Required',
+  403: 'Forbidden',
+  404: 'Not Found',
+  405: 'Method Not Allowed',
+  408: 'Request Timeout',
+  409: 'Conflict',
+  410: 'Gone',
+  429: 'Too Many Requests',
+  500: 'Internal Server Error',
+  501: 'Not Implemented',
+  502: 'Bad Gateway',
+  503: 'Service Unavailable',
   504: 'Gateway Timeout'
 }
 
@@ -72,8 +88,20 @@ function buildContextMd(options: {
   devContext: DevContext | null
   isLocalhost: boolean
   slug: string
+  seoAudit?: { result: AuditResult; stale: boolean; incomplete: boolean }
 }): string {
-  const { capturedAt, paneId, url, title, lastNavTimestamp, evidence, devContext, isLocalhost, slug } = options
+  const {
+    capturedAt,
+    paneId,
+    url,
+    title,
+    lastNavTimestamp,
+    evidence,
+    devContext,
+    isLocalhost,
+    slug,
+    seoAudit
+  } = options
 
   const consoleProblemEntries = evidence.console
     .filter((e) => isConsoleProblem(e.level))
@@ -126,13 +154,31 @@ function buildContextMd(options: {
       lines.push(`${entry.method} ${entry.path}`)
     }
   }
+  if (seoAudit) {
+    const actionable = seoAudit.result.findings.filter((item) => item.remediation)
+    lines.push('', '## Page SEO Audit')
+    lines.push(
+      `State: completed${seoAudit.stale ? ', stale' : ''}${seoAudit.incomplete ? ', incomplete' : ''}`
+    )
+    lines.push(`Rule catalog: ${seoAudit.result.ruleCatalogVersion}`)
+    lines.push(`Machine-readable result: ./seo-audit.json`)
+    lines.push('Category counts:')
+    for (const category of Object.keys(CATEGORY_LABEL) as (keyof typeof CATEGORY_LABEL)[])
+      lines.push(
+        `- ${CATEGORY_LABEL[category]}: ${seoAudit.result.findings.filter((item) => item.category === category).length}`
+      )
+    lines.push(`Actionable findings (${actionable.length}):`)
+    for (const item of actionable)
+      lines.push(`- [${item.outcome}] ${item.ruleId}: ${item.summary} — ${item.remediation}`)
+  }
 
   return lines.join('\n')
 }
 
 export async function captureSnapshot(
   port: SnapshotPort,
-  deps?: SnapshotDeps
+  deps?: SnapshotDeps,
+  options: SnapshotOptions = {}
 ): Promise<SnapshotResult> {
   const nowMs = deps?.nowMs ?? (() => Date.now())
   const wait = deps?.wait ?? ((ms) => new Promise<void>((resolve) => setTimeout(resolve, ms)))
@@ -146,8 +192,9 @@ export async function captureSnapshot(
   const mkdirBundle =
     deps?.mkdirBundle ?? ((path) => mkdir(path, { recursive: true }).then(() => {}))
   const writePng = deps?.writePng ?? ((path, data) => writeFile(path, data))
-  const writeMd =
-    deps?.writeMd ?? ((path, data) => writeFile(path, data, 'utf-8').then(() => {}))
+  const writeMd = deps?.writeMd ?? ((path, data) => writeFile(path, data, 'utf-8').then(() => {}))
+  const writeJson =
+    deps?.writeJson ?? ((path, data) => writeFile(path, data, 'utf-8').then(() => {}))
 
   // Soft wait: poll until all panes settle or 2-second ceiling
   const deadline = nowMs() + SOFT_WAIT_CEILING_MS
@@ -190,13 +237,26 @@ export async function captureSnapshot(
     evidence,
     devContext,
     isLocalhost,
-    slug
+    slug,
+    seoAudit:
+      options.includeSeoAudit && options.seoAuditState?.result
+        ? {
+            result: options.seoAuditState.result,
+            stale: options.seoAuditState.stale,
+            incomplete: options.seoAuditState.incomplete
+          }
+        : undefined
   })
 
   try {
     await mkdirBundle(bundleDir)
     await writeMd(join(bundleDir, 'context.md'), contextMd)
     await writePng(join(bundleDir, `${slug}.png`), png)
+    if (options.includeSeoAudit && options.seoAuditState?.result)
+      await writeJson(
+        join(bundleDir, 'seo-audit.json'),
+        serializeSeoAudit(options.seoAuditState.result)
+      )
   } catch (error) {
     return { ok: false, reason: `write-failed: ${String(error)}` }
   }
@@ -205,4 +265,17 @@ export async function captureSnapshot(
   writeClipboardText(clipboardText)
 
   return { ok: true, warningCount }
+}
+
+export function serializeSeoAudit(result: AuditResult): string {
+  const blocked = /^(cookie|cookies|authorization|storage|requestBody|responseBody|body|html)$/i
+  return JSON.stringify(
+    result,
+    (key, value) => {
+      if (blocked.test(key)) return undefined
+      if (typeof value === 'string' && /^https?:\/\//i.test(value)) return sanitizeUrl(value)
+      return value
+    },
+    2
+  )
 }

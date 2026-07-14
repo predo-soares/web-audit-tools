@@ -40,6 +40,7 @@ export function SeoPanel(): React.JSX.Element {
   const [findingCategory, setFindingCategory] = useState<AuditCategory | null>(null)
   const [findingOutcome, setFindingOutcome] = useState<FindingOutcome | null>(null)
   const [copied, setCopied] = useState('')
+  const [exportStatus, setExportStatus] = useState('')
   // The audit job is owned by the main process; the panel is a view of its
   // broadcast state so closing/reopening restores progress instead of losing it.
   const [job, setJob] = useState<AuditJobState>(IDLE_AUDIT_STATE)
@@ -89,6 +90,14 @@ export function SeoPanel(): React.JSX.Element {
   const { result } = job
   const copyMarkdown = useCallback((markdown: string, label: string): void => {
     void navigator.clipboard.writeText(markdown).then(() => setCopied(label))
+  }, [])
+  const exportWithSnapshot = useCallback((): void => {
+    setExportStatus('Exporting…')
+    void window.panelApi
+      .takeSnapshot(true)
+      .then((value) =>
+        setExportStatus(value.ok ? 'SEO Snapshot exported.' : `Export failed: ${value.reason}`)
+      )
   }, [])
 
   return (
@@ -229,6 +238,23 @@ export function SeoPanel(): React.JSX.Element {
                     Copy result
                   </button>
                 </div>
+                <button
+                  type="button"
+                  data-testid="seo-export-snapshot"
+                  onClick={exportWithSnapshot}
+                  className="mt-2 w-full rounded-md border border-white/10 px-2 py-1 text-xs text-sky-400"
+                >
+                  Export with Snapshot
+                </button>
+                {exportStatus ? (
+                  <p
+                    data-testid="seo-export-status"
+                    role="status"
+                    className="mt-1 text-[10px] text-muted-foreground"
+                  >
+                    {exportStatus}
+                  </p>
+                ) : null}
                 <div className="mt-2 grid grid-cols-3 gap-1">
                   {OUTCOMES.map((outcome) => (
                     <button
