@@ -38,6 +38,39 @@ test('runs a full audit and reports a passed title finding', async ({ fixturePor
     )
     await expect(titleFinding).toHaveAttribute('data-outcome', 'passed')
     await expect(titleFinding.getByTestId('seo-finding-evidence')).toContainText('Fixture SEO Page')
+    const overview = panel.getByTestId('seo-overview')
+    await expect(overview.getByTestId('seo-category-row')).toHaveCount(9)
+    await expect(overview.getByTestId('seo-outcome-filter')).toHaveCount(5)
+    await overview.locator('[data-testid="seo-outcome-filter"][data-outcome="warning"]').click()
+    await expect(panel.getByTestId('seo-finding')).toHaveCount(
+      await panel.locator('[data-testid="seo-finding"][data-outcome="warning"]').count()
+    )
+    await overview.locator('[data-testid="seo-outcome-filter"][data-outcome="warning"]').click()
+    await panel.evaluate(() => {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: {
+          writeText: (value: string) => {
+            ;(window as typeof window & { __copiedSeoMarkdown?: string }).__copiedSeoMarkdown =
+              value
+            return Promise.resolve()
+          }
+        }
+      })
+    })
+    await overview.getByTestId('seo-copy-result').click()
+    await expect(overview.getByTestId('seo-copy-status')).toContainText('agent-ready Markdown')
+    expect(
+      await panel.evaluate(
+        () => (window as typeof window & { __copiedSeoMarkdown?: string }).__copiedSeoMarkdown
+      )
+    ).toContain('Rule catalog')
+    await titleFinding.getByRole('button', { name: /Copy .* finding/ }).click()
+    expect(
+      await panel.evaluate(
+        () => (window as typeof window & { __copiedSeoMarkdown?: string }).__copiedSeoMarkdown
+      )
+    ).toContain('search-appearance/title-present')
     // No proprietary overall score is shown.
     await expect(result).not.toContainText('score')
   } finally {

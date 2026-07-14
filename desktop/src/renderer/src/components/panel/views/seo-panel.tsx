@@ -9,11 +9,16 @@ import {
   inferIndexingIntent,
   isAuditableUrl,
   type AuditJobState,
+  type AuditCategory,
   type FindingOutcome,
   type IndexingIntent
 } from '../../../../../shared/seo-audit'
 import { cn } from '@renderer/lib/utils'
 import { SegmentedControl } from '@renderer/components/ui/segmented-control'
+import { auditMarkdown } from '../../../../../shared/seo-markdown'
+
+const CATEGORIES = Object.keys(CATEGORY_LABEL) as AuditCategory[]
+const OUTCOMES = Object.keys(OUTCOME_LABEL) as FindingOutcome[]
 
 const OUTCOME_CLASS: Record<FindingOutcome, string> = {
   error: 'bg-destructive/15 text-destructive',
@@ -32,6 +37,9 @@ export function SeoPanel(): React.JSX.Element {
   const [pageTitle, setPageTitle] = useState('')
   const [intent, setIntent] = useState<IndexingIntent>('indexable')
   const [linkFilter, setLinkFilter] = useState('')
+  const [findingCategory, setFindingCategory] = useState<AuditCategory | null>(null)
+  const [findingOutcome, setFindingOutcome] = useState<FindingOutcome | null>(null)
+  const [copied, setCopied] = useState('')
   // The audit job is owned by the main process; the panel is a view of its
   // broadcast state so closing/reopening restores progress instead of losing it.
   const [job, setJob] = useState<AuditJobState>(IDLE_AUDIT_STATE)
@@ -79,6 +87,9 @@ export function SeoPanel(): React.JSX.Element {
   }, [])
 
   const { result } = job
+  const copyMarkdown = useCallback((markdown: string, label: string): void => {
+    void navigator.clipboard.writeText(markdown).then(() => setCopied(label))
+  }, [])
 
   return (
     <aside
@@ -201,6 +212,91 @@ export function SeoPanel(): React.JSX.Element {
                 </span>
                 <span data-testid="seo-catalog-version">Rules {result.ruleCatalogVersion}</span>
               </div>
+              <section
+                data-testid="seo-overview"
+                className="mb-3 rounded-lg border border-white/10 bg-white/[0.03] p-3"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Overview
+                  </p>
+                  <button
+                    type="button"
+                    data-testid="seo-copy-result"
+                    className="text-[10px] text-sky-400"
+                    onClick={() => copyMarkdown(auditMarkdown(result), 'complete result')}
+                  >
+                    Copy result
+                  </button>
+                </div>
+                <div className="mt-2 grid grid-cols-3 gap-1">
+                  {OUTCOMES.map((outcome) => (
+                    <button
+                      type="button"
+                      key={outcome}
+                      data-testid="seo-outcome-filter"
+                      data-outcome={outcome}
+                      aria-pressed={findingOutcome === outcome}
+                      onClick={() => setFindingOutcome(findingOutcome === outcome ? null : outcome)}
+                      className={cn(
+                        'rounded border border-white/10 px-1 py-1 text-[10px]',
+                        findingOutcome === outcome && OUTCOME_CLASS[outcome]
+                      )}
+                    >
+                      {OUTCOME_LABEL[outcome]}{' '}
+                      {result.findings.filter((item) => item.outcome === outcome).length}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-2 space-y-1">
+                  {CATEGORIES.map((category) => (
+                    <div
+                      key={category}
+                      data-testid="seo-category-row"
+                      className="flex items-center gap-1"
+                    >
+                      <button
+                        type="button"
+                        aria-pressed={findingCategory === category}
+                        onClick={() =>
+                          setFindingCategory(findingCategory === category ? null : category)
+                        }
+                        className={cn(
+                          'min-w-0 flex-1 truncate rounded px-1.5 py-1 text-left text-[10px]',
+                          findingCategory === category
+                            ? 'bg-white/10 text-foreground'
+                            : 'text-muted-foreground'
+                        )}
+                      >
+                        {CATEGORY_LABEL[category]} ·{' '}
+                        {result.findings.filter((item) => item.category === category).length}
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Copy ${CATEGORY_LABEL[category]} findings`}
+                        onClick={() =>
+                          copyMarkdown(
+                            auditMarkdown(result, { category }),
+                            CATEGORY_LABEL[category]
+                          )
+                        }
+                        className="px-1 text-[10px] text-sky-400"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                {copied ? (
+                  <p
+                    data-testid="seo-copy-status"
+                    role="status"
+                    className="mt-2 text-[10px] text-emerald-500"
+                  >
+                    Copied {copied} as agent-ready Markdown.
+                  </p>
+                ) : null}
+              </section>
               <section
                 data-testid="seo-search-preview"
                 className="mb-3 rounded-lg border border-white/10 bg-white/[0.03] p-3"
@@ -644,51 +740,75 @@ export function SeoPanel(): React.JSX.Element {
                 </ul>
               </details>
               <ul className="flex flex-col gap-2">
-                {result.findings.map((finding) => (
-                  <li
-                    key={finding.ruleId}
-                    data-testid="seo-finding"
-                    data-outcome={finding.outcome}
-                    data-rule-id={finding.ruleId}
-                    className="rounded-md border border-white/10 p-2.5"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        data-testid="seo-finding-outcome"
-                        className={cn(
-                          'rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
-                          OUTCOME_CLASS[finding.outcome]
-                        )}
-                      >
-                        {OUTCOME_LABEL[finding.outcome]}
-                      </span>
-                      <span className="text-[11px] text-muted-foreground">
-                        {CATEGORY_LABEL[finding.category]}
-                      </span>
-                    </div>
-                    <p data-testid="seo-finding-summary" className="mt-1.5 text-sm text-foreground">
-                      {finding.summary}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">{finding.impact}</p>
-                    <p
-                      data-testid="seo-finding-evidence"
-                      className="mt-1.5 text-xs text-foreground/80"
+                {result.findings
+                  .filter((finding) => !findingCategory || finding.category === findingCategory)
+                  .filter((finding) => !findingOutcome || finding.outcome === findingOutcome)
+                  .map((finding) => (
+                    <li
+                      key={finding.ruleId}
+                      data-testid="seo-finding"
+                      data-outcome={finding.outcome}
+                      data-rule-id={finding.ruleId}
+                      className="rounded-md border border-white/10 p-2.5"
                     >
-                      <span className="text-muted-foreground">
-                        {finding.evidence.origin === 'delivered' ? 'Delivered' : 'Rendered'}:{' '}
-                      </span>
-                      {finding.evidence.detail}
-                    </p>
-                    {finding.remediation ? (
+                      <div className="flex items-center gap-2">
+                        <span
+                          data-testid="seo-finding-outcome"
+                          className={cn(
+                            'rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                            OUTCOME_CLASS[finding.outcome]
+                          )}
+                        >
+                          {OUTCOME_LABEL[finding.outcome]}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">
+                          {CATEGORY_LABEL[finding.category]}
+                        </span>
+                      </div>
                       <p
-                        data-testid="seo-finding-remediation"
-                        className="mt-1.5 text-xs text-sky-400"
+                        data-testid="seo-finding-summary"
+                        className="mt-1.5 text-sm text-foreground"
                       >
-                        {finding.remediation}
+                        {finding.summary}
                       </p>
-                    ) : null}
-                  </li>
-                ))}
+                      <div className="mt-1 flex items-center justify-between gap-2">
+                        <code
+                          data-testid="seo-finding-rule-id"
+                          className="truncate text-[10px] text-muted-foreground"
+                        >
+                          {finding.ruleId}
+                        </code>
+                        <button
+                          type="button"
+                          aria-label={`Copy ${finding.ruleId} finding`}
+                          onClick={() =>
+                            copyMarkdown(auditMarkdown(result, { finding }), finding.ruleId)
+                          }
+                          className="text-[10px] text-sky-400"
+                        >
+                          Copy finding
+                        </button>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">{finding.impact}</p>
+                      <p
+                        data-testid="seo-finding-evidence"
+                        className="mt-1.5 text-xs text-foreground/80"
+                      >
+                        <span className="text-muted-foreground">
+                          {finding.evidence.origin === 'delivered' ? 'Delivered' : 'Rendered'}:{' '}
+                        </span>
+                        {finding.evidence.detail}
+                      </p>
+                      {finding.remediation ? (
+                        <p
+                          data-testid="seo-finding-remediation"
+                          className="mt-1.5 text-xs text-sky-400"
+                        >
+                          {finding.remediation}
+                        </p>
+                      ) : null}
+                    </li>
+                  ))}
               </ul>
             </section>
           ) : null}
