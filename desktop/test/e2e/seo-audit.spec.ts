@@ -377,3 +377,66 @@ test('reports malformed sources, missing requirements, and broken entity relatio
     await close()
   }
 })
+
+test('inspects client-rendered headings, responsive visibility, and page landmarks', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/seo/document-structure'))
+    await waitForPaneElement(window, 'desktop', 'client-content')
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('seo-toggle').click()
+    const panel = await getSeoPanelPage(window)
+    await panel.getByTestId('seo-run-audit').click()
+
+    const structure = panel.getByTestId('seo-document-structure')
+    await expect(structure).toContainText('Language: en')
+    await structure.getByText('Rendered heading tree').click()
+    await expect(structure.getByTestId('seo-heading-tree')).toContainText('Hidden desktop heading')
+    await expect(structure.getByTestId('seo-heading-tree')).toContainText('hidden')
+    await expect(structure.getByTestId('seo-heading-tree')).toContainText(
+      'Client-rendered page heading'
+    )
+    await expect(
+      panel.locator(
+        '[data-testid="seo-finding"][data-rule-id="document-structure/primary-heading"]'
+      )
+    ).toHaveAttribute('data-outcome', 'passed')
+  } finally {
+    await close()
+  }
+})
+
+test('reports missing language, heading defects, and an empty main landmark', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/seo/document-structure-invalid'))
+    await waitForPaneElement(window, 'desktop', 'seo-document-structure-invalid')
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('seo-toggle').click()
+    const panel = await getSeoPanelPage(window)
+    await panel.getByTestId('seo-run-audit').click()
+
+    await expect(
+      panel.locator('[data-testid="seo-finding"][data-rule-id="document-structure/language"]')
+    ).toHaveAttribute('data-outcome', 'warning')
+    await expect(
+      panel.locator(
+        '[data-testid="seo-finding"][data-rule-id="document-structure/primary-heading"]'
+      )
+    ).toHaveAttribute('data-outcome', 'warning')
+    await expect(
+      panel.locator(
+        '[data-testid="seo-finding"][data-rule-id="document-structure/heading-hierarchy"]'
+      )
+    ).toHaveAttribute('data-outcome', 'warning')
+    await expect(
+      panel.locator('[data-testid="seo-finding"][data-rule-id="document-structure/page-landmarks"]')
+    ).toHaveAttribute('data-outcome', 'warning')
+  } finally {
+    await close()
+  }
+})

@@ -68,6 +68,34 @@ export const RENDERED_EXTRACTION_EXPRESSION = `(() => {
     if (id !== null) entity['@id'] = id;
     structuredSources.push({ format: 'rdfa', sourceIndex, raw: JSON.stringify(entity) });
   });
+  const isVisible = (el) => {
+    const style = window.getComputedStyle(el);
+    return !el.hidden && el.getAttribute('aria-hidden') !== 'true' && style.display !== 'none' && style.visibility !== 'hidden' && el.getClientRects().length > 0;
+  };
+  const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6')).map((el, sourceIndex) => ({
+    level: Number(el.tagName.slice(1)),
+    text: (el.textContent || '').trim(),
+    accessibleName: (el.getAttribute('aria-label') || el.textContent || '').trim(),
+    visible: isVisible(el),
+    sourceIndex
+  }));
+  const landmarks = Array.from(document.querySelectorAll('main, nav, header, footer, aside, [role="main"], [role="navigation"], [role="banner"], [role="contentinfo"], [role="complementary"]')).map((el, sourceIndex) => ({
+    role: el.getAttribute('role') || ({ MAIN: 'main', NAV: 'navigation', HEADER: 'banner', FOOTER: 'contentinfo', ASIDE: 'complementary' }[el.tagName] || el.tagName.toLowerCase()),
+    accessibleName: (el.getAttribute('aria-label') || (el.getAttribute('aria-labelledby') ? document.getElementById(el.getAttribute('aria-labelledby'))?.textContent : '') || '').trim(),
+    visible: isVisible(el),
+    textCharacters: (el.textContent || '').replace(/\\s+/g, ' ').trim().length,
+    sourceIndex
+  }));
+  const visibleText = (document.body?.innerText || '').replace(/\\s+/g, ' ').trim();
+  const repeated = {};
+  visibleText.split(/[.!?]+/).map((text) => text.trim()).filter((text) => text.length >= 20).forEach((text) => { repeated[text] = (repeated[text] || 0) + 1; });
+  const documentStructure = {
+    language: { lang: document.documentElement.getAttribute('lang'), xmlLang: document.documentElement.getAttribute('xml:lang') },
+    headings,
+    landmarks,
+    visibleTextCharacters: visibleText.length,
+    repeatedText: Object.entries(repeated).filter(([, count]) => count > 1).map(([text, count]) => ({ text, count })).slice(0, 10)
+  };
   const measure = (text, font) => {
     if (!text) return 0;
     const canvas = document.createElement('canvas');
@@ -86,6 +114,7 @@ export const RENDERED_EXTRACTION_EXPRESSION = `(() => {
     sitemapLinks,
     social,
     structuredSources,
+    documentStructure,
     titleWidthPx: title === null ? null : measure(title.trim(), '20px Arial'),
     descriptionWidthsPx: descriptions.map((value) => measure(value.trim(), '14px Arial') ?? 0)
   };
@@ -106,8 +135,52 @@ export function normalizeRenderedSnapshot(raw: unknown): RenderedAuditSnapshot {
     sitemapLinks: stringArray(value.sitemapLinks),
     social: socialArray(value.social),
     structuredSources: structuredSourceArray(value.structuredSources),
+    documentStructure: documentStructureValue(value.documentStructure),
     titleWidthPx: typeof value.titleWidthPx === 'number' ? value.titleWidthPx : null,
     descriptionWidthsPx: numberArray(value.descriptionWidthsPx)
+  }
+}
+
+function documentStructureValue(value: unknown): RenderedAuditSnapshot['documentStructure'] {
+  if (!value || typeof value !== 'object') return undefined
+  const candidate = value as Partial<NonNullable<RenderedAuditSnapshot['documentStructure']>>
+  const language = (
+    candidate.language && typeof candidate.language === 'object' ? candidate.language : {}
+  ) as { lang?: unknown; xmlLang?: unknown }
+  return {
+    language: {
+      lang: typeof language.lang === 'string' ? language.lang : null,
+      xmlLang: typeof language.xmlLang === 'string' ? language.xmlLang : null
+    },
+    headings: Array.isArray(candidate.headings)
+      ? candidate.headings.filter(
+          (item) =>
+            item &&
+            typeof item.level === 'number' &&
+            typeof item.text === 'string' &&
+            typeof item.accessibleName === 'string' &&
+            typeof item.visible === 'boolean' &&
+            typeof item.sourceIndex === 'number'
+        )
+      : [],
+    landmarks: Array.isArray(candidate.landmarks)
+      ? candidate.landmarks.filter(
+          (item) =>
+            item &&
+            typeof item.role === 'string' &&
+            typeof item.accessibleName === 'string' &&
+            typeof item.visible === 'boolean' &&
+            typeof item.textCharacters === 'number' &&
+            typeof item.sourceIndex === 'number'
+        )
+      : [],
+    visibleTextCharacters:
+      typeof candidate.visibleTextCharacters === 'number' ? candidate.visibleTextCharacters : 0,
+    repeatedText: Array.isArray(candidate.repeatedText)
+      ? candidate.repeatedText.filter(
+          (item) => item && typeof item.text === 'string' && typeof item.count === 'number'
+        )
+      : []
   }
 }
 

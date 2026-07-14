@@ -383,6 +383,63 @@ export function SeoPanel(): React.JSX.Element {
                 </ul>
               </section>
 
+              <section
+                data-testid="seo-document-structure"
+                className="mb-3 rounded-lg border border-white/10 bg-white/[0.03] p-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Document structure
+                  </p>
+                  <span className="text-[10px] text-muted-foreground">
+                    {result.documentStructure.visibleTextCharacters} text characters
+                  </span>
+                </div>
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Language: {result.documentStructure.language.lang ?? 'not declared'} ·{' '}
+                  {result.documentStructure.headings.filter((item) => item.visible).length} visible
+                  headings ·{' '}
+                  {result.documentStructure.landmarks.filter((item) => item.visible).length} visible
+                  landmarks
+                </p>
+                <details className="mt-2 rounded-md border border-white/10 p-2">
+                  <summary className="cursor-pointer text-xs">Rendered heading tree</summary>
+                  <ol data-testid="seo-heading-tree" className="mt-2 space-y-1 text-[10px]">
+                    {result.documentStructure.headings.map((heading) => (
+                      <li
+                        key={heading.sourceIndex}
+                        style={{ paddingLeft: (heading.level - 1) * 8 }}
+                      >
+                        <span className="text-muted-foreground">
+                          h{heading.level} · source {heading.sourceIndex} ·{' '}
+                          {heading.visible ? 'visible' : 'hidden'}:{' '}
+                        </span>
+                        {heading.accessibleName || heading.text || '(unnamed)'}
+                      </li>
+                    ))}
+                  </ol>
+                </details>
+                <details className="mt-2 rounded-md border border-white/10 p-2">
+                  <summary className="cursor-pointer text-xs">Page landmarks</summary>
+                  <ul data-testid="seo-landmarks" className="mt-2 space-y-1 text-[10px]">
+                    {result.documentStructure.landmarks.map((landmark) => (
+                      <li key={`${landmark.role}-${landmark.sourceIndex}`}>
+                        <span className="text-muted-foreground">
+                          {landmark.role} · source {landmark.sourceIndex} ·{' '}
+                          {landmark.visible ? 'visible' : 'hidden'} · {landmark.textCharacters}{' '}
+                          characters
+                        </span>
+                        {landmark.accessibleName ? ` · “${landmark.accessibleName}”` : ''}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+                <p className="mt-2 text-[10px] leading-4 text-muted-foreground">
+                  These observations do not evaluate keyword density, prose quality, or general WCAG
+                  conformance.
+                </p>
+              </section>
+
               <details className="mb-3 rounded-md border border-white/10 p-2.5">
                 <summary className="cursor-pointer text-xs font-medium text-foreground">
                   Declared and resolved metadata

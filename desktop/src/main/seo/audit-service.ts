@@ -35,7 +35,8 @@ export function evaluateFindings(
   evidence: AuditEvidence,
   indexingIntent: IndexingIntent,
   searchAppearance: AuditResult['searchAppearance'],
-  structuredData: AuditResult['structuredData']
+  structuredData: AuditResult['structuredData'],
+  documentStructure: AuditResult['documentStructure']
 ): Finding[] {
   return SEO_RULES.map((rule) => {
     try {
@@ -47,7 +48,8 @@ export function evaluateFindings(
         searchAppearance,
         indexability: evidence.indexability,
         socialSharing: evidence.socialSharing,
-        structuredData
+        structuredData,
+        documentStructure
       })
     } catch (error) {
       return unableToVerifyFinding(rule, error)
@@ -81,6 +83,13 @@ export function buildAuditResult(
 ): AuditResult {
   const searchAppearance = resolveSearchAppearance(input.evidence, input.url)
   const structuredData = analyzeStructuredData(input.evidence.rendered.structuredSources ?? [])
+  const documentStructure = input.evidence.rendered.documentStructure ?? {
+    language: { lang: null, xmlLang: null },
+    headings: [],
+    landmarks: [],
+    visibleTextCharacters: 0,
+    repeatedText: []
+  }
   return {
     id: deps.newId(),
     paneId: input.paneId,
@@ -97,11 +106,13 @@ export function buildAuditResult(
     indexability: input.evidence.indexability,
     socialSharing: input.evidence.socialSharing,
     structuredData,
+    documentStructure,
     findings: evaluateFindings(
       input.evidence,
       input.indexingIntent,
       searchAppearance,
-      structuredData
+      structuredData,
+      documentStructure
     )
   }
 }

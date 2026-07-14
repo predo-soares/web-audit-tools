@@ -927,6 +927,30 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     return
   }
 
+  if (pathname === '/seo/document-structure') {
+    sendHtml(
+      res,
+      `<!doctype html><html lang="en"><head><title>Document structure fixture</title>
+        <style>.responsive-hidden { display: none }</style>
+      </head><body>
+        <header><nav aria-label="Primary">Navigation</nav></header>
+        <main><h1 class="responsive-hidden">Hidden desktop heading</h1><div id="client-content"></div></main>
+        <script>document.getElementById('client-content').innerHTML = '<h1>Client-rendered page heading</h1><h2>Details</h2><p>This content was rendered by the client and provides enough descriptive text for the document structure audit to observe the committed page meaning after scripts execute.</p>';</script>
+      </body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/document-structure-invalid') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head><title>Invalid document structure fixture</title></head><body>
+        <main></main><h2 id="seo-document-structure-invalid">Section without a primary heading</h2><h4>Skipped level</h4>
+      </body></html>`
+    )
+    return
+  }
+
   if (pathname === '/seo/indexability-blocked') {
     sendHtml(
       res,

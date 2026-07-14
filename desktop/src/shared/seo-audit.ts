@@ -5,7 +5,7 @@ import { isLocalhostUrl } from './dev-context'
 // change. An Audit result records the version that produced it so later rule
 // changes never obscure how an existing result was reached (see CONTEXT.md,
 // "Rule catalog"). Format: <catalog date>.<revision>.
-export const SEO_RULE_CATALOG_VERSION = '2026-07-13.5'
+export const SEO_RULE_CATALOG_VERSION = '2026-07-13.6'
 export const SEARCH_ENHANCEMENT_PROFILE_VERSION = 'google-search-gallery-2026-07-13'
 
 // Width of the docked SEO panel. Fixed for now — unlike the diagnostics drawer
@@ -97,7 +97,32 @@ export interface AuditResult {
   indexability: IndexabilityResult
   socialSharing: SocialSharingResult
   structuredData: StructuredDataResult
+  documentStructure: DocumentStructureEvidence
   findings: Finding[]
+}
+
+export interface DocumentHeadingEvidence {
+  level: number
+  text: string
+  accessibleName: string
+  visible: boolean
+  sourceIndex: number
+}
+
+export interface DocumentLandmarkEvidence {
+  role: string
+  accessibleName: string
+  visible: boolean
+  textCharacters: number
+  sourceIndex: number
+}
+
+export interface DocumentStructureEvidence {
+  language: { lang: string | null; xmlLang: string | null }
+  headings: DocumentHeadingEvidence[]
+  landmarks: DocumentLandmarkEvidence[]
+  visibleTextCharacters: number
+  repeatedText: { text: string; count: number }[]
 }
 
 export type StructuredDataFormat = 'json-ld' | 'microdata' | 'rdfa'
@@ -252,6 +277,7 @@ export interface RenderedAuditSnapshot {
   sitemapLinks?: string[]
   social?: { property: string; value: string }[]
   structuredSources?: RawStructuredSource[]
+  documentStructure?: DocumentStructureEvidence
 }
 
 /** One hop in a redirect chain leading to the delivered document. */
