@@ -1,7 +1,13 @@
 import type { BrowserWindow, Input } from 'electron'
-import type { DeviceProfile, PaneId, PaneMount, ThemePreference } from '../../src/shared/types'
+import type {
+  DeviceProfile,
+  MediaFeatureState,
+  PaneId,
+  PaneMount,
+  ThemePreference
+} from '../../src/shared/types'
 import type { ElementFingerprint, MirrorFailureLog } from '../../src/shared/element-mirror'
-import type { EngineView, EngineViewEventMap, ValueSyncPayload } from '../../src/main/engine-view'
+import type { EngineView, EngineViewEventMap, ValueSyncPayload } from '../../src/main/engine/engine-view'
 import type { ConsoleEvidenceEntry, NetworkEvidenceEntry } from '../../src/shared/runtime-evidence'
 
 // Monotonic source of stable fake WebContents ids, so each FakeEngine gets a
@@ -37,6 +43,7 @@ export class FakeEngine implements EngineView {
     navigate: [] as string[],
     setDevice: [] as DeviceProfile[],
     setThemePreference: [] as ThemePreference[],
+    setMediaFeatures: [] as MediaFeatureState[],
     syncScroll: [] as number[],
     resolveClickPoint: [] as ElementFingerprint[],
     applyValue: [] as Array<{ fingerprint: ElementFingerprint; payload: ValueSyncPayload }>,
@@ -215,6 +222,10 @@ export class FakeEngine implements EngineView {
 
   async setThemePreference(preference: ThemePreference): Promise<void> {
     this.calls.setThemePreference.push(preference)
+  }
+
+  async setMediaFeatures(state: MediaFeatureState): Promise<void> {
+    this.calls.setMediaFeatures.push(state)
   }
 
   stop(): void {

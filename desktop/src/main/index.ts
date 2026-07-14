@@ -107,6 +107,8 @@ function createWindow(): BrowserWindow {
       safariChromeManager.onScroll(paneId, scrollY, programmatic),
     onNavigationState: (urls) => safariChromeManager.setPaneUrls(urls),
     setPanesVisible: (visible) => safariChromeManager.setPanesVisible(visible),
+    captureComposited: (paneId, capturePage) =>
+      safariChromeManager.captureComposited(paneId, capturePage),
     destroy: () => safariChromeManager.destroy()
   })
   paneManager.onPaneBeforeInput((input, preventDefault) => {

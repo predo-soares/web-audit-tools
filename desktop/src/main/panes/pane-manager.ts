@@ -80,6 +80,7 @@ export class PaneManager {
     onScroll: (paneId: PaneId, scrollY: number, programmatic: boolean) => void
     onNavigationState: (urls: Partial<Record<PaneId, string>>) => void
     setPanesVisible: (visible: boolean) => void
+    captureComposited: (paneId: PaneId, capturePage: () => Promise<Buffer>) => Promise<Buffer>
     destroy: () => void
   } | null = null
   private diagnosticsEvidenceSink: {
@@ -133,6 +134,7 @@ export class PaneManager {
       onScroll: (paneId: PaneId, scrollY: number, programmatic: boolean) => void
       onNavigationState: (urls: Partial<Record<PaneId, string>>) => void
       setPanesVisible: (visible: boolean) => void
+      captureComposited: (paneId: PaneId, capturePage: () => Promise<Buffer>) => Promise<Buffer>
       destroy: () => void
     } | null
   ): void {
@@ -265,7 +267,7 @@ export class PaneManager {
 
     let png: Buffer
     try {
-      png = await this.getEngine(paneId).captureScreenshot()
+      png = await this.capturePaneScreenshot(paneId)
     } finally {
       this.restorePaneMount(paneId)
     }
@@ -752,11 +754,19 @@ export class PaneManager {
     return this.lastNavTimestamps.get(paneId) ?? null
   }
 
+  private async capturePaneScreenshot(paneId: PaneId): Promise<Buffer> {
+    const capturePage = (): Promise<Buffer> => this.getEngine(paneId).captureScreenshot()
+    if (this.safariChromeHooks) {
+      return this.safariChromeHooks.captureComposited(paneId, capturePage)
+    }
+    return capturePage()
+  }
+
   async captureActivePaneScreenshot(): Promise<Buffer> {
     await this.deviceReady
     const paneId = this.resolveActivePaneForEvidence()
     try {
-      return await this.getEngine(paneId).captureScreenshot()
+      return await this.capturePaneScreenshot(paneId)
     } finally {
       this.restorePaneMount(paneId)
     }
