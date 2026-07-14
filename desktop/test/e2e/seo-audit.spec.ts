@@ -590,3 +590,31 @@ test('inspects selected responsive images and client-inserted media evidence', a
     await close()
   }
 })
+
+test('runs real Lighthouse in an isolated desktop target without mutating pane evidence', async ({
+  fixturePort
+}) => {
+  test.setTimeout(180_000)
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/seo/with-title'))
+    await waitForPaneElement(window, 'desktop', 'seo-with-title')
+    const before = await window.evaluate(() => window.api.getRuntimeEvidence())
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('seo-toggle').click()
+    const panel = await getSeoPanelPage(window)
+    await panel.getByTestId('seo-run-audit').click()
+    const section = panel.getByTestId('seo-lighthouse')
+    await section.getByRole('button', { name: 'Desktop' }).click()
+    await section.getByTestId('seo-lighthouse-run').click()
+    await expect(section.getByTestId('seo-lighthouse-progress')).toBeVisible()
+    await expect(section.getByTestId('seo-lighthouse-result')).toBeVisible({ timeout: 90_000 })
+    await expect(section.getByTestId('seo-lighthouse-result')).toContainText('Lighthouse 13.')
+    await expect(section.getByTestId('seo-lighthouse-score')).not.toHaveCount(0)
+    await waitForPaneElement(window, 'desktop', 'seo-with-title')
+    const after = await window.evaluate(() => window.api.getRuntimeEvidence())
+    expect(after.problemCount).toBe(before.problemCount)
+  } finally {
+    await close()
+  }
+})

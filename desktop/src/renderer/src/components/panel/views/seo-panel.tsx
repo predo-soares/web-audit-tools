@@ -11,7 +11,9 @@ import {
   type AuditJobState,
   type AuditCategory,
   type FindingOutcome,
-  type IndexingIntent
+  type IndexingIntent,
+  type LighthouseAssessmentState,
+  type LighthouseProfile
 } from '../../../../../shared/seo-audit'
 import { cn } from '@renderer/lib/utils'
 import { SegmentedControl } from '@renderer/components/ui/segmented-control'
@@ -41,6 +43,13 @@ export function SeoPanel(): React.JSX.Element {
   const [findingOutcome, setFindingOutcome] = useState<FindingOutcome | null>(null)
   const [copied, setCopied] = useState('')
   const [exportStatus, setExportStatus] = useState('')
+  const [lighthouse, setLighthouse] = useState<LighthouseAssessmentState>({
+    phase: 'idle',
+    result: null,
+    error: null
+  })
+  const [lighthouseProfile, setLighthouseProfile] = useState<LighthouseProfile>('mobile')
+  const [shareSession, setShareSession] = useState(false)
   // The audit job is owned by the main process; the panel is a view of its
   // broadcast state so closing/reopening restores progress instead of losing it.
   const [job, setJob] = useState<AuditJobState>(IDLE_AUDIT_STATE)
@@ -69,6 +78,11 @@ export function SeoPanel(): React.JSX.Element {
   useEffect(() => {
     void window.panelApi.getSeoAuditState().then(setJob)
     return window.panelApi.onSeoAuditState(setJob)
+  }, [])
+
+  useEffect(() => {
+    void window.panelApi.getLighthouseState().then(setLighthouse)
+    return window.panelApi.onLighthouseState(setLighthouse)
   }, [])
 
   const auditable = isAuditableUrl(url)
@@ -321,6 +335,107 @@ export function SeoPanel(): React.JSX.Element {
                   >
                     Copied {copied} as agent-ready Markdown.
                   </p>
+                ) : null}
+              </section>
+              <section
+                data-testid="seo-lighthouse"
+                className="mb-3 rounded-lg border border-white/10 bg-white/[0.03] p-3"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Lighthouse assessment
+                  </p>
+                  <span className="text-[10px] text-muted-foreground">Explicit separate load</span>
+                </div>
+                <div className="mt-2 flex gap-1">
+                  {(['mobile', 'desktop'] as LighthouseProfile[]).map((profile) => (
+                    <button
+                      type="button"
+                      key={profile}
+                      aria-pressed={lighthouseProfile === profile}
+                      onClick={() => setLighthouseProfile(profile)}
+                      className={cn(
+                        'flex-1 rounded border border-white/10 px-2 py-1 text-xs capitalize',
+                        lighthouseProfile === profile && 'bg-white/10'
+                      )}
+                    >
+                      {profile}
+                    </button>
+                  ))}
+                </div>
+                <label className="mt-2 flex items-start gap-2 text-[10px] text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={shareSession}
+                    onChange={(event) => setShareSession(event.target.checked)}
+                  />
+                  Explicitly share authenticated session cookies with the isolated target
+                </label>
+                {lighthouse.phase === 'running' ? (
+                  <button
+                    type="button"
+                    data-testid="seo-lighthouse-cancel"
+                    onClick={() => void window.panelApi.cancelLighthouse()}
+                    className="mt-2 w-full rounded border border-white/10 px-2 py-1 text-xs"
+                  >
+                    Cancel Lighthouse
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    data-testid="seo-lighthouse-run"
+                    onClick={() =>
+                      void window.panelApi.runLighthouse(lighthouseProfile, shareSession)
+                    }
+                    className="mt-2 w-full rounded border border-white/10 px-2 py-1 text-xs text-sky-400"
+                  >
+                    Run Lighthouse separately
+                  </button>
+                )}
+                {lighthouse.phase === 'running' ? (
+                  <p
+                    data-testid="seo-lighthouse-progress"
+                    className="mt-2 text-[10px] text-muted-foreground"
+                  >
+                    Launching isolated hidden Chrome target…
+                  </p>
+                ) : null}
+                {lighthouse.phase === 'failed' ? (
+                  <p className="mt-2 text-[10px] text-destructive">
+                    Lighthouse failed: {lighthouse.error}
+                  </p>
+                ) : null}
+                {lighthouse.result ? (
+                  <div
+                    data-testid="seo-lighthouse-result"
+                    className="mt-2 border-t border-white/10 pt-2 text-[10px]"
+                  >
+                    <p>
+                      Lighthouse {lighthouse.result.lighthouseVersion} ·{' '}
+                      {lighthouse.result.configuration} · {lighthouse.result.deviceMode} ·{' '}
+                      {new Date(lighthouse.result.completedAt).toLocaleString()}
+                    </p>
+                    <p className="mt-1 text-muted-foreground">
+                      Target {lighthouse.result.targetUrl} · distinct load ·{' '}
+                      {lighthouse.result.stale ||
+                      job.stale ||
+                      lighthouse.result.pageAuditId !== result.id
+                        ? 'stale/different Page SEO audit'
+                        : 'linked to this Page SEO audit'}
+                    </p>
+                    <ul className="mt-2 grid grid-cols-2 gap-1">
+                      {Object.entries(lighthouse.result.scores).map(([category, score]) => (
+                        <li
+                          key={category}
+                          data-testid="seo-lighthouse-score"
+                          className="rounded border border-white/10 p-1"
+                        >
+                          <span className="capitalize">Lighthouse {category}</span>:{' '}
+                          {score === null ? 'n/a' : Math.round(score * 100)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ) : null}
               </section>
               <section

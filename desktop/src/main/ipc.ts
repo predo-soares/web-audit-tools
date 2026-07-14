@@ -25,6 +25,8 @@ import {
   unavailableInternationalization,
   verifyInternationalization
 } from './seo/internationalization'
+import { LighthouseManager } from './seo/lighthouse-manager'
+import type { LighthouseProfile } from '../shared/seo-audit'
 
 /**
  * Build a request Cookie header from the pane session so delivered evidence is
@@ -152,6 +154,9 @@ export function registerIpcHandlers(
   safariChromeManager: SafariChromeManager,
   auditManager: AuditManager
 ): void {
+  const lighthouseManager = new LighthouseManager((state) =>
+    panelManager.notifyPanel('seo-right', 'seo-lighthouse:state', state)
+  )
   ipcMain.handle('snapshot:take', async (_event, includeSeoAudit = false) => {
     return captureSnapshot(makeSnapshotPort(paneManager), undefined, {
       includeSeoAudit,
@@ -170,6 +175,32 @@ export function registerIpcHandlers(
   ipcMain.handle('seo-audit:get-state', () => {
     return auditManager.getState()
   })
+  ipcMain.handle('seo-lighthouse:get-state', () => lighthouseManager.getState())
+  ipcMain.handle(
+    'seo-lighthouse:run',
+    async (_event, profile: LighthouseProfile, shareSession: boolean) => {
+      const navigation = paneManager.getNavigationState()
+      if (!navigation.barUrl) return lighthouseManager.getState()
+      const headers: Record<string, string> = {
+        'User-Agent': paneManager.getUserAgentForPane(navigation.activePane ?? 'desktop')
+      }
+      if (shareSession) {
+        const cookieHeader = await sessionCookieHeader(
+          paneManager.getPreviewSession(),
+          navigation.barUrl
+        )
+        if (cookieHeader) headers.Cookie = cookieHeader
+      }
+      return lighthouseManager.run({
+        url: navigation.barUrl,
+        profile,
+        shareSession,
+        headers,
+        pageAuditId: auditManager.getState().result?.id ?? null
+      })
+    }
+  )
+  ipcMain.handle('seo-lighthouse:cancel', () => lighthouseManager.cancel())
 
   ipcMain.on('diagnostics:toggle', () => {
     panelManager.notifyToolbarPanel('panel:toggle-diagnostics')
