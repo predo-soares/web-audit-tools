@@ -4,8 +4,9 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { HistoryStore } from './stores/history-store'
-import { registerIpcHandlers, makeSnapshotPort } from './ipc'
+import { registerIpcHandlers, makeSnapshotPort, makeAuditPort } from './ipc'
 import { captureSnapshot } from './services/snapshot-service'
+import { AuditManager } from './seo/audit-manager'
 import { PaneManager } from './panes/pane-manager'
 import { PanelManager } from './panels/panel-manager'
 import { SafariChromeManager } from './chrome/safari-chrome-manager'
@@ -22,6 +23,7 @@ if (process.env.E2E_USER_DATA_DIR) {
 }
 
 const paneManager = new PaneManager()
+const auditManager = new AuditManager(makeAuditPort(paneManager))
 const panelManager = new PanelManager(paneManager)
 const safariChromeManager = new SafariChromeManager(paneManager)
 const projectStore = new ProjectStore()
@@ -131,7 +133,24 @@ function createWindow(): BrowserWindow {
       historyStore.refreshMetadata(url, title, faviconUrl)
     }
   })
-  registerIpcHandlers(paneManager, panelManager, projectStore, historyStore, safariChromeManager)
+  // The audit job is owned in the main process, so a pane's document changing
+  // cancels a bound job and staleness follows navigation regardless of whether
+  // the SEO panel is open. Its state is broadcast to overlay panels so the SEO
+  // panel restores progress on reopen.
+  paneManager.onPaneDocumentChange((paneId) => {
+    auditManager.handlePaneDocumentChange(paneId)
+  })
+  auditManager.subscribe((state) => {
+    panelManager.notifyOverlayPanels('seo-audit:state', state)
+  })
+  registerIpcHandlers(
+    paneManager,
+    panelManager,
+    projectStore,
+    historyStore,
+    safariChromeManager,
+    auditManager
+  )
   projectStore.setOnChange((projects) => {
     if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
     mainWindow.webContents.send('projects:changed', projects)
@@ -176,7 +195,6 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
-
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

@@ -12,7 +12,7 @@ import type {
   ThemePreference
 } from '../shared/types'
 import type { SnapshotResult } from '../shared/snapshot'
-import type { AuditRunResult, IndexingIntent } from '../shared/seo-audit'
+import type { AuditJobState, AuditRunResult, IndexingIntent } from '../shared/seo-audit'
 
 export interface PreviewApi {
   closeWindow: () => Promise<void>
@@ -80,6 +80,8 @@ export interface PreviewApi {
   getSafariChromeEnabled: () => Promise<boolean>
   onSafariChromeEnabledChanged: (callback: (enabled: boolean) => void) => () => void
   runSeoAudit: (indexingIntent: IndexingIntent) => Promise<AuditRunResult>
+  cancelSeoAudit: () => Promise<void>
+  getSeoAuditState: () => Promise<AuditJobState>
 }
 
 const api: PreviewApi = {
@@ -235,7 +237,9 @@ const api: PreviewApi = {
     ipcRenderer.on('safari-chrome:enabled-changed', listener)
     return () => ipcRenderer.removeListener('safari-chrome:enabled-changed', listener)
   },
-  runSeoAudit: (indexingIntent) => ipcRenderer.invoke('seo-audit:run', indexingIntent)
+  runSeoAudit: (indexingIntent) => ipcRenderer.invoke('seo-audit:run', indexingIntent),
+  cancelSeoAudit: () => ipcRenderer.invoke('seo-audit:cancel'),
+  getSeoAuditState: () => ipcRenderer.invoke('seo-audit:get-state')
 }
 
 contextBridge.exposeInMainWorld('api', api)

@@ -3,11 +3,45 @@ import {
   isAuditableUrl,
   type AuditResult,
   type AuditRunResult,
+  type Finding,
   type IndexingIntent,
   type RenderedAuditSnapshot
 } from '../../shared/seo-audit'
 import type { PaneId } from '../../shared/types'
-import { SEO_RULES } from './rules'
+import { SEO_RULES, type Rule } from './rules'
+
+/**
+ * Evaluate every rule against the gathered evidence. A rule that throws becomes
+ * an Unable-to-verify finding rather than failing the whole audit or its
+ * unrelated siblings.
+ */
+export function evaluateFindings(
+  rendered: RenderedAuditSnapshot,
+  indexingIntent: IndexingIntent
+): Finding[] {
+  return SEO_RULES.map((rule) => {
+    try {
+      return rule.evaluate({ rendered, indexingIntent })
+    } catch (error) {
+      return unableToVerifyFinding(rule, error)
+    }
+  })
+}
+
+function unableToVerifyFinding(rule: Rule, error: unknown): Finding {
+  return {
+    ruleId: rule.id,
+    category: rule.category,
+    outcome: 'unable-to-verify',
+    summary: 'Check could not be evaluated',
+    impact: 'This check hit an unexpected error, so its result is unknown for this page.',
+    remediation: null,
+    evidence: {
+      origin: 'rendered',
+      detail: `The check failed to run: ${error instanceof Error ? error.message : String(error)}`
+    }
+  }
+}
 
 /**
  * The app surface the audit reads. Kept as a narrow port (like
@@ -55,9 +89,7 @@ export async function runAudit(
   const startedAt = deps.nowMs()
   const rendered = await port.extractRendered(paneId)
 
-  const findings = SEO_RULES.map((rule) =>
-    rule.evaluate({ rendered, indexingIntent: options.indexingIntent })
-  )
+  const findings = evaluateFindings(rendered, options.indexingIntent)
 
   const result: AuditResult = {
     id: deps.newId(),

@@ -21,7 +21,7 @@ import type {
   RuntimeEvidenceSnapshot
 } from '../shared/runtime-evidence'
 import type { SnapshotResult } from '../shared/snapshot'
-import type { AuditRunResult, IndexingIntent } from '../shared/seo-audit'
+import type { AuditJobState, AuditRunResult, IndexingIntent } from '../shared/seo-audit'
 
 export interface PanelOverlayApi {
   onShow: (callback: (message: PanelShowMessage) => void) => () => void
@@ -85,6 +85,9 @@ export interface PanelOverlayApi {
   onSnapshotTaken: (callback: (result: SnapshotResult) => void) => () => void
   onSafariChromeEnabledChanged: (callback: (enabled: boolean) => void) => () => void
   runSeoAudit: (indexingIntent: IndexingIntent) => Promise<AuditRunResult>
+  cancelSeoAudit: () => Promise<void>
+  getSeoAuditState: () => Promise<AuditJobState>
+  onSeoAuditState: (callback: (state: AuditJobState) => void) => () => void
 }
 
 const panelApi: PanelOverlayApi = {
@@ -264,7 +267,15 @@ const panelApi: PanelOverlayApi = {
     ipcRenderer.on('safari-chrome:enabled-changed', listener)
     return () => ipcRenderer.removeListener('safari-chrome:enabled-changed', listener)
   },
-  runSeoAudit: (indexingIntent) => ipcRenderer.invoke('seo-audit:run', indexingIntent)
+  runSeoAudit: (indexingIntent) => ipcRenderer.invoke('seo-audit:run', indexingIntent),
+  cancelSeoAudit: () => ipcRenderer.invoke('seo-audit:cancel'),
+  getSeoAuditState: () => ipcRenderer.invoke('seo-audit:get-state'),
+  onSeoAuditState: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, state: AuditJobState): void =>
+      callback(state)
+    ipcRenderer.on('seo-audit:state', listener)
+    return () => ipcRenderer.removeListener('seo-audit:state', listener)
+  }
 }
 
 contextBridge.exposeInMainWorld('panelApi', panelApi)

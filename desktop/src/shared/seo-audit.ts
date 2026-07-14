@@ -99,7 +99,47 @@ export interface RenderedAuditSnapshot {
   title: string | null
 }
 
-export type AuditRunResult = { ok: true; result: AuditResult } | { ok: false; reason: 'no-url' }
+export type AuditRunFailureReason = 'no-url' | 'busy' | 'cancelled' | 'failed'
+
+export type AuditRunResult =
+  { ok: true; result: AuditResult } | { ok: false; reason: AuditRunFailureReason }
+
+/**
+ * The lifecycle phase of the single app-wide audit job.
+ * - `idle`: no audit has run (or the last was cleared).
+ * - `running`: an audit is in flight against `running.paneId`.
+ * - `completed`: `result` holds a finished audit.
+ * - `cancelled`: a run was explicitly cancelled or interrupted by navigation;
+ *   no fabricated result is produced, though a prior `result` stays inspectable.
+ * - `failed`: an unexpected engine failure; `result` may hold a partial
+ *   (incomplete) audit when some evidence was still trustworthy.
+ */
+export type AuditPhase = 'idle' | 'running' | 'completed' | 'cancelled' | 'failed'
+
+/**
+ * The full observable state of the one app-wide Page SEO audit job. Broadcast
+ * to the SEO panel so closing and reopening the panel restores progress rather
+ * than cancelling or duplicating the job.
+ */
+export interface AuditJobState {
+  phase: AuditPhase
+  /** Present only while `phase === 'running'`. */
+  running: { paneId: PaneId; url: string; startedAt: number } | null
+  /** Last completed or partial result; inspectable until an audit replaces it. */
+  result: AuditResult | null
+  /** Whether `result` no longer describes its pane's current document. */
+  stale: boolean
+  /** Whether `result` is a partial result from an interrupted or failed run. */
+  incomplete: boolean
+}
+
+export const IDLE_AUDIT_STATE: AuditJobState = {
+  phase: 'idle',
+  running: null,
+  result: null,
+  stale: false,
+  incomplete: false
+}
 
 export const OUTCOME_LABEL: Record<FindingOutcome, string> = {
   error: 'Error',

@@ -10,7 +10,8 @@ import type { SafariChromeManager } from './chrome/safari-chrome-manager'
 import type { HistoryStore } from './stores/history-store'
 import type { ProjectStore } from './stores/project-store'
 import { captureSnapshot, type SnapshotPort } from './services/snapshot-service'
-import { runAudit, type AuditPort } from './seo/audit-service'
+import type { AuditPort } from './seo/audit-service'
+import type { AuditManager } from './seo/audit-manager'
 import {
   RENDERED_EXTRACTION_EXPRESSION,
   normalizeRenderedSnapshot
@@ -47,14 +48,23 @@ export function registerIpcHandlers(
   panelManager: PanelManager,
   projectStore: ProjectStore,
   historyStore: HistoryStore,
-  safariChromeManager: SafariChromeManager
+  safariChromeManager: SafariChromeManager,
+  auditManager: AuditManager
 ): void {
   ipcMain.handle('snapshot:take', async () => {
     return captureSnapshot(makeSnapshotPort(paneManager))
   })
 
   ipcMain.handle('seo-audit:run', async (_event, indexingIntent: IndexingIntent) => {
-    return runAudit(makeAuditPort(paneManager), { indexingIntent })
+    return auditManager.run({ indexingIntent })
+  })
+
+  ipcMain.handle('seo-audit:cancel', () => {
+    auditManager.cancel()
+  })
+
+  ipcMain.handle('seo-audit:get-state', () => {
+    return auditManager.getState()
   })
 
   ipcMain.on('diagnostics:toggle', () => {

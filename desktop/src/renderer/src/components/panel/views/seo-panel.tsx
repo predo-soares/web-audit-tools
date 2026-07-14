@@ -2,12 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { TOOLBAR_HEIGHT_PX } from '../../../../../shared/sidebar'
 import {
   CATEGORY_LABEL,
+  IDLE_AUDIT_STATE,
   INDEXING_INTENT_LABEL,
   OUTCOME_LABEL,
   SEO_PANEL_WIDTH_PX,
   inferIndexingIntent,
   isAuditableUrl,
-  type AuditResult,
+  type AuditJobState,
   type FindingOutcome,
   type IndexingIntent
 } from '../../../../../shared/seo-audit'
@@ -30,8 +31,9 @@ export function SeoPanel(): React.JSX.Element {
   const [url, setUrl] = useState('')
   const [pageTitle, setPageTitle] = useState('')
   const [intent, setIntent] = useState<IndexingIntent>('indexable')
-  const [running, setRunning] = useState(false)
-  const [result, setResult] = useState<AuditResult | null>(null)
+  // The audit job is owned by the main process; the panel is a view of its
+  // broadcast state so closing/reopening restores progress instead of losing it.
+  const [job, setJob] = useState<AuditJobState>(IDLE_AUDIT_STATE)
   // Once the user picks an intent, incoming navigations must not silently
   // re-infer it out from under them.
   const intentTouchedRef = useRef(false)
@@ -54,27 +56,34 @@ export function SeoPanel(): React.JSX.Element {
     return unsubscribe
   }, [applyNavigation])
 
-  const auditable = isAuditableUrl(url)
+  useEffect(() => {
+    void window.panelApi.getSeoAuditState().then(setJob)
+    return window.panelApi.onSeoAuditState(setJob)
+  }, [])
 
-  const handleRun = useCallback(async (): Promise<void> => {
-    setRunning(true)
-    try {
-      const run = await window.panelApi.runSeoAudit(intent)
-      if (run.ok) setResult(run.result)
-    } finally {
-      setRunning(false)
-    }
+  const auditable = isAuditableUrl(url)
+  const running = job.phase === 'running'
+
+  const handleRun = useCallback((): void => {
+    void window.panelApi.runSeoAudit(intent)
   }, [intent])
+
+  const handleCancel = useCallback((): void => {
+    void window.panelApi.cancelSeoAudit()
+  }, [])
 
   const handleIntentChange = useCallback((next: IndexingIntent): void => {
     intentTouchedRef.current = true
     setIntent(next)
   }, [])
 
+  const { result } = job
+
   return (
     <aside
       id="seo-panel"
       data-testid="seo-panel"
+      data-phase={job.phase}
       className="relative box-border flex h-screen min-h-screen shrink-0 flex-col overflow-hidden border-l border-white/10 bg-background text-foreground"
       style={{ width: SEO_PANEL_WIDTH_PX }}
     >
@@ -123,22 +132,68 @@ export function SeoPanel(): React.JSX.Element {
               />
             </div>
 
-            <button
-              type="button"
-              data-testid="seo-run-audit"
-              disabled={running}
-              className={cn(
-                'mt-3 w-full rounded-md bg-white/10 px-3 py-1.5 text-sm font-medium text-foreground transition-colors',
-                'hover:bg-white/15 disabled:opacity-50'
-              )}
-              onClick={() => void handleRun()}
-            >
-              {running ? 'Running audit…' : 'Run audit'}
-            </button>
+            {running ? (
+              <button
+                type="button"
+                data-testid="seo-cancel-audit"
+                className={cn(
+                  'mt-3 w-full rounded-md bg-white/10 px-3 py-1.5 text-sm font-medium text-foreground transition-colors',
+                  'hover:bg-white/15'
+                )}
+                onClick={handleCancel}
+              >
+                Cancel audit
+              </button>
+            ) : (
+              <button
+                type="button"
+                data-testid="seo-run-audit"
+                className={cn(
+                  'mt-3 w-full rounded-md bg-white/10 px-3 py-1.5 text-sm font-medium text-foreground transition-colors',
+                  'hover:bg-white/15'
+                )}
+                onClick={handleRun}
+              >
+                {result ? 'Run audit again' : 'Run audit'}
+              </button>
+            )}
+
+            {running ? (
+              <p data-testid="seo-running" className="mt-2 text-xs text-muted-foreground">
+                Running audit…
+              </p>
+            ) : null}
+            {job.phase === 'cancelled' ? (
+              <p data-testid="seo-cancelled" className="mt-2 text-xs text-amber-500">
+                Audit cancelled.
+              </p>
+            ) : null}
+            {job.phase === 'failed' ? (
+              <p data-testid="seo-failed" className="mt-2 text-xs text-destructive">
+                The audit could not finish. The page may have changed or could not be read.
+              </p>
+            ) : null}
           </section>
 
           {result ? (
             <section data-testid="seo-result" className="px-3 py-3">
+              {job.stale ? (
+                <div
+                  data-testid="seo-stale-banner"
+                  className="mb-2 rounded-md bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-500"
+                >
+                  This result may be out of date — the page has navigated or reloaded since the
+                  audit ran.
+                </div>
+              ) : null}
+              {job.incomplete ? (
+                <div
+                  data-testid="seo-incomplete-banner"
+                  className="mb-2 rounded-md bg-white/10 px-2.5 py-1.5 text-xs text-muted-foreground"
+                >
+                  This result is incomplete — the audit was interrupted before every check ran.
+                </div>
+              ) : null}
               <div className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
                 <span>
                   {result.findings.length} finding{result.findings.length === 1 ? '' : 's'}
