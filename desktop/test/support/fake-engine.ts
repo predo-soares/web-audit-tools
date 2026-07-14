@@ -7,7 +7,11 @@ import type {
   ThemePreference
 } from '../../src/shared/types'
 import type { ElementFingerprint, MirrorFailureLog } from '../../src/shared/element-mirror'
-import type { EngineView, EngineViewEventMap, ValueSyncPayload } from '../../src/main/engine/engine-view'
+import type {
+  EngineView,
+  EngineViewEventMap,
+  ValueSyncPayload
+} from '../../src/main/engine/engine-view'
 import type { ConsoleEvidenceEntry, NetworkEvidenceEntry } from '../../src/shared/runtime-evidence'
 
 // Monotonic source of stable fake WebContents ids, so each FakeEngine gets a
@@ -234,6 +238,14 @@ export class FakeEngine implements EngineView {
 
   async evaluate<T = unknown>(_expression: string): Promise<T> {
     this.calls.evaluate.push(_expression)
+    // PaneManager drives per-pane history through the page history API rather
+    // than the engine's goBack/goForward methods, so mirror those calls onto
+    // the in-memory history model to keep the seam observable in tests.
+    if (_expression === 'history.back()') {
+      this.goBack()
+    } else if (_expression === 'history.forward()') {
+      this.goForward()
+    }
     return this.evaluateResult as T
   }
 

@@ -22,7 +22,10 @@ import { resolveDevContext } from '../services/dev-context'
 import { createActivePaneTracker } from './active-pane-tracker'
 import { createEchoLedger } from './echo-ledger'
 import type { EngineView, EngineViewEventMap, ValueSyncPayload } from '../engine/engine-view'
-import { createRuntimeEvidenceBuffer, type RuntimeEvidenceBuffer } from '../evidence/runtime-evidence-buffer'
+import {
+  createRuntimeEvidenceBuffer,
+  type RuntimeEvidenceBuffer
+} from '../evidence/runtime-evidence-buffer'
 import { summarizeFingerprint, syncTrace, getSyncTraceLogs } from '../services/sync-trace'
 import { getPanePreloadPath, WebContentsViewEngine } from '../engine/web-contents-view-engine'
 
@@ -73,6 +76,7 @@ export class PaneManager {
   private paneBeforeInputHooks: Array<EngineViewEventMap['before-input']> = []
   private destroyed = false
   private readonly childViewStackListeners = new Set<() => void>()
+  private readonly paneDocumentChangeListeners = new Set<(paneId: PaneId) => void>()
   private historyHooks: NavigationHistoryHooks | null = null
   private overlayBroadcast: ((channel: string, ...args: unknown[]) => void) | null = null
   private safariChromeHooks: {
@@ -177,6 +181,25 @@ export class PaneManager {
   private notifyChildViewStackChanged(): void {
     for (const listener of this.childViewStackListeners) {
       listener()
+    }
+  }
+
+  /**
+   * Subscribe to a pane's document changing — a new top-level load starting
+   * (reload or navigation) or the pane being torn down. Lets the Page SEO audit
+   * cancel a job bound to that pane before findings can describe the new
+   * document, and mark a completed result stale.
+   */
+  onPaneDocumentChange(listener: (paneId: PaneId) => void): () => void {
+    this.paneDocumentChangeListeners.add(listener)
+    return () => {
+      this.paneDocumentChangeListeners.delete(listener)
+    }
+  }
+
+  private notifyPaneDocumentChange(paneId: PaneId): void {
+    for (const listener of this.paneDocumentChangeListeners) {
+      listener(paneId)
     }
   }
 
@@ -450,6 +473,9 @@ export class PaneManager {
       PANE_IDS.map(async (paneId) => {
         const previousEngine = this.getEngine(paneId)
         const currentUrl = previousEngine.getCurrentUrl()
+
+        // The pane's document is being torn down; cancel any audit bound to it.
+        this.notifyPaneDocumentChange(paneId)
 
         previousEngine.detach(mainWindow)
         this.webContentsToPane.delete(previousEngine.getWebContentsId())
@@ -734,9 +760,7 @@ export class PaneManager {
   async setMediaFeatures(state: MediaFeatureState): Promise<void> {
     this.mediaFeatures = state
     await this.deviceReady
-    await Promise.all(
-      PANE_IDS.map((paneId) => this.getEngine(paneId).setMediaFeatures(state))
-    )
+    await Promise.all(PANE_IDS.map((paneId) => this.getEngine(paneId).setMediaFeatures(state)))
   }
 
   getMediaFeatures(): MediaFeatureState {
@@ -840,6 +864,11 @@ export class PaneManager {
     if (!this.sharedSession) {
       throw new Error('PaneManager.initialize must be called before using the shared session')
     }
+    return this.sharedSession
+  }
+
+  /** The shared preview session, or null before initialize(). */
+  getPreviewSession(): Electron.Session | null {
     return this.sharedSession
   }
 
@@ -975,6 +1004,10 @@ export class PaneManager {
     engine.on('did-navigate-in-page', (url) => handleNavigation(url, true))
     engine.on('did-start-loading', () => {
       this.bumpPaneInteractionEpoch(paneId)
+      // A new top-level load is starting (reload or navigation): the document
+      // is about to change, so notify audit owners before the old page's
+      // evidence can be attributed to the new one.
+      this.notifyPaneDocumentChange(paneId)
     })
     engine.on('page-title-updated', (title) => {
       if (this.tracker.didTitleUpdate(paneId, title)) {

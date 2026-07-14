@@ -21,6 +21,13 @@ import type {
   RuntimeEvidenceSnapshot
 } from '../shared/runtime-evidence'
 import type { SnapshotResult } from '../shared/snapshot'
+import type {
+  AuditJobState,
+  AuditRunResult,
+  IndexingIntent,
+  LighthouseAssessmentState,
+  LighthouseProfile
+} from '../shared/seo-audit'
 
 export interface PanelOverlayApi {
   onShow: (callback: (message: PanelShowMessage) => void) => () => void
@@ -80,9 +87,20 @@ export interface PanelOverlayApi {
   getDiagnosticsWidth: () => Promise<number>
   resizeDockedPanel: (width: number, phase: 'preview' | 'commit') => void
   onDiagnosticsWidthChanged: (callback: (width: number) => void) => () => void
-  takeSnapshot: () => Promise<SnapshotResult>
+  takeSnapshot: (includeSeoAudit?: boolean) => Promise<SnapshotResult>
   onSnapshotTaken: (callback: (result: SnapshotResult) => void) => () => void
   onSafariChromeEnabledChanged: (callback: (enabled: boolean) => void) => () => void
+  runSeoAudit: (indexingIntent: IndexingIntent) => Promise<AuditRunResult>
+  cancelSeoAudit: () => Promise<void>
+  getSeoAuditState: () => Promise<AuditJobState>
+  onSeoAuditState: (callback: (state: AuditJobState) => void) => () => void
+  getLighthouseState: () => Promise<LighthouseAssessmentState>
+  runLighthouse: (
+    profile: LighthouseProfile,
+    shareSession: boolean
+  ) => Promise<LighthouseAssessmentState>
+  cancelLighthouse: () => Promise<void>
+  onLighthouseState: (callback: (state: LighthouseAssessmentState) => void) => () => void
 }
 
 const panelApi: PanelOverlayApi = {
@@ -249,7 +267,7 @@ const panelApi: PanelOverlayApi = {
     ipcRenderer.on('panel:diagnostics-width', listener)
     return () => ipcRenderer.removeListener('panel:diagnostics-width', listener)
   },
-  takeSnapshot: () => ipcRenderer.invoke('snapshot:take'),
+  takeSnapshot: (includeSeoAudit = false) => ipcRenderer.invoke('snapshot:take', includeSeoAudit),
   onSnapshotTaken: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, result: SnapshotResult): void =>
       callback(result)
@@ -257,9 +275,29 @@ const panelApi: PanelOverlayApi = {
     return () => ipcRenderer.removeListener('snapshot:taken', listener)
   },
   onSafariChromeEnabledChanged: (callback) => {
-    const listener = (_event: Electron.IpcRendererEvent, enabled: boolean): void => callback(enabled)
+    const listener = (_event: Electron.IpcRendererEvent, enabled: boolean): void =>
+      callback(enabled)
     ipcRenderer.on('safari-chrome:enabled-changed', listener)
     return () => ipcRenderer.removeListener('safari-chrome:enabled-changed', listener)
+  },
+  runSeoAudit: (indexingIntent) => ipcRenderer.invoke('seo-audit:run', indexingIntent),
+  cancelSeoAudit: () => ipcRenderer.invoke('seo-audit:cancel'),
+  getSeoAuditState: () => ipcRenderer.invoke('seo-audit:get-state'),
+  onSeoAuditState: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, state: AuditJobState): void =>
+      callback(state)
+    ipcRenderer.on('seo-audit:state', listener)
+    return () => ipcRenderer.removeListener('seo-audit:state', listener)
+  },
+  getLighthouseState: () => ipcRenderer.invoke('seo-lighthouse:get-state'),
+  runLighthouse: (profile, shareSession) =>
+    ipcRenderer.invoke('seo-lighthouse:run', profile, shareSession),
+  cancelLighthouse: () => ipcRenderer.invoke('seo-lighthouse:cancel'),
+  onLighthouseState: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, state: LighthouseAssessmentState): void =>
+      callback(state)
+    ipcRenderer.on('seo-lighthouse:state', listener)
+    return () => ipcRenderer.removeListener('seo-lighthouse:state', listener)
   }
 }
 

@@ -1,11 +1,10 @@
 import type { ThemePreference } from './types'
 import type { Size } from './types'
-import {
-  DIAGNOSTICS_DRAWER_WIDTH_PX,
-  type RuntimeEvidenceChannel
-} from './runtime-evidence'
+import { DIAGNOSTICS_DRAWER_WIDTH_PX, type RuntimeEvidenceChannel } from './runtime-evidence'
+import { SEO_PANEL_WIDTH_PX } from './seo-audit'
 
-export type PanelId = 'zoom' | 'theme' | 'sidebar-left' | 'diagnostics-right' | 'toolbar-top'
+export type PanelId =
+  'zoom' | 'theme' | 'sidebar-left' | 'diagnostics-right' | 'seo-right' | 'toolbar-top'
 
 export type PanelMode = 'anchored' | 'docked'
 
@@ -63,7 +62,13 @@ export type PanelAction =
   | { type: 'navigate'; url: string }
   | { type: 'delete-history'; url: string }
   | { type: 'clear-history' }
-  | { type: 'toggle-project'; name: string; url: string; faviconUrl: string | null; pageTitle: string }
+  | {
+      type: 'toggle-project'
+      name: string
+      url: string
+      faviconUrl: string | null
+      pageTitle: string
+    }
   | { type: 'toggle-sidebar' }
   | { type: 'toggle-diagnostics' }
   | { type: 'go-back' }
@@ -77,6 +82,7 @@ export const PANEL_MIN_SIZE: Record<PanelId, Size> = {
   theme: { width: 176, height: 120 },
   'sidebar-left': { width: 280, height: 400 },
   'diagnostics-right': { width: DIAGNOSTICS_DRAWER_WIDTH_PX, height: 400 },
+  'seo-right': { width: SEO_PANEL_WIDTH_PX, height: 400 },
   'toolbar-top': { width: 400, height: 52 }
 }
 

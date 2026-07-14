@@ -248,11 +248,6 @@ export class SafariChromeManager {
     view.setBackgroundColor('#00000000')
     view.setBounds({ x: 0, y: 0, width: 0, height: 0 })
     view.setVisible(false)
-    // Sticky visual chrome: paint above the page, but never steal taps.
-    // Electron View API; typed narrowly in @types bundled with electron.
-    ;(view as WebContentsView & {
-      setIgnoreMouseEvents: (ignore: boolean, options?: { forward: boolean }) => void
-    }).setIgnoreMouseEvents(true, { forward: true })
 
     const state: PaneChromeState = {
       compact: false,
@@ -302,9 +297,6 @@ export class SafariChromeManager {
       height: Math.round(screenBounds.height)
     })
     state.view.setVisible(true)
-    ;(state.view as WebContentsView & {
-      setIgnoreMouseEvents: (ignore: boolean, options?: { forward: boolean }) => void
-    }).setIgnoreMouseEvents(true, { forward: true })
   }
 
   private hideAll(): void {

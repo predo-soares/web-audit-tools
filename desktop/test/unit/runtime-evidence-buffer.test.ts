@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createRuntimeEvidenceBuffer } from '../../src/main/runtime-evidence-buffer'
+import { createRuntimeEvidenceBuffer } from '../../src/main/evidence/runtime-evidence-buffer'
 
 describe('runtime evidence buffer', () => {
   it('evicts the oldest console entry when the cap is exceeded', () => {

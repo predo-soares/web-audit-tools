@@ -10,6 +10,134 @@ import type { SafariChromeManager } from './chrome/safari-chrome-manager'
 import type { HistoryStore } from './stores/history-store'
 import type { ProjectStore } from './stores/project-store'
 import { captureSnapshot, type SnapshotPort } from './services/snapshot-service'
+import type { AuditPort } from './seo/audit-service'
+import type { AuditManager } from './seo/audit-manager'
+import {
+  RENDERED_EXTRACTION_EXPRESSION,
+  normalizeRenderedSnapshot
+} from './seo/rendered-extraction'
+import { captureDeliveredEvidence } from './seo/delivered-evidence'
+import { nodeFetchTransport } from './seo/referenced-fetch'
+import { UNAVAILABLE_DELIVERED_EVIDENCE, type IndexingIntent } from '../shared/seo-audit'
+import { unavailableIndexability, verifyIndexability } from './seo/indexability'
+import { resolveSocialSharing, unavailableSocialSharing } from './seo/social-sharing'
+import {
+  unavailableInternationalization,
+  verifyInternationalization
+} from './seo/internationalization'
+import { LighthouseManager } from './seo/lighthouse-manager'
+import type { LighthouseProfile } from '../shared/seo-audit'
+
+/**
+ * Build a request Cookie header from the pane session so delivered evidence is
+ * fetched with the same authentication the user sees. The header is sent but
+ * never stored in the resulting evidence (privacy boundary).
+ */
+async function sessionCookieHeader(
+  session: Electron.Session | null,
+  url: string
+): Promise<string | null> {
+  if (!session) return null
+  try {
+    const cookies = await session.cookies.get({ url })
+    if (cookies.length === 0) return null
+    return cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ')
+  } catch {
+    return null
+  }
+}
+
+export function makeAuditPort(paneManager: PaneManager): AuditPort {
+  return {
+    getActivePaneId: () => paneManager.getNavigationState().activePane,
+    getActivePaneUrl: () => paneManager.getNavigationState().barUrl || null,
+    getLastNavTimestamp: (paneId) => paneManager.getLastNavTimestamp(paneId),
+    extractRendered: async (paneId) => {
+      const raw = await paneManager.evaluateInPane(paneId, RENDERED_EXTRACTION_EXPRESSION)
+      return normalizeRenderedSnapshot(raw)
+    },
+    fetchDelivered: async (url) => {
+      try {
+        const session = paneManager.getPreviewSession()
+        const paneId = paneManager.getNavigationState().activePane ?? 'desktop'
+        const cookieHeader = await sessionCookieHeader(session, url)
+        const headers: Record<string, string> = {
+          'User-Agent': paneManager.getUserAgentForPane(paneId)
+        }
+        if (cookieHeader) headers.Cookie = cookieHeader
+        return await captureDeliveredEvidence(url, nodeFetchTransport, headers)
+      } catch {
+        // The port contract forbids throwing: a broken fetch is unavailable
+        // evidence, not an audit failure.
+        return { ...UNAVAILABLE_DELIVERED_EVIDENCE, unavailableReason: 'network' }
+      }
+    },
+    getAccessContext: async (url) => {
+      try {
+        const session = paneManager.getPreviewSession()
+        if (!session) return { authenticated: false }
+        const cookies = await session.cookies.get({ url })
+        return { authenticated: cookies.length > 0 }
+      } catch {
+        return { authenticated: false }
+      }
+    },
+    fetchIndexability: async (url, rendered, delivered) => {
+      try {
+        const session = paneManager.getPreviewSession()
+        const paneId = paneManager.getNavigationState().activePane ?? 'desktop'
+        const userAgent = paneManager.getUserAgentForPane(paneId)
+        const cookieHeader = await sessionCookieHeader(session, url)
+        const headers: Record<string, string> = { 'User-Agent': userAgent }
+        if (cookieHeader) headers.Cookie = cookieHeader
+        return await verifyIndexability(
+          url,
+          rendered,
+          delivered,
+          nodeFetchTransport,
+          headers,
+          userAgent
+        )
+      } catch {
+        return unavailableIndexability(url, 'network')
+      }
+    },
+    fetchSocial: async (url, rendered, delivered) => {
+      try {
+        const session = paneManager.getPreviewSession()
+        const paneId = paneManager.getNavigationState().activePane ?? 'desktop'
+        const headers: Record<string, string> = {
+          'User-Agent': paneManager.getUserAgentForPane(paneId)
+        }
+        const cookieHeader = await sessionCookieHeader(session, url)
+        if (cookieHeader) headers.Cookie = cookieHeader
+        return await resolveSocialSharing(url, rendered, delivered, nodeFetchTransport, headers)
+      } catch {
+        return unavailableSocialSharing()
+      }
+    },
+    fetchInternational: async (url, rendered, delivered) => {
+      try {
+        const session = paneManager.getPreviewSession()
+        const paneId = paneManager.getNavigationState().activePane ?? 'desktop'
+        const headers: Record<string, string> = {
+          'User-Agent': paneManager.getUserAgentForPane(paneId)
+        }
+        const cookieHeader = await sessionCookieHeader(session, url)
+        if (cookieHeader) headers.Cookie = cookieHeader
+        return await verifyInternationalization(
+          url,
+          rendered,
+          nodeFetchTransport,
+          headers,
+          delivered
+        )
+      } catch {
+        return unavailableInternationalization(rendered)
+      }
+    }
+  }
+}
 
 export function makeSnapshotPort(paneManager: PaneManager): SnapshotPort {
   return {
@@ -29,11 +157,56 @@ export function registerIpcHandlers(
   panelManager: PanelManager,
   projectStore: ProjectStore,
   historyStore: HistoryStore,
-  safariChromeManager: SafariChromeManager
+  safariChromeManager: SafariChromeManager,
+  auditManager: AuditManager
 ): void {
-  ipcMain.handle('snapshot:take', async () => {
-    return captureSnapshot(makeSnapshotPort(paneManager))
+  const lighthouseManager = new LighthouseManager((state) =>
+    panelManager.notifyPanel('seo-right', 'seo-lighthouse:state', state)
+  )
+  ipcMain.handle('snapshot:take', async (_event, includeSeoAudit = false) => {
+    return captureSnapshot(makeSnapshotPort(paneManager), undefined, {
+      includeSeoAudit,
+      seoAuditState: includeSeoAudit ? auditManager.getState() : undefined
+    })
   })
+
+  ipcMain.handle('seo-audit:run', async (_event, indexingIntent: IndexingIntent) => {
+    return auditManager.run({ indexingIntent })
+  })
+
+  ipcMain.handle('seo-audit:cancel', () => {
+    auditManager.cancel()
+  })
+
+  ipcMain.handle('seo-audit:get-state', () => {
+    return auditManager.getState()
+  })
+  ipcMain.handle('seo-lighthouse:get-state', () => lighthouseManager.getState())
+  ipcMain.handle(
+    'seo-lighthouse:run',
+    async (_event, profile: LighthouseProfile, shareSession: boolean) => {
+      const navigation = paneManager.getNavigationState()
+      if (!navigation.barUrl) return lighthouseManager.getState()
+      const headers: Record<string, string> = {
+        'User-Agent': paneManager.getUserAgentForPane(navigation.activePane ?? 'desktop')
+      }
+      if (shareSession) {
+        const cookieHeader = await sessionCookieHeader(
+          paneManager.getPreviewSession(),
+          navigation.barUrl
+        )
+        if (cookieHeader) headers.Cookie = cookieHeader
+      }
+      return lighthouseManager.run({
+        url: navigation.barUrl,
+        profile,
+        shareSession,
+        headers,
+        pageAuditId: auditManager.getState().result?.id ?? null
+      })
+    }
+  )
+  ipcMain.handle('seo-lighthouse:cancel', () => lighthouseManager.cancel())
 
   ipcMain.on('diagnostics:toggle', () => {
     panelManager.notifyToolbarPanel('panel:toggle-diagnostics')
@@ -154,9 +327,12 @@ export function registerIpcHandlers(
     void paneManager.syncClick(paneId, fingerprint)
   })
 
-  ipcMain.on('pane:value', (_event, paneId: PaneId, fingerprint: ElementFingerprint, value: string) => {
-    void paneManager.syncValue(paneId, fingerprint, value)
-  })
+  ipcMain.on(
+    'pane:value',
+    (_event, paneId: PaneId, fingerprint: ElementFingerprint, value: string) => {
+      void paneManager.syncValue(paneId, fingerprint, value)
+    }
+  )
 
   ipcMain.on(
     'pane:select',
@@ -203,14 +379,11 @@ export function registerIpcHandlers(
     return panelManager.getDiagnosticsWidth()
   })
 
-  ipcMain.on(
-    'panel:docked-resize',
-    (event, width: number, phase: 'preview' | 'commit') => {
-      const panelId = panelManager.getPanelIdForWebContents(event.sender)
-      if (!panelId) return
-      panelManager.handleDockedResize(panelId, width, phase)
-    }
-  )
+  ipcMain.on('panel:docked-resize', (event, width: number, phase: 'preview' | 'commit') => {
+    const panelId = panelManager.getPanelIdForWebContents(event.sender)
+    if (!panelId) return
+    panelManager.handleDockedResize(panelId, width, phase)
+  })
 
   ipcMain.on('panel:size', (event, size: Size) => {
     const panelId = panelManager.getPanelIdForWebContents(event.sender)
@@ -342,11 +515,8 @@ export function registerIpcHandlers(
     return projectStore.list()
   })
 
-  ipcMain.handle(
-    'projects:toggle',
-    (_event, input: NewProjectInput & { pageTitle: string }) => {
-      const { pageTitle, ...projectInput } = input
-      return projectStore.toggle(projectInput, pageTitle)
-    }
-  )
+  ipcMain.handle('projects:toggle', (_event, input: NewProjectInput & { pageTitle: string }) => {
+    const { pageTitle, ...projectInput } = input
+    return projectStore.toggle(projectInput, pageTitle)
+  })
 }

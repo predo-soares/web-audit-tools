@@ -35,8 +35,51 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
   const { pathname } = parse(req.url ?? '/', true)
   const ua = req.headers['user-agent'] ?? ''
 
+  if (pathname === '/robots.txt') {
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' })
+    res.end(
+      `User-agent: *\nAllow: /seo/indexability-allowed\nDisallow: /seo/indexability-blocked\nSitemap: http://${req.headers.host}/sitemap.xml\n`
+    )
+    return
+  }
+
+  if (pathname === '/sitemap.xml') {
+    res.writeHead(200, { 'Content-Type': 'application/xml' })
+    res.end(
+      `<?xml version="1.0"?><urlset><url><loc>http://${req.headers.host}/not-fetched-by-audit</loc></url></urlset>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/canonical-target') {
+    sendHtml(
+      res,
+      '<!doctype html><html><head><title>Canonical target</title></head><body>Target</body></html>'
+    )
+    return
+  }
+
+  if (pathname === '/seo/social-image-redirect') {
+    res.writeHead(302, { Location: '/seo/social-card.png' })
+    res.end()
+    return
+  }
+
+  if (pathname === '/seo/social-card.png') {
+    const bytes = Buffer.alloc(24)
+    bytes.set([0x89, 0x50, 0x4e, 0x47], 0)
+    bytes.writeUInt32BE(1200, 16)
+    bytes.writeUInt32BE(630, 20)
+    res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': bytes.length })
+    res.end(bytes)
+    return
+  }
+
   if (pathname === '/') {
-    sendHtml(res, '<!doctype html><html><body><h1 id="fixture-home">Fixture Home</h1></body></html>')
+    sendHtml(
+      res,
+      '<!doctype html><html><body><h1 id="fixture-home">Fixture Home</h1></body></html>'
+    )
     return
   }
 
@@ -186,24 +229,33 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
 
   if (pathname === '/assets/image-1x.png') {
     res.writeHead(200, { 'Content-Type': 'image/png' })
-    res.end(Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489', 'hex'))
+    res.end(
+      Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489', 'hex')
+    )
     return
   }
 
   if (pathname === '/assets/image-2x.png') {
     res.writeHead(200, { 'Content-Type': 'image/png' })
-    res.end(Buffer.from('89504e470d0a1a0a0000000d49484452000000020000000208060000001f15c489', 'hex'))
+    res.end(
+      Buffer.from('89504e470d0a1a0a0000000d49484452000000020000000208060000001f15c489', 'hex')
+    )
     return
   }
 
   if (pathname === '/assets/image-3x.png') {
     res.writeHead(200, { 'Content-Type': 'image/png' })
-    res.end(Buffer.from('89504e470d0a1a0a0000000d49484452000000030000000308060000001f15c489', 'hex'))
+    res.end(
+      Buffer.from('89504e470d0a1a0a0000000d49484452000000030000000308060000001f15c489', 'hex')
+    )
     return
   }
 
   if (pathname === '/long-scroll') {
-    const sections = Array.from({ length: 40 }, (_, index) => `<section id="section-${index}">Section ${index}</section>`).join('')
+    const sections = Array.from(
+      { length: 40 },
+      (_, index) => `<section id="section-${index}">Section ${index}</section>`
+    ).join('')
     const body = `<!doctype html><html><head><style>
         section { height: 240px; border-bottom: 1px solid #ccc; padding: 1rem; box-sizing: border-box; }
       </style></head><body>${sections}<div id="scroll-probe"></div>
@@ -222,7 +274,8 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
       res,
       '<!doctype html><html><body><h1 id="strict-ok">Strict headers page</h1></body></html>',
       {
-        'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
+        'Content-Security-Policy':
+          "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
         'Cross-Origin-Opener-Policy': 'same-origin',
         'Cross-Origin-Embedder-Policy': 'require-corp',
         'X-Content-Type-Options': 'nosniff'
@@ -811,11 +864,235 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     return
   }
 
+  if (pathname === '/seo/with-title') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head><title>Fixture SEO Page</title></head><body>
+        <h1 id="seo-with-title">Has a title</h1>
+      </body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/indexability-allowed') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head>
+        <title>Indexable fixture</title>
+        <meta name="robots" content="index, follow">
+        <link rel="canonical" href="/seo/canonical-target">
+        <link rel="sitemap" href="/sitemap.xml">
+      </head><body><h1 id="seo-indexability-allowed">Indexable</h1></body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/social-sharing') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head>
+        <title>Social fallback title</title>
+        <meta name="description" content="Search description fallback">
+        <meta property="og:title" content="Social Fixture Card">
+        <meta property="og:description" content="A representative social card fixture.">
+        <meta property="og:image" content="/seo/social-image-redirect">
+        <meta property="og:url" content="/seo/social-sharing">
+        <meta name="twitter:card" content="summary_large_image">
+      </head><body><h1 id="seo-social-sharing">Social sharing</h1></body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/structured-data') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head><title>Structured data fixture</title>
+        <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@id":"#product","@type":"Product","name":"Audit Desk","image":"/seo/social-card.png","offers":{"@type":"Offer","price":"100"}},{"@type":"https://example.test/vocab/CustomThing","custom":true}]}</script>
+      </head><body><h1 id="seo-structured-data">Structured data</h1>
+        <div itemscope itemtype="https://schema.org/Product"><span itemprop="name">Microdata desk</span></div>
+        <article vocab="https://schema.org/" typeof="Article"><h2 property="headline">RDFa story</h2></article>
+      </body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/structured-data-invalid') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head><title>Invalid structured data fixture</title>
+        <script type="application/ld+json">{"@type":</script>
+        <script type="application/ld+json">{"@graph":[{"@id":"#product","@type":"Product","brand":{"@id":"#missing"}},{"@id":"#product","@type":"Product","name":"Conflict"}]}</script>
+      </head><body><h1 id="seo-structured-data-invalid">Invalid structured data</h1></body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/document-structure') {
+    sendHtml(
+      res,
+      `<!doctype html><html lang="en"><head><title>Document structure fixture</title>
+        <style>.responsive-hidden { display: none }</style>
+      </head><body>
+        <header><nav aria-label="Primary">Navigation</nav></header>
+        <main><h1 class="responsive-hidden">Hidden desktop heading</h1><div id="client-content"></div></main>
+        <script>document.getElementById('client-content').innerHTML = '<h1>Client-rendered page heading</h1><h2>Details</h2><p>This content was rendered by the client and provides enough descriptive text for the document structure audit to observe the committed page meaning after scripts execute.</p>';</script>
+      </body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/document-structure-invalid') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head><title>Invalid document structure fixture</title></head><body>
+        <main></main><h2 id="seo-document-structure-invalid">Section without a primary heading</h2><h4>Skipped level</h4>
+      </body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/links') {
+    sendHtml(
+      res,
+      `<!doctype html><html lang="en"><head><title>Links fixture</title><style>.hidden-link { display: none }</style></head><body>
+        <main><h1>Links</h1>
+          <a href="/relative-target">Relative destination</a>
+          <a href="/relative-target">Duplicate destination</a>
+          <a href="#details">Jump to details</a><div id="details">Details</div>
+          <a href="mailto:hello@example.test">Email</a><a href="tel:+55110000">Telephone</a>
+          <a href="/guide.pdf" download>Download guide</a>
+          <a href="/account" aria-label="Account"><svg></svg></a>
+          <a href="/sponsored" rel="nofollow sponsored">Sponsor</a>
+          <a href="javascript:window.fixtureLinkRan=true">Script link</a>
+          <a href="/bad-rel" rel="follow,nofollow">Bad relationship</a>
+          <a class="hidden-link" href="/desktop-only">Hidden responsive link</a>
+          <div id="client-links"></div>
+        </main>
+        <script>document.getElementById('client-links').innerHTML = '<a href="/client-rendered">Client-rendered link</a>';</script>
+      </body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/images-media') {
+    sendHtml(
+      res,
+      `<!doctype html><html lang="en"><head><title>Images media fixture</title></head><body><main><h1>Images and media</h1>
+        <img src="/seo/social-card.png" alt="" width="1200" height="630">
+        <img src="/seo/social-card.png" style="width:100px;height:100px" loading="lazy">
+        <img src="/seo/missing-image.png" alt="Broken product image">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Crect width='20' height='20'/%3E%3C/svg%3E" alt="Distorted SVG" style="width:100px;height:50px">
+        <picture><source media="(min-width: 1px)" type="image/png" srcset="/seo/social-card.png 1x"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'/%3E" alt="Responsive illustration" srcset="/seo/social-card.png 2x" sizes="50vw"></picture>
+        <div id="client-media"></div>
+        <video controls preload="metadata"><source src="/media/movie.mp4" type="video/mp4"><track kind="captions" srclang="en" label="English"></video>
+      </main><script>document.getElementById('client-media').innerHTML = '<img src="/seo/social-card.png" alt="Client inserted image" width="1200" height="630">';</script></body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/indexability-blocked') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head>
+        <title>Blocked fixture</title>
+        <meta name="robots" content="noindex, nofollow">
+        <link rel="canonical" href="/seo/canonical-target">
+      </head><body><h1 id="seo-indexability-blocked">Blocked</h1></body></html>`,
+      { 'X-Robots-Tag': 'index, follow' }
+    )
+    return
+  }
+
+  if (pathname === '/seo/search-appearance') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head>
+        <title>Search Appearance Fixture</title>
+        <meta name="description" content="A precise fixture description for the representative search preview.">
+        <link rel="canonical" href="/seo/search-appearance">
+        <link rel="icon" href="/favicon.ico">
+      </head><body>
+        <h1 id="seo-search-appearance">Search appearance</h1>
+      </body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/i18n') {
+    sendHtml(
+      res,
+      `<!doctype html><html lang="en"><head><title>English locale</title><link rel="canonical" href="/seo/i18n"><link rel="alternate" hreflang="en" href="/seo/i18n"><link rel="alternate" hreflang="pt-BR" href="/seo/i18n-pt"><link rel="alternate" hreflang="x-default" href="/seo/i18n"></head><body><main><h1 id="seo-i18n">English</h1></main></body></html>`
+    )
+    return
+  }
+  if (pathname === '/seo/i18n-pt') {
+    sendHtml(
+      res,
+      `<!doctype html><html lang="pt-BR"><head><title>Português</title><link rel="canonical" href="/seo/i18n-pt"><link rel="alternate" hreflang="en" href="/seo/i18n"><link rel="alternate" hreflang="pt-BR" href="/seo/i18n-pt"></head><body>Português</body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/conflicting-metadata') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head>
+        <title>Delivered Conflict Title</title>
+        <meta name="description" content="First description">
+        <meta name="description" content="Second description">
+        <link rel="canonical" href="https://example.test/first">
+        <link rel="canonical" href="https://example.test/second">
+      </head><body>
+        <h1 id="seo-conflicting-metadata">Conflicting metadata</h1>
+        <script>
+          document.title = 'Rendered Conflict Title';
+          document.querySelector('meta[name="description"]').content = 'Rendered description';
+        </script>
+      </body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/no-title') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head></head><body>
+        <h1 id="seo-no-title">No title element</h1>
+      </body></html>`
+    )
+    return
+  }
+
+  // Delivered <title> differs from the title after client-side rendering, so an
+  // audit's delivered-vs-rendered check should warn.
+  if (pathname === '/seo/hydrated-title') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head><title>Delivered Title</title></head><body>
+        <h1 id="seo-hydrated-title">Hydrated</h1>
+        <script>document.title = 'Rendered Title';</script>
+      </body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/empty-title') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head><title></title></head><body>
+        <h1 id="seo-empty-title">Empty title element</h1>
+      </body></html>`
+    )
+    return
+  }
+
   res.writeHead(404)
   res.end('Not found')
 }
 
-export function startFixtureServer(port = DEFAULT_PORT): Promise<{ port: number; close: () => Promise<void> }> {
+export function startFixtureServer(
+  port = DEFAULT_PORT
+): Promise<{ port: number; close: () => Promise<void> }> {
   return new Promise((resolvePromise, reject) => {
     const server = createServer(handleRequest)
     server.on('error', reject)

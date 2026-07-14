@@ -12,6 +12,7 @@ import type {
   ThemePreference
 } from '../shared/types'
 import type { SnapshotResult } from '../shared/snapshot'
+import type { AuditJobState, AuditRunResult, IndexingIntent } from '../shared/seo-audit'
 
 export interface PreviewApi {
   closeWindow: () => Promise<void>
@@ -54,7 +55,10 @@ export interface PreviewApi {
   onPanelToggleSidebar: (callback: () => void) => () => void
   onPaneLoading: (callback: (state: { paneId: PaneId; loading: boolean }) => void) => () => void
   onPaneLoadError: (
-    callback: (state: { paneId: PaneId; error: { code: number; description: string } | null }) => void
+    callback: (state: {
+      paneId: PaneId
+      error: { code: number; description: string } | null
+    }) => void
   ) => () => void
   onPaneNavigation: (callback: (state: PaneNavigationState) => void) => () => void
   listProjects: () => Promise<Project[]>
@@ -64,15 +68,20 @@ export interface PreviewApi {
   evaluateInPane: <T>(paneId: PaneId, expression: string) => Promise<T>
   focusPane: (paneId: PaneId) => Promise<void>
   getMirrorFailureLogs: () => Promise<Record<PaneId, MirrorFailureLog[]>>
-  getSyncTraceLogs: () => Promise<Array<{ ts: number; event: string; data?: Record<string, unknown> }>>
+  getSyncTraceLogs: () => Promise<
+    Array<{ ts: number; event: string; data?: Record<string, unknown> }>
+  >
   getRuntimeEvidence: () => Promise<RuntimeEvidenceSnapshot>
   onRuntimeEvidenceChanged: (callback: (snapshot: RuntimeEvidenceSnapshot) => void) => () => void
   toggleDiagnosticsDrawer: () => void
   getDiagnosticsWidth: () => Promise<number>
   onDiagnosticsWidthChanged: (callback: (width: number) => void) => () => void
-  takeSnapshot: () => Promise<SnapshotResult>
+  takeSnapshot: (includeSeoAudit?: boolean) => Promise<SnapshotResult>
   getSafariChromeEnabled: () => Promise<boolean>
   onSafariChromeEnabledChanged: (callback: (enabled: boolean) => void) => () => void
+  runSeoAudit: (indexingIntent: IndexingIntent) => Promise<AuditRunResult>
+  cancelSeoAudit: () => Promise<void>
+  getSeoAuditState: () => Promise<AuditJobState>
 }
 
 const api: PreviewApi = {
@@ -220,13 +229,17 @@ const api: PreviewApi = {
     ipcRenderer.on('panel:diagnostics-width', listener)
     return () => ipcRenderer.removeListener('panel:diagnostics-width', listener)
   },
-  takeSnapshot: () => ipcRenderer.invoke('snapshot:take'),
+  takeSnapshot: (includeSeoAudit = false) => ipcRenderer.invoke('snapshot:take', includeSeoAudit),
   getSafariChromeEnabled: () => ipcRenderer.invoke('safari-chrome:get-enabled'),
   onSafariChromeEnabledChanged: (callback) => {
-    const listener = (_event: Electron.IpcRendererEvent, enabled: boolean): void => callback(enabled)
+    const listener = (_event: Electron.IpcRendererEvent, enabled: boolean): void =>
+      callback(enabled)
     ipcRenderer.on('safari-chrome:enabled-changed', listener)
     return () => ipcRenderer.removeListener('safari-chrome:enabled-changed', listener)
-  }
+  },
+  runSeoAudit: (indexingIntent) => ipcRenderer.invoke('seo-audit:run', indexingIntent),
+  cancelSeoAudit: () => ipcRenderer.invoke('seo-audit:cancel'),
+  getSeoAuditState: () => ipcRenderer.invoke('seo-audit:get-state')
 }
 
 contextBridge.exposeInMainWorld('api', api)

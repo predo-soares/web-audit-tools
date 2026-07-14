@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { captureSnapshot } from '../../src/main/snapshot-service'
-import type { SnapshotPort, SnapshotDeps } from '../../src/main/snapshot-service'
+import { captureSnapshot, serializeSeoAudit } from '../../src/main/services/snapshot-service'
+import type { SnapshotPort, SnapshotDeps } from '../../src/main/services/snapshot-service'
 import type { RuntimeEvidenceSnapshot } from '../../src/shared/runtime-evidence'
 import type { PaneId } from '../../src/shared/types'
 import type { DevContext } from '../../src/shared/dev-context'
@@ -36,25 +36,41 @@ function makePort(overrides?: Partial<SnapshotPort>): SnapshotPort {
 function makeDeps(overrides?: Partial<SnapshotDeps>): SnapshotDeps & {
   writeMdCalls: Array<{ path: string; data: string }>
   writePngCalls: Array<{ path: string; data: Buffer }>
+  writeJsonCalls: Array<{ path: string; data: string }>
   clipboardTexts: string[]
   mkdirCalls: string[]
 } {
   const writeMdCalls: Array<{ path: string; data: string }> = []
   const writePngCalls: Array<{ path: string; data: Buffer }> = []
+  const writeJsonCalls: Array<{ path: string; data: string }> = []
   const clipboardTexts: string[] = []
   const mkdirCalls: string[] = []
 
   return {
     writeMdCalls,
     writePngCalls,
+    writeJsonCalls,
     clipboardTexts,
     mkdirCalls,
     nowMs: () => FIXED_DATE.getTime(),
     wait: vi.fn().mockResolvedValue(undefined),
     writeClipboard: (text) => clipboardTexts.push(text),
-    mkdirBundle: (path) => { mkdirCalls.push(path); return Promise.resolve() },
-    writePng: (path, data) => { writePngCalls.push({ path, data }); return Promise.resolve() },
-    writeMd: (path, data) => { writeMdCalls.push({ path, data }); return Promise.resolve() },
+    mkdirBundle: (path) => {
+      mkdirCalls.push(path)
+      return Promise.resolve()
+    },
+    writePng: (path, data) => {
+      writePngCalls.push({ path, data })
+      return Promise.resolve()
+    },
+    writeMd: (path, data) => {
+      writeMdCalls.push({ path, data })
+      return Promise.resolve()
+    },
+    writeJson: (path, data) => {
+      writeJsonCalls.push({ path, data })
+      return Promise.resolve()
+    },
     ...overrides
   }
 }
@@ -84,7 +100,11 @@ describe('captureSnapshot', () => {
     // Advance the clock past the 2s ceiling on the first wait so the loop exits immediately
     let tick = FIXED_DATE.getTime()
     const deps = makeDeps({
-      nowMs: () => { const t = tick; tick += 2001; return t },
+      nowMs: () => {
+        const t = tick
+        tick += 2001
+        return t
+      }
     })
     const result = await captureSnapshot(port, deps)
     expect(result).toEqual({ ok: true, warningCount: 1 })
@@ -99,7 +119,10 @@ describe('captureSnapshot', () => {
   it('polls wait until panes settle before the ceiling', async () => {
     let callCount = 0
     const port = makePort({
-      isAnyPaneLoading: () => { callCount++; return callCount < 3 }
+      isAnyPaneLoading: () => {
+        callCount++
+        return callCount < 3
+      }
     })
     const deps = makeDeps()
     const result = await captureSnapshot(port, deps)
@@ -124,10 +147,76 @@ describe('captureSnapshot', () => {
     expect(data).toContain('### Network failures (0)')
   })
 
+  it('redacts sensitive active-pane URL values in context.md', async () => {
+    const deps = makeDeps()
+    await captureSnapshot(
+      makePort({
+        getActivePaneUrl: () => 'https://user:password@site.test/private?token=topsecret&page=2'
+      }),
+      deps
+    )
+
+    const { data } = deps.writeMdCalls[0]
+    expect(data).toContain('URL: https://site.test/private?token=REDACTED&page=2')
+    expect(data).not.toContain('topsecret')
+    expect(data).not.toContain('password')
+  })
+
+  it('adds SEO summary and complete JSON only when explicitly requested', async () => {
+    const deps = makeDeps()
+    const audit = {
+      id: 'audit-1',
+      url: 'https://site.test/?token=%5BREDACTED%5D',
+      ruleCatalogVersion: 'test.1',
+      indexingIntent: 'indexable',
+      completedAt: 1,
+      findings: [
+        {
+          ruleId: 'search-appearance/title-present',
+          category: 'search-appearance',
+          outcome: 'error',
+          summary: 'Missing title',
+          impact: 'Hard to identify.',
+          remediation: 'Add a title.',
+          evidence: { origin: 'rendered', detail: 'No title.' }
+        }
+      ],
+      searchAppearance: { declared: [], resolved: {} },
+      socialSharing: { images: [] }
+    }
+    await captureSnapshot(makePort(), deps, {
+      includeSeoAudit: true,
+      seoAuditState: {
+        phase: 'completed',
+        running: null,
+        result: audit,
+        stale: true,
+        incomplete: false
+      } as never
+    })
+    expect(deps.writeMdCalls[0].data).toContain('## Page SEO Audit')
+    expect(deps.writeMdCalls[0].data).toContain('completed, stale')
+    expect(deps.writeMdCalls[0].data).toContain('search-appearance/title-present')
+    expect(deps.writeJsonCalls).toHaveLength(1)
+    expect(deps.writeJsonCalls[0].path).toMatch(/seo-audit\.json$/)
+    expect(JSON.parse(deps.writeJsonCalls[0].data).url).toContain('REDACTED')
+
+    const ordinary = makeDeps()
+    await captureSnapshot(makePort(), ordinary)
+    expect(ordinary.writeJsonCalls).toHaveLength(0)
+    expect(ordinary.writeMdCalls[0].data).not.toContain('## Page SEO Audit')
+    expect(ordinary.writePngCalls).toHaveLength(1)
+  })
+
   it('writes Local project: not detected when URL is not localhost', async () => {
     const port = makePort({
       getActivePaneUrl: () => 'https://example.com',
-      getDevContext: () => ({ repoPath: '/home/user/project', branch: 'main', commit: 'abc1234', dirty: false })
+      getDevContext: () => ({
+        repoPath: '/home/user/project',
+        branch: 'main',
+        commit: 'abc1234',
+        dirty: false
+      })
     })
     const deps = makeDeps()
     await captureSnapshot(port, deps)
@@ -263,9 +352,32 @@ describe('captureSnapshot', () => {
     const evidence = makeEvidence({
       console: [],
       network: [
-        { id: '1', timestamp: 1, method: 'GET', url: 'http://localhost/ok', path: '/ok', status: 200, failed: false },
-        { id: '2', timestamp: 2, method: 'GET', url: 'http://localhost/missing', path: '/missing', status: 404, failed: true },
-        { id: '3', timestamp: 3, method: 'POST', url: 'http://localhost/fail', path: '/fail', failed: true }
+        {
+          id: '1',
+          timestamp: 1,
+          method: 'GET',
+          url: 'http://localhost/ok',
+          path: '/ok',
+          status: 200,
+          failed: false
+        },
+        {
+          id: '2',
+          timestamp: 2,
+          method: 'GET',
+          url: 'http://localhost/missing',
+          path: '/missing',
+          status: 404,
+          failed: true
+        },
+        {
+          id: '3',
+          timestamp: 3,
+          method: 'POST',
+          url: 'http://localhost/fail',
+          path: '/fail',
+          failed: true
+        }
       ],
       problemCount: 2
     })
@@ -294,7 +406,9 @@ describe('captureSnapshot', () => {
     await captureSnapshot(makePort(), deps)
 
     const { path } = deps.writeMdCalls[0]
-    expect(path).toMatch(/\.audit-screens[/\\]captures[/\\]2026-07-09T04-43-00-000Z[/\\]context\.md$/)
+    expect(path).toMatch(
+      /\.audit-screens[/\\]captures[/\\]2026-07-09T04-43-00-000Z[/\\]context\.md$/
+    )
   })
 
   it('creates the bundle directory with correct timestamp format', async () => {
@@ -340,5 +454,27 @@ describe('captureSnapshot', () => {
     const { data } = deps.writeMdCalls[0]
     expect(data).toContain('## Active Pane: Desktop')
     expect(deps.writePngCalls[0].path).toMatch(/desktop\.png$/)
+  })
+})
+
+describe('serializeSeoAudit', () => {
+  it('redacts URL credentials and removes sensitive transport and page payloads', () => {
+    const serialized = serializeSeoAudit({
+      url: 'https://user:password@site.test/private?token=topsecret',
+      accessContext: { authenticated: true },
+      delivered: {
+        headers: {
+          authorization: 'Bearer topsecret',
+          'set-cookie': 'session=topsecret'
+        },
+        body: '<html>topsecret</html>'
+      },
+      requestBody: 'topsecret',
+      storage: { session: 'topsecret' }
+    } as never)
+
+    expect(serialized).not.toContain('topsecret')
+    expect(serialized).not.toContain('password')
+    expect(JSON.parse(serialized).accessContext.authenticated).toBe(true)
   })
 })
