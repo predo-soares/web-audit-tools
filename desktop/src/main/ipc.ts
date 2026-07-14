@@ -19,6 +19,7 @@ import {
 import { captureDeliveredEvidence } from './seo/delivered-evidence'
 import { nodeFetchTransport } from './seo/referenced-fetch'
 import { UNAVAILABLE_DELIVERED_EVIDENCE, type IndexingIntent } from '../shared/seo-audit'
+import { unavailableIndexability, verifyIndexability } from './seo/indexability'
 
 /**
  * Build a request Cookie header from the pane session so delivered evidence is
@@ -72,6 +73,26 @@ export function makeAuditPort(paneManager: PaneManager): AuditPort {
         return { authenticated: cookies.length > 0 }
       } catch {
         return { authenticated: false }
+      }
+    },
+    fetchIndexability: async (url, rendered, delivered) => {
+      try {
+        const session = paneManager.getPreviewSession()
+        const paneId = paneManager.getNavigationState().activePane ?? 'desktop'
+        const userAgent = paneManager.getUserAgentForPane(paneId)
+        const cookieHeader = await sessionCookieHeader(session, url)
+        const headers: Record<string, string> = { 'User-Agent': userAgent }
+        if (cookieHeader) headers.Cookie = cookieHeader
+        return await verifyIndexability(
+          url,
+          rendered,
+          delivered,
+          nodeFetchTransport,
+          headers,
+          userAgent
+        )
+      } catch {
+        return unavailableIndexability(url, 'network')
       }
     }
   }

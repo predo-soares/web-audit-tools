@@ -10,6 +10,7 @@ import {
 import { SEO_RULES, titlePresenceRule } from '../../src/main/seo/rules'
 import { normalizeRenderedSnapshot } from '../../src/main/seo/rendered-extraction'
 import { runAudit, type AuditPort } from '../../src/main/seo/audit-service'
+import { unavailableIndexability } from '../../src/main/seo/indexability'
 import type { PaneId } from '../../src/shared/types'
 
 function makePort(overrides?: Partial<AuditPort>): AuditPort {
@@ -20,6 +21,7 @@ function makePort(overrides?: Partial<AuditPort>): AuditPort {
     extractRendered: () => Promise.resolve({ title: 'Example' }),
     fetchDelivered: () => Promise.resolve(UNAVAILABLE_DELIVERED_EVIDENCE),
     getAccessContext: () => Promise.resolve({ authenticated: false }),
+    fetchIndexability: (url) => Promise.resolve(unavailableIndexability(url)),
     ...overrides
   }
 }

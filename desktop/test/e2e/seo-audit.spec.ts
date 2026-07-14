@@ -233,3 +233,59 @@ test('reports duplicate and conflicting search metadata without hiding declarati
     await close()
   }
 })
+
+test('audits indexability controls and verifies only declared discovery resources', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/seo/indexability-allowed'))
+    await waitForPaneElement(window, 'desktop', 'seo-indexability-allowed')
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('seo-toggle').click()
+    const panel = await getSeoPanelPage(window)
+    await panel.getByRole('radio', { name: 'Indexable', exact: true }).click()
+    await panel.getByTestId('seo-run-audit').click()
+
+    await expect(
+      panel.locator('[data-testid="seo-finding"][data-rule-id="indexability/final-status"]')
+    ).toHaveAttribute('data-outcome', 'passed')
+    await expect(
+      panel.locator('[data-testid="seo-finding"][data-rule-id="indexability/canonical-target"]')
+    ).toHaveAttribute('data-outcome', 'passed')
+    await expect(
+      panel.locator('[data-testid="seo-finding"][data-rule-id="indexability/robots-txt-access"]')
+    ).toHaveAttribute('data-outcome', 'passed')
+    await expect(
+      panel.locator('[data-testid="seo-finding"][data-rule-id="indexability/declared-sitemaps"]')
+    ).toHaveAttribute('data-outcome', 'passed')
+  } finally {
+    await close()
+  }
+})
+
+test('reports contradictory noindex controls against indexable intent', async ({ fixturePort }) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/seo/indexability-blocked'))
+    await waitForPaneElement(window, 'desktop', 'seo-indexability-blocked')
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('seo-toggle').click()
+    const panel = await getSeoPanelPage(window)
+    await panel.getByRole('radio', { name: 'Indexable', exact: true }).click()
+    await panel.getByTestId('seo-run-audit').click()
+
+    const directives = panel.locator(
+      '[data-testid="seo-finding"][data-rule-id="indexability/robots-directives"]'
+    )
+    await expect(directives).toHaveAttribute('data-outcome', 'error')
+    await expect(directives.getByTestId('seo-finding-summary')).toHaveText(
+      'Robots directives conflict'
+    )
+    await expect(
+      panel.locator('[data-testid="seo-finding"][data-rule-id="indexability/robots-txt-access"]')
+    ).toHaveAttribute('data-outcome', 'error')
+  } finally {
+    await close()
+  }
+})

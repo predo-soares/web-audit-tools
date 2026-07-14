@@ -35,6 +35,30 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
   const { pathname } = parse(req.url ?? '/', true)
   const ua = req.headers['user-agent'] ?? ''
 
+  if (pathname === '/robots.txt') {
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' })
+    res.end(
+      `User-agent: *\nAllow: /seo/indexability-allowed\nDisallow: /seo/indexability-blocked\nSitemap: http://${req.headers.host}/sitemap.xml\n`
+    )
+    return
+  }
+
+  if (pathname === '/sitemap.xml') {
+    res.writeHead(200, { 'Content-Type': 'application/xml' })
+    res.end(
+      `<?xml version="1.0"?><urlset><url><loc>http://${req.headers.host}/not-fetched-by-audit</loc></url></urlset>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/canonical-target') {
+    sendHtml(
+      res,
+      '<!doctype html><html><head><title>Canonical target</title></head><body>Target</body></html>'
+    )
+    return
+  }
+
   if (pathname === '/') {
     sendHtml(
       res,
@@ -830,6 +854,32 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
       `<!doctype html><html><head><title>Fixture SEO Page</title></head><body>
         <h1 id="seo-with-title">Has a title</h1>
       </body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/indexability-allowed') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head>
+        <title>Indexable fixture</title>
+        <meta name="robots" content="index, follow">
+        <link rel="canonical" href="/seo/canonical-target">
+        <link rel="sitemap" href="/sitemap.xml">
+      </head><body><h1 id="seo-indexability-allowed">Indexable</h1></body></html>`
+    )
+    return
+  }
+
+  if (pathname === '/seo/indexability-blocked') {
+    sendHtml(
+      res,
+      `<!doctype html><html><head>
+        <title>Blocked fixture</title>
+        <meta name="robots" content="noindex, nofollow">
+        <link rel="canonical" href="/seo/canonical-target">
+      </head><body><h1 id="seo-indexability-blocked">Blocked</h1></body></html>`,
+      { 'X-Robots-Tag': 'index, follow' }
     )
     return
   }

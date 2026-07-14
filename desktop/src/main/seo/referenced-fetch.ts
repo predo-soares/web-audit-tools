@@ -210,6 +210,8 @@ export interface DeliveredSearchMetadata {
   descriptions: string[]
   canonicals: string[]
   favicons: string[]
+  robots: string[]
+  sitemapLinks: string[]
 }
 
 /** Extract ordered search-appearance declarations from delivered HTML. */
@@ -217,12 +219,17 @@ export function extractDeliveredSearchMetadata(html: string): DeliveredSearchMet
   const descriptions: string[] = []
   const canonicals: string[] = []
   const favicons: string[] = []
+  const robots: string[] = []
+  const sitemapLinks: string[] = []
   const tags = html.match(/<(?:meta|link)\b[^>]*>/gi) ?? []
 
   for (const tag of tags) {
     const attrs = parseAttributes(tag)
     if (tag.toLowerCase().startsWith('<meta')) {
       if ((attrs.name ?? '').toLowerCase() === 'description') descriptions.push(attrs.content ?? '')
+      if (['robots', 'googlebot'].includes((attrs.name ?? '').toLowerCase())) {
+        robots.push(attrs.content ?? '')
+      }
       continue
     }
     const rel = (attrs.rel ?? '').toLowerCase().split(/\s+/).filter(Boolean)
@@ -230,9 +237,10 @@ export function extractDeliveredSearchMetadata(html: string): DeliveredSearchMet
     if (rel.includes('icon') || (rel.includes('shortcut') && rel.includes('icon'))) {
       favicons.push(attrs.href ?? '')
     }
+    if (rel.includes('sitemap')) sitemapLinks.push(attrs.href ?? '')
   }
 
-  return { descriptions, canonicals, favicons }
+  return { descriptions, canonicals, favicons, robots, sitemapLinks }
 }
 
 function parseAttributes(tag: string): Record<string, string> {

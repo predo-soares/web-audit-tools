@@ -6,6 +6,7 @@ import {
   type AuditRunResult,
   type DeliveredEvidence,
   type Finding,
+  type IndexabilityResult,
   type IndexingIntent,
   type RenderedAuditSnapshot
 } from '../../shared/seo-audit'
@@ -19,6 +20,7 @@ export interface AuditEvidence {
   rendered: RenderedAuditSnapshot
   delivered: DeliveredEvidence
   accessContext: AuditAccessContext
+  indexability: IndexabilityResult
 }
 
 /**
@@ -38,7 +40,8 @@ export function evaluateFindings(
         delivered: evidence.delivered,
         accessContext: evidence.accessContext,
         indexingIntent,
-        searchAppearance
+        searchAppearance,
+        indexability: evidence.indexability
       })
     } catch (error) {
       return unableToVerifyFinding(rule, error)
@@ -84,6 +87,7 @@ export function buildAuditResult(
     rendered: input.evidence.rendered,
     delivered: input.evidence.delivered,
     searchAppearance,
+    indexability: input.evidence.indexability,
     findings: evaluateFindings(input.evidence, input.indexingIntent, searchAppearance)
   }
 }
@@ -118,6 +122,12 @@ export interface AuditPort {
   fetchDelivered(url: string): Promise<DeliveredEvidence>
   /** Whether the pane session is authenticated for `url`. Must not throw. */
   getAccessContext(url: string): Promise<AuditAccessContext>
+  /** Bounded verification of canonical, robots.txt, and declared sitemaps. */
+  fetchIndexability(
+    url: string,
+    rendered: RenderedAuditSnapshot,
+    delivered: DeliveredEvidence
+  ): Promise<IndexabilityResult>
 }
 
 export interface AuditDeps {
@@ -153,6 +163,7 @@ export async function runAudit(
   const startedAt = deps.nowMs()
   const rendered = await port.extractRendered(paneId)
   const [delivered, accessContext] = await gatherReferencedEvidence(port, url)
+  const indexability = await port.fetchIndexability(url, rendered, delivered)
 
   const result = buildAuditResult(deps, {
     paneId,
@@ -160,7 +171,7 @@ export async function runAudit(
     navigationTimestamp: port.getLastNavTimestamp(paneId),
     startedAt,
     indexingIntent: options.indexingIntent,
-    evidence: { rendered, delivered, accessContext }
+    evidence: { rendered, delivered, accessContext, indexability }
   })
 
   return { ok: true, result }

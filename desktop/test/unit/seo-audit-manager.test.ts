@@ -7,6 +7,7 @@ import {
   type RenderedAuditSnapshot
 } from '../../src/shared/seo-audit'
 import type { PaneId } from '../../src/shared/types'
+import { unavailableIndexability } from '../../src/main/seo/indexability'
 
 /**
  * A controllable extraction: each call returns a promise the test resolves by
@@ -44,6 +45,7 @@ function makePort(overrides?: Partial<AuditPort>): AuditPort {
     extractRendered: () => Promise.resolve({ title: 'ok' }),
     fetchDelivered: () => Promise.resolve(UNAVAILABLE_DELIVERED_EVIDENCE),
     getAccessContext: () => Promise.resolve({ authenticated: false }),
+    fetchIndexability: (url) => Promise.resolve(unavailableIndexability(url)),
     ...overrides
   }
 }

@@ -11,6 +11,7 @@ import type {
   RenderedAuditSnapshot,
   SearchAppearanceResult
 } from '../../src/shared/seo-audit'
+import { unavailableIndexability } from '../../src/main/seo/indexability'
 
 function delivered(overrides: Partial<DeliveredEvidence> = {}): DeliveredEvidence {
   return {
@@ -47,7 +48,8 @@ function context(searchAppearance: SearchAppearanceResult) {
     delivered: delivered(),
     accessContext: { authenticated: false },
     indexingIntent: 'indexable' as const,
-    searchAppearance
+    searchAppearance,
+    indexability: unavailableIndexability('https://example.test/page')
   }
 }
 

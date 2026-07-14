@@ -51,6 +51,8 @@ export async function captureDeliveredEvidence(
     descriptions: metadata.descriptions,
     canonicals: metadata.canonicals,
     favicons: metadata.favicons,
+    robots: metadata.robots,
+    sitemapLinks: metadata.sitemapLinks,
     truncated: outcome.truncated
   }
 }

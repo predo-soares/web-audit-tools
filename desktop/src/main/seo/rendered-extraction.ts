@@ -16,6 +16,9 @@ export const RENDERED_EXTRACTION_EXPRESSION = `(() => {
   const descriptions = Array.from(document.querySelectorAll('meta[name]'))
     .filter((el) => (el.getAttribute('name') || '').toLowerCase() === 'description')
     .map((el) => el.getAttribute('content') ?? '');
+  const robots = Array.from(document.querySelectorAll('meta[name]'))
+    .filter((el) => ['robots', 'googlebot'].includes((el.getAttribute('name') || '').toLowerCase()))
+    .map((el) => el.getAttribute('content') ?? '');
   const canonicals = Array.from(document.querySelectorAll('link[rel]'))
     .filter((el) => (el.getAttribute('rel') || '').toLowerCase().split(/\\s+/).includes('canonical'))
     .map((el) => el.getAttribute('href') ?? '');
@@ -24,6 +27,9 @@ export const RENDERED_EXTRACTION_EXPRESSION = `(() => {
       const rel = (el.getAttribute('rel') || '').toLowerCase().split(/\\s+/);
       return rel.includes('icon') || rel.includes('shortcut') && rel.includes('icon');
     })
+    .map((el) => el.getAttribute('href') ?? '');
+  const sitemapLinks = Array.from(document.querySelectorAll('link[rel]'))
+    .filter((el) => (el.getAttribute('rel') || '').toLowerCase().split(/\\s+/).includes('sitemap'))
     .map((el) => el.getAttribute('href') ?? '');
   const measure = (text, font) => {
     if (!text) return 0;
@@ -39,6 +45,8 @@ export const RENDERED_EXTRACTION_EXPRESSION = `(() => {
     descriptions,
     canonicals,
     favicons,
+    robots,
+    sitemapLinks,
     titleWidthPx: title === null ? null : measure(title.trim(), '20px Arial'),
     descriptionWidthsPx: descriptions.map((value) => measure(value.trim(), '14px Arial') ?? 0)
   };
@@ -55,6 +63,8 @@ export function normalizeRenderedSnapshot(raw: unknown): RenderedAuditSnapshot {
     descriptions: stringArray(value.descriptions),
     canonicals: stringArray(value.canonicals),
     favicons: stringArray(value.favicons),
+    robots: stringArray(value.robots),
+    sitemapLinks: stringArray(value.sitemapLinks),
     titleWidthPx: typeof value.titleWidthPx === 'number' ? value.titleWidthPx : null,
     descriptionWidthsPx: numberArray(value.descriptionWidthsPx)
   }

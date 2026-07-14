@@ -94,7 +94,9 @@ describe('extractDeliveredSearchMetadata', () => {
     expect(metadata).toEqual({
       descriptions: ['First & best', 'Second'],
       canonicals: ['/one', '/two'],
-      favicons: ['/favicon.ico']
+      favicons: ['/favicon.ico'],
+      robots: [],
+      sitemapLinks: []
     })
   })
 })

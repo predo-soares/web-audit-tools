@@ -5,7 +5,7 @@ import { isLocalhostUrl } from './dev-context'
 // change. An Audit result records the version that produced it so later rule
 // changes never obscure how an existing result was reached (see CONTEXT.md,
 // "Rule catalog"). Format: <catalog date>.<revision>.
-export const SEO_RULE_CATALOG_VERSION = '2026-07-13.2'
+export const SEO_RULE_CATALOG_VERSION = '2026-07-13.3'
 
 // Width of the docked SEO panel. Fixed for now — unlike the diagnostics drawer
 // the SEO panel is not user-resizable yet.
@@ -92,7 +92,36 @@ export interface AuditResult {
   delivered: DeliveredEvidence
   /** Declared and explicitly resolved metadata used by Search appearance. */
   searchAppearance: SearchAppearanceResult
+  /** Bounded page, robots, canonical, and sitemap evidence used by Indexability. */
+  indexability: IndexabilityResult
   findings: Finding[]
+}
+
+export interface ResourceVerification {
+  url: string
+  available: boolean
+  unavailableReason: string | null
+  status: number | null
+  finalUrl: string | null
+  redirects: RedirectHop[]
+  truncated: boolean
+}
+
+export interface RobotsEvidence extends ResourceVerification {
+  /** User-agent token/group used when interpreting robots.txt. */
+  matchedUserAgent: string | null
+  /** Whether the audited path is allowed; null when it could not be determined. */
+  allowed: boolean | null
+  declaredSitemaps: string[]
+  ambiguous: boolean
+}
+
+export interface IndexabilityResult {
+  metaRobots: { value: string; origin: EvidenceOrigin; order: number }[]
+  headerRobots: string[]
+  canonical: ResourceVerification | null
+  robotsTxt: RobotsEvidence
+  sitemaps: ResourceVerification[]
 }
 
 export type SearchMetadataKind = 'title' | 'description' | 'canonical' | 'favicon'
@@ -146,6 +175,8 @@ export interface RenderedAuditSnapshot {
   /** Browser-measured preview width using the audit's documented preview font. */
   titleWidthPx?: number | null
   descriptionWidthsPx?: number[]
+  robots?: string[]
+  sitemapLinks?: string[]
 }
 
 /** One hop in a redirect chain leading to the delivered document. */
@@ -177,6 +208,8 @@ export interface DeliveredEvidence {
   descriptions?: string[]
   canonicals?: string[]
   favicons?: string[]
+  robots?: string[]
+  sitemapLinks?: string[]
   /** Whether the delivered body was truncated at the byte budget. */
   truncated: boolean
 }

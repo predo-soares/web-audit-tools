@@ -99,13 +99,20 @@ export class AuditManager {
       return { ok: false, reason: 'cancelled' }
     }
 
+    const indexability = await this.port.fetchIndexability(url, rendered, delivered)
+
+    if (runToken !== this.token) {
+      // The pane navigated while bounded discovery controls were in flight.
+      return { ok: false, reason: 'cancelled' }
+    }
+
     const result = buildAuditResult(this.deps, {
       paneId,
       url,
       navigationTimestamp: this.port.getLastNavTimestamp(paneId),
       startedAt,
       indexingIntent: options.indexingIntent,
-      evidence: { rendered, delivered, accessContext }
+      evidence: { rendered, delivered, accessContext, indexability }
     })
 
     this.setState({
