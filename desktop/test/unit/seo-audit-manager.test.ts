@@ -9,6 +9,7 @@ import {
 import type { PaneId } from '../../src/shared/types'
 import { unavailableIndexability } from '../../src/main/seo/indexability'
 import { unavailableSocialSharing } from '../../src/main/seo/social-sharing'
+import { unavailableInternationalization } from '../../src/main/seo/internationalization'
 
 /**
  * A controllable extraction: each call returns a promise the test resolves by
@@ -48,6 +49,7 @@ function makePort(overrides?: Partial<AuditPort>): AuditPort {
     getAccessContext: () => Promise.resolve({ authenticated: false }),
     fetchIndexability: (url) => Promise.resolve(unavailableIndexability(url)),
     fetchSocial: () => Promise.resolve(unavailableSocialSharing()),
+    fetchInternational: () => Promise.resolve(unavailableInternationalization()),
     ...overrides
   }
 }

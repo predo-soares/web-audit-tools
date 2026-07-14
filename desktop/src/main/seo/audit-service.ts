@@ -8,6 +8,7 @@ import {
   type Finding,
   type IndexabilityResult,
   type IndexingIntent,
+  type InternationalizationResult,
   type RenderedAuditSnapshot,
   type SocialSharingResult
 } from '../../shared/seo-audit'
@@ -24,6 +25,7 @@ export interface AuditEvidence {
   accessContext: AuditAccessContext
   indexability: IndexabilityResult
   socialSharing: SocialSharingResult
+  internationalization: InternationalizationResult
 }
 
 /**
@@ -38,7 +40,8 @@ export function evaluateFindings(
   structuredData: AuditResult['structuredData'],
   documentStructure: AuditResult['documentStructure'],
   links: AuditResult['links'],
-  imagesMedia: AuditResult['imagesMedia']
+  imagesMedia: AuditResult['imagesMedia'],
+  internationalization: AuditResult['internationalization']
 ): Finding[] {
   return SEO_RULES.map((rule) => {
     try {
@@ -53,7 +56,8 @@ export function evaluateFindings(
         structuredData,
         documentStructure,
         links,
-        imagesMedia
+        imagesMedia,
+        internationalization
       })
     } catch (error) {
       return unableToVerifyFinding(rule, error)
@@ -96,6 +100,7 @@ export function buildAuditResult(
   }
   const links = input.evidence.rendered.links ?? []
   const imagesMedia = input.evidence.rendered.imagesMedia ?? { images: [], media: [] }
+  const internationalization = input.evidence.internationalization
   return {
     id: deps.newId(),
     paneId: input.paneId,
@@ -115,6 +120,7 @@ export function buildAuditResult(
     documentStructure,
     links,
     imagesMedia,
+    internationalization,
     findings: evaluateFindings(
       input.evidence,
       input.indexingIntent,
@@ -122,7 +128,8 @@ export function buildAuditResult(
       structuredData,
       documentStructure,
       links,
-      imagesMedia
+      imagesMedia,
+      internationalization
     )
   }
 }
@@ -168,6 +175,10 @@ export interface AuditPort {
     rendered: RenderedAuditSnapshot,
     delivered: DeliveredEvidence
   ): Promise<SocialSharingResult>
+  fetchInternational(
+    url: string,
+    rendered: RenderedAuditSnapshot
+  ): Promise<InternationalizationResult>
 }
 
 export interface AuditDeps {
@@ -205,6 +216,7 @@ export async function runAudit(
   const [delivered, accessContext] = await gatherReferencedEvidence(port, url)
   const indexability = await port.fetchIndexability(url, rendered, delivered)
   const socialSharing = await port.fetchSocial(url, rendered, delivered)
+  const internationalization = await port.fetchInternational(url, rendered)
 
   const result = buildAuditResult(deps, {
     paneId,
@@ -212,7 +224,14 @@ export async function runAudit(
     navigationTimestamp: port.getLastNavTimestamp(paneId),
     startedAt,
     indexingIntent: options.indexingIntent,
-    evidence: { rendered, delivered, accessContext, indexability, socialSharing }
+    evidence: {
+      rendered,
+      delivered,
+      accessContext,
+      indexability,
+      socialSharing,
+      internationalization
+    }
   })
 
   return { ok: true, result }

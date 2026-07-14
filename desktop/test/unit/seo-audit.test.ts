@@ -12,6 +12,7 @@ import { normalizeRenderedSnapshot } from '../../src/main/seo/rendered-extractio
 import { runAudit, type AuditPort } from '../../src/main/seo/audit-service'
 import { unavailableIndexability } from '../../src/main/seo/indexability'
 import { unavailableSocialSharing } from '../../src/main/seo/social-sharing'
+import { unavailableInternationalization } from '../../src/main/seo/internationalization'
 import type { PaneId } from '../../src/shared/types'
 
 function makePort(overrides?: Partial<AuditPort>): AuditPort {
@@ -24,6 +25,7 @@ function makePort(overrides?: Partial<AuditPort>): AuditPort {
     getAccessContext: () => Promise.resolve({ authenticated: false }),
     fetchIndexability: (url) => Promise.resolve(unavailableIndexability(url)),
     fetchSocial: () => Promise.resolve(unavailableSocialSharing()),
+    fetchInternational: () => Promise.resolve(unavailableInternationalization()),
     ...overrides
   }
 }

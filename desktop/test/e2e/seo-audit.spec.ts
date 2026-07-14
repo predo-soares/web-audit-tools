@@ -45,6 +45,34 @@ test('runs a full audit and reports a passed title finding', async ({ fixturePor
   }
 })
 
+test('verifies localized alternates with bounded reciprocal checks', async ({ fixturePort }) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/seo/i18n'))
+    await waitForPaneElement(window, 'desktop', 'seo-i18n')
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('seo-toggle').click()
+    const panel = await getSeoPanelPage(window)
+    await panel.getByTestId('seo-run-audit').click()
+    const section = panel.getByTestId('seo-internationalization')
+    await expect(section.getByTestId('seo-hreflang-item')).toHaveCount(3)
+    await expect(section).toContainText('x-default')
+    await expect(section).toContainText('reciprocal yes')
+    await expect(
+      panel.locator(
+        '[data-testid="seo-finding"][data-rule-id="internationalization/hreflang-syntax"]'
+      )
+    ).toHaveAttribute('data-outcome', 'passed')
+    await expect(
+      panel.locator(
+        '[data-testid="seo-finding"][data-rule-id="internationalization/reciprocal-targets"]'
+      )
+    ).toHaveAttribute('data-outcome', 'passed')
+  } finally {
+    await close()
+  }
+})
+
 test('reports an error finding when the page has no title', async ({ fixturePort }) => {
   const { window, close } = await launchApp()
 

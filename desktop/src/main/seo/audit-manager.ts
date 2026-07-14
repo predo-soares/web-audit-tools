@@ -111,6 +111,8 @@ export class AuditManager {
     if (runToken !== this.token) {
       return { ok: false, reason: 'cancelled' }
     }
+    const internationalization = await this.port.fetchInternational(url, rendered)
+    if (runToken !== this.token) return { ok: false, reason: 'cancelled' }
 
     const result = buildAuditResult(this.deps, {
       paneId,
@@ -118,7 +120,14 @@ export class AuditManager {
       navigationTimestamp: this.port.getLastNavTimestamp(paneId),
       startedAt,
       indexingIntent: options.indexingIntent,
-      evidence: { rendered, delivered, accessContext, indexability, socialSharing }
+      evidence: {
+        rendered,
+        delivered,
+        accessContext,
+        indexability,
+        socialSharing,
+        internationalization
+      }
     })
 
     this.setState({

@@ -32,6 +32,8 @@ export const RENDERED_EXTRACTION_EXPRESSION = `(() => {
   const sitemapLinks = Array.from(document.querySelectorAll('link[rel]'))
     .filter((el) => (el.getAttribute('rel') || '').toLowerCase().split(/\\s+/).includes('sitemap'))
     .map((el) => el.getAttribute('href') ?? '');
+  const hreflang = Array.from(document.querySelectorAll('link[rel][hreflang]')).filter((el) => (el.getAttribute('rel') || '').toLowerCase().split(/\s+/).includes('alternate')).map((el, sourceIndex) => ({ hreflang: el.getAttribute('hreflang') || '', href: el.getAttribute('href') || '', resolvedHref: el.href || null, sourceIndex }));
+  const localeMetadata = Array.from(document.querySelectorAll('meta[http-equiv], meta[name]')).filter((el) => ['content-language', 'language', 'locale'].includes((el.getAttribute('http-equiv') || el.getAttribute('name') || '').toLowerCase())).map((el) => el.getAttribute('content') || '');
   const social = Array.from(document.querySelectorAll('meta[property], meta[name]'))
     .map((el) => ({
       property: (el.getAttribute('property') || el.getAttribute('name') || '').toLowerCase(),
@@ -164,6 +166,8 @@ export const RENDERED_EXTRACTION_EXPRESSION = `(() => {
     favicons,
     robots,
     sitemapLinks,
+    hreflang,
+    localeMetadata,
     social,
     structuredSources,
     documentStructure,
@@ -187,6 +191,8 @@ export function normalizeRenderedSnapshot(raw: unknown): RenderedAuditSnapshot {
     favicons: stringArray(value.favicons),
     robots: stringArray(value.robots),
     sitemapLinks: stringArray(value.sitemapLinks),
+    hreflang: hreflangArray(value.hreflang),
+    localeMetadata: stringArray(value.localeMetadata),
     social: socialArray(value.social),
     structuredSources: structuredSourceArray(value.structuredSources),
     documentStructure: documentStructureValue(value.documentStructure),
@@ -195,6 +201,29 @@ export function normalizeRenderedSnapshot(raw: unknown): RenderedAuditSnapshot {
     titleWidthPx: typeof value.titleWidthPx === 'number' ? value.titleWidthPx : null,
     descriptionWidthsPx: numberArray(value.descriptionWidthsPx)
   }
+}
+
+function hreflangArray(value: unknown): RenderedAuditSnapshot['hreflang'] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const entry = item as Record<string, unknown>
+    if (
+      typeof entry.hreflang !== 'string' ||
+      typeof entry.href !== 'string' ||
+      typeof entry.sourceIndex !== 'number'
+    )
+      return []
+    return [
+      {
+        hreflang: entry.hreflang,
+        href: safeLinkUrl(entry.href),
+        resolvedHref:
+          typeof entry.resolvedHref === 'string' ? safeLinkUrl(entry.resolvedHref) : null,
+        sourceIndex: entry.sourceIndex
+      }
+    ]
+  })
 }
 
 function imagesMediaValue(value: unknown): RenderedAuditSnapshot['imagesMedia'] {

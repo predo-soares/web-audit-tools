@@ -573,6 +573,47 @@ export function SeoPanel(): React.JSX.Element {
                 </p>
               </section>
 
+              <section
+                data-testid="seo-internationalization"
+                className="mb-3 rounded-lg border border-white/10 bg-white/[0.03] p-3"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    International targeting
+                  </p>
+                  <span className="text-[10px] text-muted-foreground">
+                    {result.internationalization.declarations.length} alternates
+                  </span>
+                </div>
+                <ul className="mt-2 space-y-1 text-[10px]">
+                  {result.internationalization.declarations.map((item) => (
+                    <li
+                      key={`${item.sourceIndex}-${item.hreflang}`}
+                      data-testid="seo-hreflang-item"
+                    >
+                      <span className="text-foreground">{item.hreflang}</span> · local source{' '}
+                      {item.sourceIndex} ·{' '}
+                      <span className="break-all text-muted-foreground">
+                        {item.resolvedHref ?? item.href}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <ul className="mt-2 space-y-1 border-t border-white/10 pt-2 text-[10px]">
+                  {result.internationalization.targets.map((target) => (
+                    <li key={`${target.hreflang}-${target.url}`} data-testid="seo-hreflang-target">
+                      <span className="text-foreground">{target.hreflang}</span> · bounded target ·{' '}
+                      {target.available
+                        ? `HTTP ${target.status} · reciprocal ${target.reciprocal ? 'yes' : 'no'} · language ${target.targetLanguage ?? 'unknown'}`
+                        : `unable: ${target.unavailableReason}`}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-[10px] text-muted-foreground">
+                  Only directly declared targets are checked; their alternates are not traversed.
+                </p>
+              </section>
+
               <details className="mb-3 rounded-md border border-white/10 p-2.5">
                 <summary className="cursor-pointer text-xs font-medium text-foreground">
                   Declared and resolved metadata

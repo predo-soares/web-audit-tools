@@ -1018,6 +1018,21 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     return
   }
 
+  if (pathname === '/seo/i18n') {
+    sendHtml(
+      res,
+      `<!doctype html><html lang="en"><head><title>English locale</title><link rel="canonical" href="/seo/i18n"><link rel="alternate" hreflang="en" href="/seo/i18n"><link rel="alternate" hreflang="pt-BR" href="/seo/i18n-pt"><link rel="alternate" hreflang="x-default" href="/seo/i18n"></head><body><main><h1 id="seo-i18n">English</h1></main></body></html>`
+    )
+    return
+  }
+  if (pathname === '/seo/i18n-pt') {
+    sendHtml(
+      res,
+      `<!doctype html><html lang="pt-BR"><head><title>Português</title><link rel="canonical" href="/seo/i18n-pt"><link rel="alternate" hreflang="en" href="/seo/i18n"><link rel="alternate" hreflang="pt-BR" href="/seo/i18n-pt"></head><body>Português</body></html>`
+    )
+    return
+  }
+
   if (pathname === '/seo/conflicting-metadata') {
     sendHtml(
       res,

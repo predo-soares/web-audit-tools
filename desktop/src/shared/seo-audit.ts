@@ -5,7 +5,7 @@ import { isLocalhostUrl } from './dev-context'
 // change. An Audit result records the version that produced it so later rule
 // changes never obscure how an existing result was reached (see CONTEXT.md,
 // "Rule catalog"). Format: <catalog date>.<revision>.
-export const SEO_RULE_CATALOG_VERSION = '2026-07-14.1'
+export const SEO_RULE_CATALOG_VERSION = '2026-07-14.2'
 export const SEARCH_ENHANCEMENT_PROFILE_VERSION = 'google-search-gallery-2026-07-13'
 
 // Width of the docked SEO panel. Fixed for now — unlike the diagnostics drawer
@@ -100,7 +100,26 @@ export interface AuditResult {
   documentStructure: DocumentStructureEvidence
   links: LinkEvidence[]
   imagesMedia: ImagesMediaEvidence
+  internationalization: InternationalizationResult
   findings: Finding[]
+}
+
+export interface HreflangDeclaration {
+  hreflang: string
+  href: string
+  resolvedHref: string | null
+  sourceIndex: number
+}
+export interface AlternateTargetEvidence extends ResourceVerification {
+  hreflang: string
+  reciprocal: boolean | null
+  targetLanguage: string | null
+  targetCanonical: string | null
+}
+export interface InternationalizationResult {
+  declarations: HreflangDeclaration[]
+  localeMetadata: string[]
+  targets: AlternateTargetEvidence[]
 }
 
 export interface ImageEvidence {
@@ -348,6 +367,8 @@ export interface RenderedAuditSnapshot {
   documentStructure?: DocumentStructureEvidence
   links?: LinkEvidence[]
   imagesMedia?: ImagesMediaEvidence
+  hreflang?: HreflangDeclaration[]
+  localeMetadata?: string[]
 }
 
 /** One hop in a redirect chain leading to the delivered document. */
