@@ -21,6 +21,7 @@ import {
   Monitor,
   Moon01Icon,
   PanelLeftIcon,
+  SmartPhone01Icon,
   Sun01Icon,
   Unlink01Icon,
   SourceCodeIcon,
@@ -87,6 +88,7 @@ export function ToolbarPanel(): React.JSX.Element {
     desktop: false
   })
   const [syncEnabled, setSyncEnabled] = useState(true)
+  const [safariChromeEnabled, setSafariChromeEnabled] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
   const [committedUrl, setCommittedUrl] = useState('')
   const [zoom, setZoom] = useState(1)
@@ -166,6 +168,7 @@ export function ToolbarPanel(): React.JSX.Element {
     })
     void window.panelApi.getLoadingStates().then(setLoadingStates)
     void window.panelApi.getSyncEnabled().then(setSyncEnabled)
+    void window.panelApi.getSafariChromeEnabled().then(setSafariChromeEnabled)
     void window.panelApi.listProjects().then(setProjects)
     void window.panelApi.getOpenPanels().then((openPanels) => {
       setSidebarOpen(openPanels.includes('sidebar-left'))
@@ -215,6 +218,8 @@ export function ToolbarPanel(): React.JSX.Element {
     })
     const unsubscribeDiagnosticsWidth =
       window.panelApi.onDiagnosticsWidthChanged(setDiagnosticsWidth)
+    const unsubscribeSafariChrome =
+      window.panelApi.onSafariChromeEnabledChanged(setSafariChromeEnabled)
 
     return () => {
       unsubscribeNavigation()
@@ -226,6 +231,7 @@ export function ToolbarPanel(): React.JSX.Element {
       unsubscribeSettled()
       unsubscribeFocus()
       unsubscribeDiagnosticsWidth()
+      unsubscribeSafariChrome()
     }
   }, [])
 
@@ -501,6 +507,22 @@ export function ToolbarPanel(): React.JSX.Element {
           onClick={() => void handleSnapshot()}
         >
           <Icon icon={Camera01Icon} size={14} />
+        </button>
+        <button
+          type="button"
+          data-testid="safari-chrome-toggle"
+          className={buttonVariants({ variant: 'ghost', size: 'icon-xs' })}
+          onClick={() => {
+            void window.panelApi
+              .setSafariChromeEnabled(!safariChromeEnabled)
+              .then(setSafariChromeEnabled)
+          }}
+          aria-label={
+            safariChromeEnabled ? 'Hide Safari chrome on devices' : 'Show Safari chrome on devices'
+          }
+          aria-pressed={safariChromeEnabled}
+        >
+          <Icon icon={SmartPhone01Icon} size={14} />
         </button>
         <button
           type="button"

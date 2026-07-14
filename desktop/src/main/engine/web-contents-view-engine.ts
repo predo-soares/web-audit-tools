@@ -3,11 +3,14 @@ import { join } from 'path'
 import type {
   Bounds,
   DeviceProfile,
+  MediaFeatureState,
   PaneId,
   PaneMount,
   Size,
   ThemePreference
 } from '../../shared/types'
+import { DEFAULT_MEDIA_FEATURES } from '../../shared/types'
+import { buildEmulatedMedia } from '../../shared/media-features'
 import {
   createElementMirror,
   type ElementFingerprint,
@@ -64,6 +67,7 @@ export class WebContentsViewEngine implements EngineView {
   private screenBounds: Bounds | null = null
   private logicalSize: Size | null = null
   private themePreference: ThemePreference = 'system'
+  private mediaFeatures: MediaFeatureState = DEFAULT_MEDIA_FEATURES
   private mirrorFailureLogs: MirrorFailureLog[] = []
   private runtimeEvidencePush:
     ((entry: Omit<ConsoleEvidenceEntry, 'id' | 'timestamp'>) => void) | null = null
@@ -215,7 +219,7 @@ export class WebContentsViewEngine implements EngineView {
       if (isNavigationAborted(error)) return
       throw error
     }
-    await this.applyThemePreference()
+    await this.applyEmulatedMedia()
     void this.ensureRuntimeEvidenceCapture()
     // Re-apply after every load: enableDeviceEmulation can be silently ignored
     // when the renderer is still initialising, so the initial call in setDevice
@@ -252,13 +256,18 @@ export class WebContentsViewEngine implements EngineView {
 
     this.webContents.setZoomFactor(1)
     this.applyDeviceEmulation()
-    await this.applyThemePreference()
+    await this.applyEmulatedMedia()
     void this.ensureRuntimeEvidenceCapture()
   }
 
   async setThemePreference(preference: ThemePreference): Promise<void> {
     this.themePreference = preference
-    await this.applyThemePreference()
+    await this.applyEmulatedMedia()
+  }
+
+  async setMediaFeatures(state: MediaFeatureState): Promise<void> {
+    this.mediaFeatures = state
+    await this.applyEmulatedMedia()
   }
 
   async resolveClickPoint(
@@ -570,9 +579,15 @@ export class WebContentsViewEngine implements EngineView {
         break
       }
       case 'did-fail-load': {
-        const listener = (): void => {
+        const listener = (
+          _e: Electron.Event,
+          errorCode: number,
+          errorDescription: string,
+          _validatedURL: string,
+          isMainFrame: boolean
+        ): void => {
           if (wc.isDestroyed()) return
-          ;(handler as EngineViewEventMap['did-fail-load'])()
+          ;(handler as EngineViewEventMap['did-fail-load'])(errorCode, errorDescription, isMainFrame)
         }
         wc.on('did-fail-load', listener)
         dispose = () => wc.removeListener('did-fail-load', listener)
@@ -688,17 +703,22 @@ export class WebContentsViewEngine implements EngineView {
     this.debuggerAttached = true
   }
 
-  private async applyThemePreference(): Promise<void> {
+  private async applyEmulatedMedia(): Promise<void> {
     try {
       await this.ensureDebugger()
+      // One CDP command carries the media type + every overridden feature
+      // (prefers-color-scheme comes from themePreference); a second command
+      // covers Chrome's automatic dark theme, which has no media-feature form.
+      const { media, features } = buildEmulatedMedia(this.themePreference, this.mediaFeatures)
       await this.webContents.debugger.sendCommand('Emulation.setEmulatedMedia', {
-        features:
-          this.themePreference === 'system'
-            ? []
-            : [{ name: 'prefers-color-scheme', value: this.themePreference }]
+        media,
+        features
+      })
+      await this.webContents.debugger.sendCommand('Emulation.setAutoDarkModeOverride', {
+        enabled: this.mediaFeatures.autoDarkMode
       })
     } catch (error) {
-      console.error(`[pane:${this.paneId}] CDP theme preference override failed:`, error)
+      console.error(`[pane:${this.paneId}] CDP emulated media override failed:`, error)
     }
   }
 

@@ -1,4 +1,5 @@
-import { app, shell, BrowserWindow, Menu, globalShortcut } from 'electron'
+import { app, shell, BrowserWindow, Menu } from 'electron'
+import localShortcut from 'electron-localshortcut'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -7,7 +8,11 @@ import { registerIpcHandlers, makeSnapshotPort } from './ipc'
 import { captureSnapshot } from './services/snapshot-service'
 import { PaneManager } from './panes/pane-manager'
 import { PanelManager } from './panels/panel-manager'
+import { SafariChromeManager } from './chrome/safari-chrome-manager'
 import { ProjectStore } from './stores/project-store'
+import { initializeAppLogging } from './services/app-logging'
+
+initializeAppLogging()
 
 // E2E runs get an isolated profile so parallel/leftover instances never share
 // caches or locks with the dev profile (a crashed instance corrupts the disk
@@ -18,6 +23,7 @@ if (process.env.E2E_USER_DATA_DIR) {
 
 const paneManager = new PaneManager()
 const panelManager = new PanelManager(paneManager)
+const safariChromeManager = new SafariChromeManager(paneManager)
 const projectStore = new ProjectStore()
 const historyStore = new HistoryStore()
 
@@ -81,6 +87,7 @@ function createWindow(): BrowserWindow {
     projectStore.destroy()
     historyStore.destroy()
     panelManager.destroy()
+    safariChromeManager.destroy()
     paneManager.destroy()
   })
 
@@ -90,7 +97,18 @@ function createWindow(): BrowserWindow {
   })
 
   paneManager.initialize(mainWindow)
+  safariChromeManager.initialize(mainWindow)
+  safariChromeManager.setPanelReassert(() => panelManager.reassertZOrder())
+  panelManager.setChromeZOrderHook(() => safariChromeManager.enforceZOrder())
   panelManager.initialize(mainWindow)
+  paneManager.setSafariChromeHooks({
+    onMount: (paneId, mount) => safariChromeManager.onPaneMounted(paneId, mount),
+    onScroll: (paneId, scrollY, programmatic) =>
+      safariChromeManager.onScroll(paneId, scrollY, programmatic),
+    onNavigationState: (urls) => safariChromeManager.setPaneUrls(urls),
+    setPanesVisible: (visible) => safariChromeManager.setPanesVisible(visible),
+    destroy: () => safariChromeManager.destroy()
+  })
   paneManager.onPaneBeforeInput((input, preventDefault) => {
     panelManager.handlePaneBeforeInput(input, preventDefault)
   })
@@ -111,7 +129,7 @@ function createWindow(): BrowserWindow {
       historyStore.refreshMetadata(url, title, faviconUrl)
     }
   })
-  registerIpcHandlers(paneManager, panelManager, projectStore, historyStore)
+  registerIpcHandlers(paneManager, panelManager, projectStore, historyStore, safariChromeManager)
   projectStore.setOnChange((projects) => {
     if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
     mainWindow.webContents.send('projects:changed', projects)
@@ -144,9 +162,9 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  createWindow()
+  const mainWindow = createWindow()
 
-  globalShortcut.register('CommandOrControl+Shift+S', () => {
+  localShortcut.register(mainWindow, 'CommandOrControl+Shift+S', () => {
     void captureSnapshot(makeSnapshotPort(paneManager)).then((result) => {
       panelManager.notifyToolbarPanel('snapshot:taken', result)
     })
@@ -157,9 +175,6 @@ app.whenReady().then(() => {
   })
 })
 
-app.on('will-quit', () => {
-  globalShortcut.unregisterAll()
-})
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

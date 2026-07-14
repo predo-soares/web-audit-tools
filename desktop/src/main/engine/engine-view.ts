@@ -1,5 +1,10 @@
 import type { BrowserWindow, Input } from 'electron'
-import type { DeviceProfile, PaneMount, ThemePreference } from '../../shared/types'
+import type {
+  DeviceProfile,
+  MediaFeatureState,
+  PaneMount,
+  ThemePreference
+} from '../../shared/types'
 import type { ElementFingerprint, MirrorFailureLog } from '../../shared/element-mirror'
 import type { ConsoleEvidenceEntry, NetworkEvidenceEntry } from '../../shared/runtime-evidence'
 
@@ -20,7 +25,7 @@ export interface EngineViewEventMap {
   'did-navigate-in-page': (url: string) => void
   'did-start-loading': () => void
   'did-stop-loading': () => void
-  'did-fail-load': () => void
+  'did-fail-load': (errorCode: number, errorDescription: string, isMainFrame: boolean) => void
   'page-title-updated': (title: string) => void
   'page-favicon-updated': (favicons: string[]) => void
   focus: () => void
@@ -73,6 +78,8 @@ export interface EngineView {
   focus(): void
   /** Apply the user's theme preference to the pane. */
   setThemePreference(preference: ThemePreference): Promise<void>
+  /** Apply the emulated CSS media features (DevTools Rendering panel) to the pane. */
+  setMediaFeatures(state: MediaFeatureState): Promise<void>
   /** Stop any in-progress load; a no-op when the pane is not loading. */
   stop(): void
   /**

@@ -75,7 +75,7 @@ function reportScroll(): void {
   )
 
   if (!programmatic && max <= 0) return
-  ipcRenderer.send('pane:scroll', paneId, ratio, programmatic)
+  ipcRenderer.send('pane:scroll', paneId, ratio, programmatic, window.scrollY)
 }
 
 window.addEventListener(

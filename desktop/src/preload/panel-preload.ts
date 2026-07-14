@@ -8,7 +8,13 @@ import type {
   PanelShowMessage
 } from '../shared/panel-types'
 import type { NewProjectInput, Project } from '../shared/project'
-import type { PaneId, PaneNavigationState, Size, ThemePreference } from '../shared/types'
+import type {
+  MediaFeatureState,
+  PaneId,
+  PaneNavigationState,
+  Size,
+  ThemePreference
+} from '../shared/types'
 import type {
   RuntimeEvidenceChannel,
   RuntimeEvidenceProblemCount,
@@ -39,7 +45,11 @@ export interface PanelOverlayApi {
   getLoadingStates: () => Promise<Record<PaneId, boolean>>
   getSyncEnabled: () => Promise<boolean>
   setSyncEnabled: (enabled: boolean) => Promise<boolean>
+  getSafariChromeEnabled: () => Promise<boolean>
+  setSafariChromeEnabled: (enabled: boolean) => Promise<boolean>
   setPaneThemePreference: (preference: ThemePreference) => Promise<ThemePreference>
+  getMediaFeatures: () => Promise<MediaFeatureState>
+  setMediaFeatures: (state: MediaFeatureState) => Promise<MediaFeatureState>
   openPanel: (options: PanelOpenOptions) => Promise<void>
   closePanel: (panelId: PanelId) => Promise<void>
   getOpenPanels: () => Promise<PanelId[]>
@@ -56,6 +66,7 @@ export interface PanelOverlayApi {
   onPaneLoading: (callback: (state: { paneId: PaneId; loading: boolean }) => void) => () => void
   onPanelAction: (callback: (action: PanelAction) => void) => () => void
   onPanelThemeChanged: (callback: (preference: ThemePreference) => void) => () => void
+  onMediaFeaturesChanged: (callback: (state: MediaFeatureState) => void) => () => void
   onPanelClosed: (callback: (panelId: PanelId) => void) => () => void
   onPanelLayoutSettled: (callback: (panelId: PanelId) => void) => () => void
   onFocusSidebarToggle: (callback: () => void) => () => void
@@ -71,6 +82,7 @@ export interface PanelOverlayApi {
   onDiagnosticsWidthChanged: (callback: (width: number) => void) => () => void
   takeSnapshot: () => Promise<SnapshotResult>
   onSnapshotTaken: (callback: (result: SnapshotResult) => void) => () => void
+  onSafariChromeEnabledChanged: (callback: (enabled: boolean) => void) => () => void
 }
 
 const panelApi: PanelOverlayApi = {
@@ -120,8 +132,12 @@ const panelApi: PanelOverlayApi = {
   getLoadingStates: () => ipcRenderer.invoke('pane:loading-states'),
   getSyncEnabled: () => ipcRenderer.invoke('sync:get-enabled'),
   setSyncEnabled: (enabled) => ipcRenderer.invoke('sync:set-enabled', enabled),
+  getSafariChromeEnabled: () => ipcRenderer.invoke('safari-chrome:get-enabled'),
+  setSafariChromeEnabled: (enabled) => ipcRenderer.invoke('safari-chrome:set-enabled', enabled),
   setPaneThemePreference: (preference) =>
     ipcRenderer.invoke('pane-theme:set-preference', preference),
+  getMediaFeatures: () => ipcRenderer.invoke('media-features:get'),
+  setMediaFeatures: (state) => ipcRenderer.invoke('media-features:set', state),
   openPanel: (options) => ipcRenderer.invoke('panel:open', options),
   closePanel: (panelId) => ipcRenderer.invoke('panel:close', panelId),
   getOpenPanels: () => ipcRenderer.invoke('panel:get-open'),
@@ -180,6 +196,12 @@ const panelApi: PanelOverlayApi = {
     ipcRenderer.on('panel:theme-changed', listener)
     return () => ipcRenderer.removeListener('panel:theme-changed', listener)
   },
+  onMediaFeaturesChanged: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, state: MediaFeatureState): void =>
+      callback(state)
+    ipcRenderer.on('panel:media-features-changed', listener)
+    return () => ipcRenderer.removeListener('panel:media-features-changed', listener)
+  },
   onPanelClosed: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, panelId: PanelId): void =>
       callback(panelId)
@@ -233,6 +255,11 @@ const panelApi: PanelOverlayApi = {
       callback(result)
     ipcRenderer.on('snapshot:taken', listener)
     return () => ipcRenderer.removeListener('snapshot:taken', listener)
+  },
+  onSafariChromeEnabledChanged: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, enabled: boolean): void => callback(enabled)
+    ipcRenderer.on('safari-chrome:enabled-changed', listener)
+    return () => ipcRenderer.removeListener('safari-chrome:enabled-changed', listener)
   }
 }
 

@@ -4,7 +4,13 @@ import type { PanelAction, PanelId, PanelOpenOptions } from '../shared/panel-typ
 import type { NewProjectInput, Project } from '../shared/project'
 import type { MirrorFailureLog } from '../shared/element-mirror'
 import type { RuntimeEvidenceSnapshot } from '../shared/runtime-evidence'
-import type { PaneMount, PaneId, PaneNavigationState, ThemePreference } from '../shared/types'
+import type {
+  MediaFeatureState,
+  PaneMount,
+  PaneId,
+  PaneNavigationState,
+  ThemePreference
+} from '../shared/types'
 import type { SnapshotResult } from '../shared/snapshot'
 
 export interface PreviewApi {
@@ -27,6 +33,8 @@ export interface PreviewApi {
   setSyncEnabled: (enabled: boolean) => Promise<boolean>
   getSyncEnabled: () => Promise<boolean>
   setPaneThemePreference: (preference: ThemePreference) => Promise<ThemePreference>
+  getMediaFeatures: () => Promise<MediaFeatureState>
+  setMediaFeatures: (state: MediaFeatureState) => Promise<MediaFeatureState>
   getLoadingStates: () => Promise<Record<PaneId, boolean>>
   listHistory: () => Promise<HistoryEntry[]>
   deleteHistoryEntry: (url: string) => Promise<void>
@@ -37,6 +45,7 @@ export interface PreviewApi {
   onPanelAction: (callback: (action: PanelAction) => void) => () => void
   onPanelClosed: (callback: (panelId: PanelId) => void) => () => void
   onPanelThemeChanged: (callback: (preference: ThemePreference) => void) => () => void
+  onMediaFeaturesChanged: (callback: (state: MediaFeatureState) => void) => () => void
   onPanelTransition: (
     callback: (state: { panelId: PanelId; transitioning: boolean }) => void
   ) => () => void
@@ -44,6 +53,9 @@ export interface PreviewApi {
   onPanelFocusSidebarToggle: (callback: () => void) => () => void
   onPanelToggleSidebar: (callback: () => void) => () => void
   onPaneLoading: (callback: (state: { paneId: PaneId; loading: boolean }) => void) => () => void
+  onPaneLoadError: (
+    callback: (state: { paneId: PaneId; error: { code: number; description: string } | null }) => void
+  ) => () => void
   onPaneNavigation: (callback: (state: PaneNavigationState) => void) => () => void
   listProjects: () => Promise<Project[]>
   toggleProject: (input: NewProjectInput & { pageTitle: string }) => Promise<Project[]>
@@ -59,6 +71,8 @@ export interface PreviewApi {
   getDiagnosticsWidth: () => Promise<number>
   onDiagnosticsWidthChanged: (callback: (width: number) => void) => () => void
   takeSnapshot: () => Promise<SnapshotResult>
+  getSafariChromeEnabled: () => Promise<boolean>
+  onSafariChromeEnabledChanged: (callback: (enabled: boolean) => void) => () => void
 }
 
 const api: PreviewApi = {
@@ -92,6 +106,8 @@ const api: PreviewApi = {
   getSyncEnabled: () => ipcRenderer.invoke('sync:get-enabled'),
   setPaneThemePreference: (preference) =>
     ipcRenderer.invoke('pane-theme:set-preference', preference),
+  getMediaFeatures: () => ipcRenderer.invoke('media-features:get'),
+  setMediaFeatures: (state) => ipcRenderer.invoke('media-features:set', state),
   getLoadingStates: () => ipcRenderer.invoke('pane:loading-states'),
   listHistory: () => ipcRenderer.invoke('history:list'),
   deleteHistoryEntry: (url) => ipcRenderer.invoke('history:delete', url),
@@ -116,6 +132,12 @@ const api: PreviewApi = {
       callback(preference)
     ipcRenderer.on('panel:theme-changed', listener)
     return () => ipcRenderer.removeListener('panel:theme-changed', listener)
+  },
+  onMediaFeaturesChanged: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, state: MediaFeatureState): void =>
+      callback(state)
+    ipcRenderer.on('panel:media-features-changed', listener)
+    return () => ipcRenderer.removeListener('panel:media-features-changed', listener)
   },
   onPanelTransition: (callback) => {
     const listener = (
@@ -148,6 +170,14 @@ const api: PreviewApi = {
     ): void => callback(state)
     ipcRenderer.on('pane:loading', listener)
     return () => ipcRenderer.removeListener('pane:loading', listener)
+  },
+  onPaneLoadError: (callback) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      state: { paneId: PaneId; error: { code: number; description: string } | null }
+    ): void => callback(state)
+    ipcRenderer.on('pane:load-error', listener)
+    return () => ipcRenderer.removeListener('pane:load-error', listener)
   },
   onPaneNavigation: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, state: PaneNavigationState): void =>
@@ -190,7 +220,13 @@ const api: PreviewApi = {
     ipcRenderer.on('panel:diagnostics-width', listener)
     return () => ipcRenderer.removeListener('panel:diagnostics-width', listener)
   },
-  takeSnapshot: () => ipcRenderer.invoke('snapshot:take')
+  takeSnapshot: () => ipcRenderer.invoke('snapshot:take'),
+  getSafariChromeEnabled: () => ipcRenderer.invoke('safari-chrome:get-enabled'),
+  onSafariChromeEnabledChanged: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, enabled: boolean): void => callback(enabled)
+    ipcRenderer.on('safari-chrome:enabled-changed', listener)
+    return () => ipcRenderer.removeListener('safari-chrome:enabled-changed', listener)
+  }
 }
 
 contextBridge.exposeInMainWorld('api', api)

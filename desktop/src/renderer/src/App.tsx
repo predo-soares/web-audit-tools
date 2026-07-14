@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { PaneId } from '../../shared/types'
+import type { PaneId, PaneLoadError } from '../../shared/types'
 import { isCommittedPageUrl } from '../../shared/project'
 import { PreviewCanvas } from '@renderer/components/preview-canvas'
 import { ToolbarProvider } from '@renderer/context/toolbar-context'
@@ -12,11 +12,18 @@ export default function App(): React.JSX.Element {
     ipad: false,
     desktop: false
   })
+  const [errorStates, setErrorStates] = useState<Record<PaneId, PaneLoadError | null>>({
+    iphone: null,
+    ipad: null,
+    desktop: null
+  })
   const [activePane, setActivePane] = useState<PaneId | null>(null)
   const [committedUrl, setCommittedUrl] = useState('')
+  const [safariChromeEnabled, setSafariChromeEnabled] = useState(false)
 
   useEffect(() => {
     void window.api.getLoadingStates().then(setLoadingStates)
+    void window.api.getSafariChromeEnabled().then(setSafariChromeEnabled)
     void window.api.getNavigationState().then((state) => {
       setActivePane(state.activePane)
       if (isCommittedPageUrl(state.barUrl)) {
@@ -27,16 +34,22 @@ export default function App(): React.JSX.Element {
     const unsubscribeLoading = window.api.onPaneLoading(({ paneId, loading }) => {
       setLoadingStates((current) => ({ ...current, [paneId]: loading }))
     })
+    const unsubscribeLoadError = window.api.onPaneLoadError(({ paneId, error }) => {
+      setErrorStates((current) => ({ ...current, [paneId]: error }))
+    })
     const unsubscribeNavigation = window.api.onPaneNavigation((state) => {
       setActivePane(state.activePane)
       if (isCommittedPageUrl(state.barUrl)) {
         setCommittedUrl(state.barUrl)
       }
     })
+    const unsubscribeSafariChrome = window.api.onSafariChromeEnabledChanged(setSafariChromeEnabled)
 
     return () => {
       unsubscribeLoading()
+      unsubscribeLoadError()
       unsubscribeNavigation()
+      unsubscribeSafariChrome()
     }
   }, [])
 
@@ -70,8 +83,10 @@ export default function App(): React.JSX.Element {
         <ToolbarProvider>
           <PreviewCanvas
             loadingStates={loadingStates}
+            errorStates={errorStates}
             committedUrl={committedUrl}
             activePane={activePane}
+            safariChromeEnabled={safariChromeEnabled}
           />
         </ToolbarProvider>
       </DiagnosticsProvider>

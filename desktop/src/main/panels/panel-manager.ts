@@ -103,6 +103,7 @@ function isDiagnosticsToggleInput(input: Electron.Input): boolean {
 export class PanelManager {
   private entries = new Map<PanelId, PanelEntry>()
   private mainWindow: BrowserWindow | null = null
+  private chromeZOrderHook: (() => void) | null = null
 
   constructor(private readonly paneManager: PaneManager) {}
 
@@ -111,6 +112,7 @@ export class PanelManager {
     this.registerDiagnosticsToggleShortcut(mainWindow.webContents)
     this.registerEscapeDismiss(mainWindow.webContents)
     this.paneManager.onChildViewStackChanged(() => {
+      this.chromeZOrderHook?.()
       this.bringAllToFront()
     })
     mainWindow.on('resize', () => {
@@ -690,6 +692,14 @@ export class PanelManager {
 
   private bringAllToFront(): void {
     this.enforcePanelZOrder()
+  }
+
+  reassertZOrder(): void {
+    this.bringAllToFront()
+  }
+
+  setChromeZOrderHook(hook: (() => void) | null): void {
+    this.chromeZOrderHook = hook
   }
 
   private notifyToolbar(channel: string, ...args: unknown[]): void {

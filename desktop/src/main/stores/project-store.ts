@@ -1,6 +1,4 @@
-import { app } from 'electron'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
-import { join } from 'path'
+import Store from 'electron-store'
 import { randomUUID } from 'crypto'
 import {
   addProject as addProjectToList,
@@ -11,21 +9,18 @@ import {
   type Project
 } from '../../shared/project'
 
-const WRITE_DEBOUNCE_MS = 250
-
-interface ProjectsFile {
+interface ProjectsSchema {
   projects: Project[]
 }
 
 export class ProjectStore {
-  private projects: Project[] = []
-  private readonly filePath: string
-  private writeTimer: ReturnType<typeof setTimeout> | null = null
+  private projects: Project[]
+  private readonly store: Store<ProjectsSchema>
   private onChange: ((projects: Project[]) => void) | null = null
 
-  constructor(userDataPath = app.getPath('userData')) {
-    this.filePath = join(userDataPath, 'projects.json')
-    this.load()
+  constructor() {
+    this.store = new Store<ProjectsSchema>({ name: 'projects', defaults: { projects: [] } })
+    this.projects = dedupeProjectsByUrl(this.store.get('projects'))
   }
 
   setOnChange(listener: (projects: Project[]) => void): void {
@@ -45,51 +40,13 @@ export class ProjectStore {
         ? deduped.filter((project) => !matches.some((match) => match.id === project.id))
         : addProjectToList(deduped, input, pageTitle, randomUUID(), Date.now())
 
-    this.scheduleWrite()
+    this.store.set('projects', this.projects)
     const next = this.list()
     this.onChange?.(next)
     return next
   }
 
   destroy(): void {
-    if (this.writeTimer !== null) {
-      clearTimeout(this.writeTimer)
-      this.writeTimer = null
-      this.flushWrite()
-    }
-  }
-
-  private load(): void {
-    if (!existsSync(this.filePath)) {
-      this.projects = []
-      return
-    }
-
-    try {
-      const raw = readFileSync(this.filePath, 'utf8')
-      const parsed = JSON.parse(raw) as ProjectsFile
-      this.projects = Array.isArray(parsed.projects) ? dedupeProjectsByUrl(parsed.projects) : []
-    } catch {
-      this.projects = []
-    }
-  }
-
-  private scheduleWrite(): void {
-    if (this.writeTimer !== null) {
-      clearTimeout(this.writeTimer)
-    }
-    this.writeTimer = setTimeout(() => {
-      this.writeTimer = null
-      this.flushWrite()
-    }, WRITE_DEBOUNCE_MS)
-  }
-
-  private flushWrite(): void {
-    const dir = join(this.filePath, '..')
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true })
-    }
-    const payload: ProjectsFile = { projects: this.projects }
-    writeFileSync(this.filePath, JSON.stringify(payload, null, 2), 'utf8')
+    // no-op: electron-store writes synchronously on every mutation
   }
 }

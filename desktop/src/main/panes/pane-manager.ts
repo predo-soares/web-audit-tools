@@ -2,7 +2,14 @@ import { dialog, session, type BrowserWindow, type WebContents } from 'electron'
 import { writeFile } from 'fs/promises'
 import { DEVICE_PRESETS, PANE_IDS } from '../../shared/device-presets'
 import type { ElementFingerprint } from '../../shared/element-mirror'
-import type { PaneId, PaneMount, PaneNavigationState, ThemePreference } from '../../shared/types'
+import type {
+  MediaFeatureState,
+  PaneId,
+  PaneMount,
+  PaneNavigationState,
+  ThemePreference
+} from '../../shared/types'
+import { DEFAULT_MEDIA_FEATURES } from '../../shared/types'
 import {
   RUNTIME_EVIDENCE_EMIT_WINDOW_MS,
   type RuntimeEvidenceChannel,
@@ -46,6 +53,7 @@ export class PaneManager {
   private readonly echoLedger = createEchoLedger()
   private readonly webContentsToPane = new Map<number, PaneId>()
   private readonly loadingState = new Map<PaneId, boolean>()
+  private readonly loadErrorState = new Map<PaneId, { code: number; description: string } | null>()
   private readonly lastNavTimestamps = new Map<PaneId, number>()
   private readonly tracker = createActivePaneTracker()
   private readonly pendingProgrammaticNavigation = new Set<PaneId>()
@@ -61,11 +69,19 @@ export class PaneManager {
   private deviceReady: Promise<void> = Promise.resolve()
   private readonly lastMount = new Map<PaneId, PaneMount>()
   private themePreference: ThemePreference = 'system'
+  private mediaFeatures: MediaFeatureState = DEFAULT_MEDIA_FEATURES
   private paneBeforeInputHooks: Array<EngineViewEventMap['before-input']> = []
   private destroyed = false
   private readonly childViewStackListeners = new Set<() => void>()
   private historyHooks: NavigationHistoryHooks | null = null
   private overlayBroadcast: ((channel: string, ...args: unknown[]) => void) | null = null
+  private safariChromeHooks: {
+    onMount: (paneId: PaneId, mount: PaneMount) => void
+    onScroll: (paneId: PaneId, scrollY: number, programmatic: boolean) => void
+    onNavigationState: (urls: Partial<Record<PaneId, string>>) => void
+    setPanesVisible: (visible: boolean) => void
+    destroy: () => void
+  } | null = null
   private diagnosticsEvidenceSink: {
     isOpen: () => boolean
     send: (snapshot: RuntimeEvidenceSnapshot) => void
@@ -109,6 +125,30 @@ export class PaneManager {
 
   setOverlayBroadcast(handler: (channel: string, ...args: unknown[]) => void): void {
     this.overlayBroadcast = handler
+  }
+
+  setSafariChromeHooks(
+    hooks: {
+      onMount: (paneId: PaneId, mount: PaneMount) => void
+      onScroll: (paneId: PaneId, scrollY: number, programmatic: boolean) => void
+      onNavigationState: (urls: Partial<Record<PaneId, string>>) => void
+      setPanesVisible: (visible: boolean) => void
+      destroy: () => void
+    } | null
+  ): void {
+    this.safariChromeHooks = hooks
+  }
+
+  getLastMount(paneId: PaneId): PaneMount | undefined {
+    return this.lastMount.get(paneId)
+  }
+
+  getTrackedPaneUrl(paneId: PaneId): string {
+    return this.tracker.getPaneUrl(paneId) ?? ''
+  }
+
+  broadcastOverlayEvent(channel: string, ...args: unknown[]): void {
+    this.overlayBroadcast?.(channel, ...args)
   }
 
   setDiagnosticsEvidenceSink(sink: {
@@ -174,6 +214,7 @@ export class PaneManager {
   mount(paneId: PaneId, mount: PaneMount): void {
     this.lastMount.set(paneId, mount)
     this.getEngine(paneId).mount(mount)
+    this.safariChromeHooks?.onMount(paneId, mount)
   }
 
   private restorePaneMount(paneId: PaneId): void {
@@ -642,7 +683,14 @@ export class PaneManager {
     return getSyncTraceLogs()
   }
 
-  async syncScroll(paneId: PaneId, ratio: number, programmatic: boolean): Promise<void> {
+  async syncScroll(
+    paneId: PaneId,
+    ratio: number,
+    programmatic: boolean,
+    scrollY = 0
+  ): Promise<void> {
+    this.safariChromeHooks?.onScroll(paneId, scrollY, programmatic)
+
     if (!this.syncEnabled) return
 
     // Always consume: a programmatic report from a pane also settles any
@@ -681,6 +729,18 @@ export class PaneManager {
     )
   }
 
+  async setMediaFeatures(state: MediaFeatureState): Promise<void> {
+    this.mediaFeatures = state
+    await this.deviceReady
+    await Promise.all(
+      PANE_IDS.map((paneId) => this.getEngine(paneId).setMediaFeatures(state))
+    )
+  }
+
+  getMediaFeatures(): MediaFeatureState {
+    return this.mediaFeatures
+  }
+
   isAnyPaneLoading(): boolean {
     for (const paneId of PANE_IDS) {
       if (this.loadingState.get(paneId)) return true
@@ -715,6 +775,8 @@ export class PaneManager {
       this.getEngine(paneId).setVisible(visible)
     }
 
+    this.safariChromeHooks?.setPanesVisible(visible)
+
     if (visible) {
       for (const paneId of PANE_IDS) {
         const mount = this.lastMount.get(paneId)
@@ -740,6 +802,9 @@ export class PaneManager {
   destroy(): void {
     if (this.destroyed) return
     this.destroyed = true
+
+    this.safariChromeHooks?.destroy()
+    this.safariChromeHooks = null
 
     if (this.evidenceEmitTimer) {
       clearTimeout(this.evidenceEmitTimer)
@@ -804,6 +869,7 @@ export class PaneManager {
     this.bumpPaneInteractionEpoch(paneId)
     this.webContentsToPane.set(engine.getWebContentsId(), paneId)
     this.loadingState.set(paneId, false)
+    this.loadErrorState.set(paneId, null)
     engine.attach(mainWindow)
     engine.setVisible(false)
     this.notifyChildViewStackChanged()
@@ -816,6 +882,7 @@ export class PaneManager {
     try {
       await engine.setDevice(DEVICE_PRESETS[paneId])
       await engine.setThemePreference(this.themePreference)
+      await engine.setMediaFeatures(this.mediaFeatures)
       const mount = this.lastMount.get(paneId)
       if (mount) {
         engine.mount(mount)
@@ -964,6 +1031,11 @@ export class PaneManager {
   private emitNavigationState(): void {
     this.broadcastRendererEvent('pane:navigation', this.getNavigationState())
     this.emitRuntimeEvidenceIfActivePaneChanged()
+    const urls: Partial<Record<PaneId, string>> = {}
+    for (const paneId of PANE_IDS) {
+      urls[paneId] = this.tracker.getPaneUrl(paneId) ?? this.getEngine(paneId).getCurrentUrl()
+    }
+    this.safariChromeHooks?.onNavigationState(urls)
   }
 
   private markPendingVisit(url: string, inPage: boolean): void {
@@ -995,13 +1067,37 @@ export class PaneManager {
     this.historyHooks?.onMetadataUpdated?.({ url: barUrl, title: pageTitle, faviconUrl })
   }
 
-  private attachLoadingListeners(engine: EngineView, paneId: PaneId): void {
-    const setLoading = (loading: boolean): void => {
-      this.setPaneLoading(paneId, loading)
-    }
+  private setPaneLoadError(
+    paneId: PaneId,
+    error: { code: number; description: string } | null
+  ): void {
+    this.loadErrorState.set(paneId, error)
+    this.broadcastRendererEvent('pane:load-error', { paneId, error })
+  }
 
-    engine.on('did-start-loading', () => setLoading(true))
-    engine.on('did-stop-loading', () => setLoading(false))
-    engine.on('did-fail-load', () => setLoading(false))
+  private attachLoadingListeners(engine: EngineView, paneId: PaneId): void {
+    engine.on('did-start-loading', () => {
+      // If the pane was hidden to reveal the React error overlay, restore it
+      // now that a new navigation has begun (goBack, goForward, reload, etc.).
+      // doNavigateAll calls setPanesVisible(true) separately, so this is only
+      // the fallback path for navigations that don't go through doNavigateAll.
+      const hadError = !!this.loadErrorState.get(paneId)
+      this.setPaneLoadError(paneId, null)
+      this.setPaneLoading(paneId, true)
+      if (hadError) engine.setVisible(true)
+    })
+    engine.on('did-stop-loading', () => this.setPaneLoading(paneId, false))
+    engine.on('did-fail-load', (errorCode, errorDescription, isMainFrame) => {
+      this.setPaneLoading(paneId, false)
+      // ERR_ABORTED (-3) is a cancelled navigation, not a real failure.
+      // Sub-frame failures don't affect the page's main content.
+      if (errorCode === -3 || !isMainFrame) return
+      // Hide the WebContentsView: Chromium's built-in error page is a native
+      // layer that sits above all React HTML, so the error overlay in the
+      // renderer would be invisible behind it. Setting the view invisible lets
+      // the React overlay show through.
+      engine.setVisible(false)
+      this.setPaneLoadError(paneId, { code: errorCode, description: errorDescription })
+    })
   }
 }

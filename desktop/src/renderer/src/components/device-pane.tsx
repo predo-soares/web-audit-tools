@@ -1,11 +1,11 @@
 import { DEVICE_PRESETS } from '../../../shared/device-presets'
 import { getMockupDimensions, getScaledScreenCornerRadius } from '../../../shared/mockup-layout'
-import type { PaneId } from '../../../shared/types'
+import type { PaneId, PaneLoadError } from '../../../shared/types'
 import { cn } from '@renderer/lib/utils'
 import { useSidebar } from '@renderer/context/sidebar-context'
 import { usePaneBounds } from '@renderer/hooks/use-pane-bounds'
 import { usePreviewCanvas } from '@renderer/context/preview-canvas-context'
-import { Loading03Icon, Camera01Icon } from '@hugeicons/core-free-icons'
+import { Loading03Icon, Camera01Icon, Alert01Icon } from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
 import { Button } from '@renderer/components/ui/button'
 import { useCallback } from 'react'
@@ -15,6 +15,25 @@ interface DevicePaneProps {
   active: boolean
   isFocusedPane: boolean
   loading: boolean
+  error: PaneLoadError | null
+  safariChromeEnabled?: boolean
+}
+
+function friendlyErrorMessage(description: string): string {
+  const map: Record<string, string> = {
+    ERR_NAME_NOT_RESOLVED: 'DNS lookup failed',
+    ERR_CONNECTION_REFUSED: 'Connection refused',
+    ERR_CONNECTION_TIMED_OUT: 'Connection timed out',
+    ERR_INTERNET_DISCONNECTED: 'No internet connection',
+    ERR_SSL_PROTOCOL_ERROR: 'SSL error',
+    ERR_CERT_AUTHORITY_INVALID: 'Certificate not trusted',
+    ERR_CERT_DATE_INVALID: 'Certificate expired',
+    ERR_TOO_MANY_REDIRECTS: 'Too many redirects',
+    ERR_EMPTY_RESPONSE: 'Server returned no data',
+    ERR_TUNNEL_CONNECTION_FAILED: 'Proxy tunnel failed',
+    ERR_ADDRESS_UNREACHABLE: 'Address unreachable',
+  }
+  return map[description] ?? description.replace(/^ERR_/, '').replace(/_/g, ' ').toLowerCase()
 }
 
 const FRAME_STYLES: Record<PaneId, string> = {
@@ -27,7 +46,9 @@ export function DevicePane({
   paneId,
   active,
   isFocusedPane,
-  loading
+  loading,
+  error,
+  safariChromeEnabled = false
 }: DevicePaneProps): React.JSX.Element {
   const { zoom } = usePreviewCanvas()
   const { isTransitioning } = useSidebar()
@@ -129,7 +150,7 @@ export function DevicePane({
           }}
           data-testid={`pane-surface-${paneId}`}
         >
-          {!active ? (
+          {!active && !error ? (
             <div className="flex h-full items-center justify-center bg-zinc-950/90 px-6 text-center">
               <div className="space-y-2">
                 <p className="text-sm font-medium text-zinc-100">No screen loaded</p>
@@ -140,7 +161,26 @@ export function DevicePane({
             </div>
           ) : null}
 
-          {active && paneId === 'iphone' ? (
+          {error ? (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/95 px-6 text-center">
+              <div className="space-y-3">
+                <Icon
+                  icon={Alert01Icon}
+                  className="mx-auto size-8 text-red-400"
+                />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-zinc-100">
+                    {friendlyErrorMessage(error.description)}
+                  </p>
+                  <p className="font-mono text-[10px] text-zinc-500">
+                    {error.description} ({error.code})
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {active && paneId === 'iphone' && !safariChromeEnabled ? (
             <div
               className="pointer-events-none absolute top-2 left-1/2 z-10 h-5 w-[72px] -translate-x-1/2 rounded-full bg-black"
             />

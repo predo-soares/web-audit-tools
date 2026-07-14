@@ -1,6 +1,4 @@
-import { app } from 'electron'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
-import { join } from 'path'
+import Store from 'electron-store'
 import {
   type HistoryEntry,
   clearHistory,
@@ -9,21 +7,18 @@ import {
   removeHistoryEntry
 } from '../../shared/history'
 
-const WRITE_DEBOUNCE_MS = 250
-
-interface HistoryFile {
+interface HistorySchema {
   entries: HistoryEntry[]
 }
 
 export class HistoryStore {
-  private entries: HistoryEntry[] = []
-  private readonly filePath: string
-  private writeTimer: ReturnType<typeof setTimeout> | null = null
+  private entries: HistoryEntry[]
+  private readonly store: Store<HistorySchema>
   private onChange: ((entries: HistoryEntry[]) => void) | null = null
 
-  constructor(userDataPath = app.getPath('userData')) {
-    this.filePath = join(userDataPath, 'history.json')
-    this.load()
+  constructor() {
+    this.store = new Store<HistorySchema>({ name: 'history', defaults: { entries: [] } })
+    this.entries = this.store.get('entries')
   }
 
   setOnChange(listener: (entries: HistoryEntry[]) => void): void {
@@ -42,7 +37,7 @@ export class HistoryStore {
       faviconUrl,
       visitedAt: Date.now()
     })
-    this.scheduleWrite()
+    this.store.set('entries', this.entries)
     this.onChange?.(this.list())
   }
 
@@ -52,7 +47,7 @@ export class HistoryStore {
 
     console.debug('[favicon]', JSON.stringify({ action: 'history:refreshMetadata', url, faviconUrl }))
     this.entries = next
-    this.scheduleWrite()
+    this.store.set('entries', this.entries)
     this.onChange?.(this.list())
   }
 
@@ -61,7 +56,7 @@ export class HistoryStore {
     if (next === this.entries) return
 
     this.entries = next
-    this.scheduleWrite()
+    this.store.set('entries', this.entries)
     this.onChange?.(this.list())
   }
 
@@ -70,49 +65,11 @@ export class HistoryStore {
     if (next === this.entries) return
 
     this.entries = next
-    this.scheduleWrite()
+    this.store.set('entries', this.entries)
     this.onChange?.(this.list())
   }
 
   destroy(): void {
-    if (this.writeTimer !== null) {
-      clearTimeout(this.writeTimer)
-      this.writeTimer = null
-      this.flushWrite()
-    }
-  }
-
-  private load(): void {
-    if (!existsSync(this.filePath)) {
-      this.entries = []
-      return
-    }
-
-    try {
-      const raw = readFileSync(this.filePath, 'utf8')
-      const parsed = JSON.parse(raw) as HistoryFile
-      this.entries = Array.isArray(parsed.entries) ? parsed.entries : []
-    } catch {
-      this.entries = []
-    }
-  }
-
-  private scheduleWrite(): void {
-    if (this.writeTimer !== null) {
-      clearTimeout(this.writeTimer)
-    }
-    this.writeTimer = setTimeout(() => {
-      this.writeTimer = null
-      this.flushWrite()
-    }, WRITE_DEBOUNCE_MS)
-  }
-
-  private flushWrite(): void {
-    const dir = join(this.filePath, '..')
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true })
-    }
-    const payload: HistoryFile = { entries: this.entries }
-    writeFileSync(this.filePath, JSON.stringify(payload, null, 2), 'utf8')
+    // no-op: electron-store writes synchronously on every mutation
   }
 }

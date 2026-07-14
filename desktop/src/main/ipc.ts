@@ -3,9 +3,10 @@ import { normalizeUrl } from '../shared/url'
 import type { ElementFingerprint } from '../shared/element-mirror'
 import type { NewProjectInput } from '../shared/project'
 import type { PanelAction, PanelId, PanelOpenOptions } from '../shared/panel-types'
-import type { PaneMount, PaneId, Size, ThemePreference } from '../shared/types'
+import type { MediaFeatureState, PaneMount, PaneId, Size, ThemePreference } from '../shared/types'
 import type { PaneManager } from './panes/pane-manager'
 import type { PanelManager } from './panels/panel-manager'
+import type { SafariChromeManager } from './chrome/safari-chrome-manager'
 import type { HistoryStore } from './stores/history-store'
 import type { ProjectStore } from './stores/project-store'
 import { captureSnapshot, type SnapshotPort } from './services/snapshot-service'
@@ -27,7 +28,8 @@ export function registerIpcHandlers(
   paneManager: PaneManager,
   panelManager: PanelManager,
   projectStore: ProjectStore,
-  historyStore: HistoryStore
+  historyStore: HistoryStore,
+  safariChromeManager: SafariChromeManager
 ): void {
   ipcMain.handle('snapshot:take', async () => {
     return captureSnapshot(makeSnapshotPort(paneManager))
@@ -115,14 +117,38 @@ export function registerIpcHandlers(
     return paneManager.isSyncEnabled()
   })
 
+  ipcMain.handle('safari-chrome:set-enabled', (_event, enabled: boolean) => {
+    return safariChromeManager.setEnabled(enabled)
+  })
+
+  ipcMain.handle('safari-chrome:get-enabled', () => {
+    return safariChromeManager.isEnabled()
+  })
+
   ipcMain.handle('pane-theme:set-preference', async (_event, preference: ThemePreference) => {
     await paneManager.setThemePreference(preference)
+    // Broadcast so a change from either the toolbar toggle or the Rendering tab
+    // keeps every overlay panel's prefers-color-scheme control in sync.
+    panelManager.notifyOverlayPanels('panel:theme-changed', preference)
     return preference
   })
 
-  ipcMain.on('pane:scroll', (_event, paneId: PaneId, ratio: number, programmatic: boolean) => {
-    void paneManager.syncScroll(paneId, ratio, programmatic)
+  ipcMain.handle('media-features:get', () => {
+    return paneManager.getMediaFeatures()
   })
+
+  ipcMain.handle('media-features:set', async (_event, state: MediaFeatureState) => {
+    await paneManager.setMediaFeatures(state)
+    panelManager.notifyOverlayPanels('panel:media-features-changed', state)
+    return state
+  })
+
+  ipcMain.on(
+    'pane:scroll',
+    (_event, paneId: PaneId, ratio: number, programmatic: boolean, scrollY = 0) => {
+      void paneManager.syncScroll(paneId, ratio, programmatic, scrollY)
+    }
+  )
 
   ipcMain.on('pane:click', (_event, paneId: PaneId, fingerprint: ElementFingerprint) => {
     void paneManager.syncClick(paneId, fingerprint)
