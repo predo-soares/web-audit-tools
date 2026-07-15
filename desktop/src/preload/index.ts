@@ -5,6 +5,7 @@ import type { NewProjectInput, Project } from '../shared/project'
 import type { MirrorFailureLog } from '../shared/element-mirror'
 import type { RuntimeEvidenceSnapshot } from '../shared/runtime-evidence'
 import type {
+  DeviceProfile,
   MediaFeatureState,
   PaneMount,
   PaneId,
@@ -97,6 +98,8 @@ export interface PreviewApi {
   cancelLighthouse: () => Promise<void>
   onLighthouseState: (callback: (state: LighthouseAssessmentState) => void) => () => void
   onEnterSeoView: (callback: () => void) => () => void
+  onEnterDevicesView: (callback: () => void) => () => void
+  setDeviceProfile: (paneId: PaneId, profile: DeviceProfile) => Promise<void>
   setPanesVisible: (visible: boolean) => Promise<void>
 }
 
@@ -279,6 +282,13 @@ const api: PreviewApi = {
     ipcRenderer.on('app:seo-view', listener)
     return () => ipcRenderer.removeListener('app:seo-view', listener)
   },
+  onEnterDevicesView: (callback) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('app:devices-view', listener)
+    return () => ipcRenderer.removeListener('app:devices-view', listener)
+  },
+  setDeviceProfile: (paneId, profile) =>
+    ipcRenderer.invoke('pane:set-device-profile', paneId, profile),
   setPanesVisible: (visible) => ipcRenderer.invoke('pane:set-visible', visible)
 }
 

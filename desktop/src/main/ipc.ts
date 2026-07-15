@@ -251,6 +251,10 @@ export function registerIpcHandlers(
     paneManager.setPanesVisible(visible)
   })
 
+  ipcMain.handle('pane:set-device-profile', async (_event, paneId: string, profile: unknown) => {
+    await paneManager.setDeviceProfile(paneId as import('../../shared/types').PaneId, profile as import('../../shared/types').DeviceProfile)
+  })
+
   ipcMain.handle('preview:navigate', async (_event, rawUrl: string) => {
     const url = normalizeUrl(rawUrl)
     await paneManager.navigateAll(url)
@@ -438,6 +442,14 @@ export function registerIpcHandlers(
       const mainWindow = BrowserWindow.getAllWindows()[0]
       if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
         mainWindow.webContents.send('app:seo-view')
+      }
+      return
+    }
+
+    if (action.type === 'enter-devices-view') {
+      const mainWindow = BrowserWindow.getAllWindows()[0]
+      if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+        mainWindow.webContents.send('app:devices-view')
       }
       return
     }

@@ -3,6 +3,7 @@ import { writeFile } from 'fs/promises'
 import { DEVICE_PRESETS, PANE_IDS } from '../../shared/device-presets'
 import type { ElementFingerprint } from '../../shared/element-mirror'
 import type {
+  DeviceProfile,
   MediaFeatureState,
   PaneId,
   PaneMount,
@@ -748,6 +749,11 @@ export class PaneManager {
 
   isSyncEnabled(): boolean {
     return this.syncEnabled
+  }
+
+  async setDeviceProfile(paneId: PaneId, profile: DeviceProfile): Promise<void> {
+    await this.deviceReady
+    await this.getEngine(paneId).setDevice(profile)
   }
 
   async setThemePreference(preference: ThemePreference): Promise<void> {
