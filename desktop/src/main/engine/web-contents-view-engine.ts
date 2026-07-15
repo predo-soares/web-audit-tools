@@ -491,19 +491,19 @@ export class WebContentsViewEngine implements EngineView {
   }
 
   canGoBack(): boolean {
-    return this.webContents.canGoBack()
+    return this.webContents.navigationHistory.canGoBack()
   }
 
   canGoForward(): boolean {
-    return this.webContents.canGoForward()
+    return this.webContents.navigationHistory.canGoForward()
   }
 
   goBack(): void {
-    this.webContents.goBack()
+    this.webContents.navigationHistory.goBack()
   }
 
   goForward(): void {
-    this.webContents.goForward()
+    this.webContents.navigationHistory.goForward()
   }
 
   getPreviousEntryUrl(): string | null {
