@@ -3,7 +3,6 @@ import { cn } from '@renderer/lib/utils'
 import { UrlBar } from '@renderer/components/url-bar'
 import { useOverlayPanel } from '@renderer/hooks/use-overlay-panel'
 import { DIAGNOSTICS_DRAWER_WIDTH_PX } from '../../../../../shared/runtime-evidence'
-import { SEO_PANEL_WIDTH_PX } from '../../../../../shared/seo-audit'
 import type { MediaFeatureState, ThemePreference } from '../../../../../shared/types'
 import { TOOLBAR_HEIGHT_PX } from '../../../../../shared/sidebar'
 import {
@@ -22,7 +21,6 @@ import {
   Monitor,
   Moon01Icon,
   PanelLeftIcon,
-  SearchList01Icon,
   Sun01Icon,
   Unlink01Icon,
   SourceCodeIcon,
@@ -96,7 +94,6 @@ export function ToolbarPanel(): React.JSX.Element {
   const [themePreference, setThemePreference] = useState<ThemePreference>(readStoredThemePreference)
   const [zoomOpen, setZoomOpen] = useState(false)
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
-  const [seoOpen, setSeoOpen] = useState(false)
   const [diagnosticsWidth, setDiagnosticsWidth] = useState(DIAGNOSTICS_DRAWER_WIDTH_PX)
   const [problemCount, setProblemCount] = useState(0)
   const [snapshotToast, setSnapshotToast] = useState<string | null>(null)
@@ -134,15 +131,7 @@ export function ToolbarPanel(): React.JSX.Element {
     onOpenChange: setDiagnosticsOpen
   })
 
-  useOverlayPanel('seo-right', {
-    mode: 'docked',
-    open: seoOpen,
-    edge: 'right',
-    width: SEO_PANEL_WIDTH_PX,
-    onOpenChange: setSeoOpen
-  })
-
-  const showProblemBadge = !diagnosticsOpen && problemCount > 0
+const showProblemBadge = !diagnosticsOpen && problemCount > 0
 
   const anyPaneLoading = Object.values(loadingStates).some(Boolean)
   const isLoading = navigating || anyPaneLoading
@@ -180,7 +169,6 @@ export function ToolbarPanel(): React.JSX.Element {
     void window.panelApi.getOpenPanels().then((openPanels) => {
       setSidebarOpen(openPanels.includes('sidebar-left'))
       setDiagnosticsOpen(openPanels.includes('diagnostics-right'))
-      setSeoOpen(openPanels.includes('seo-right'))
     })
     void window.panelApi.getDiagnosticsWidth().then((width) => {
       setDiagnosticsWidth(width > 0 ? width : DIAGNOSTICS_DRAWER_WIDTH_PX)
@@ -214,9 +202,6 @@ export function ToolbarPanel(): React.JSX.Element {
       }
       if (panelId === 'diagnostics-right') {
         setDiagnosticsOpen(false)
-      }
-      if (panelId === 'seo-right') {
-        setSeoOpen(false)
       }
     })
     const unsubscribeSettled = window.panelApi.onPanelLayoutSettled((panelId) => {
@@ -318,22 +303,8 @@ export function ToolbarPanel(): React.JSX.Element {
     setSidebarOpen((current) => !current)
   }, [])
 
-  // The diagnostics drawer and the SEO panel both dock to the right edge, so
-  // only one may be open at a time — opening one closes the other.
   const toggleDiagnostics = useCallback((): void => {
-    setDiagnosticsOpen((current) => {
-      const next = !current
-      if (next) setSeoOpen(false)
-      return next
-    })
-  }, [])
-
-  const toggleSeo = useCallback((): void => {
-    setSeoOpen((current) => {
-      const next = !current
-      if (next) setDiagnosticsOpen(false)
-      return next
-    })
+    setDiagnosticsOpen((current) => !current)
   }, [])
 
   useEffect(() => {
@@ -536,17 +507,6 @@ export function ToolbarPanel(): React.JSX.Element {
               {problemCount > 99 ? '99+' : problemCount}
             </span>
           ) : null}
-        </button>
-        <button
-          type="button"
-          data-testid="seo-toggle"
-          className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }))}
-          aria-label={seoOpen ? 'Close Page SEO panel' : 'Open Page SEO panel'}
-          aria-expanded={seoOpen}
-          aria-controls="seo-panel"
-          onClick={toggleSeo}
-        >
-          <Icon icon={SearchList01Icon} size={14} />
         </button>
         <button
           type="button"
