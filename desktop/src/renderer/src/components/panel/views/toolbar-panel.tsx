@@ -30,11 +30,21 @@ import {
 } from '@hugeicons/core-free-icons'
 import type { IconSvgElement } from '@hugeicons/react'
 import { Icon } from '@renderer/components/ui/icon'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SnapshotResult } from '../../../../../shared/snapshot'
+import type { HistoryEntry } from '../../../../../shared/history'
 
 const THEME_STORAGE_KEY = 'audit-screens-theme-preference'
 const MEDIA_FEATURES_STORAGE_KEY = 'audit-screens-media-features'
+const URL_HISTORY_MAX_SUGGESTIONS = 8
+
+function filterHistory(history: HistoryEntry[], query: string): HistoryEntry[] {
+  if (!query.trim()) return history.slice(0, URL_HISTORY_MAX_SUGGESTIONS)
+  const lower = query.toLowerCase()
+  return history
+    .filter((e) => e.url.toLowerCase().includes(lower) || e.title.toLowerCase().includes(lower))
+    .slice(0, URL_HISTORY_MAX_SUGGESTIONS)
+}
 
 const THEME_CYCLE: ThemePreference[] = ['system', 'light', 'dark']
 
@@ -98,6 +108,10 @@ export function ToolbarPanel(): React.JSX.Element {
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
   const [diagnosticsWidth, setDiagnosticsWidth] = useState(DIAGNOSTICS_DRAWER_WIDTH_PX)
   const [problemCount, setProblemCount] = useState(0)
+  const [history, setHistory] = useState<HistoryEntry[]>([])
+  const [urlInputFocused, setUrlInputFocused] = useState(false)
+  const [activeHistoryIndex, setActiveHistoryIndex] = useState(-1)
+  const urlBarRef = useRef<HTMLFormElement>(null)
   const [snapshotToast, setSnapshotToast] = useState<string | null>(null)
   const snapshotToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const committedSnapshotRef = useRef({
@@ -131,6 +145,25 @@ export function ToolbarPanel(): React.JSX.Element {
     edge: 'right',
     width: diagnosticsWidth,
     onOpenChange: setDiagnosticsOpen
+  })
+
+  const filteredHistory = useMemo(() => filterHistory(history, url), [history, url])
+
+  const urlHistoryPayload = useMemo(
+    () => ({ items: filteredHistory, activeIndex: activeHistoryIndex }),
+    [filteredHistory, activeHistoryIndex]
+  )
+
+  const urlHistoryOpen = urlInputFocused && filteredHistory.length > 0
+
+  useOverlayPanel('url-history', {
+    mode: 'anchored',
+    open: urlHistoryOpen,
+    anchorEl: urlBarRef,
+    placement: 'bottom',
+    align: 'start',
+    payload: urlHistoryPayload,
+    onOpenChange: (open) => { if (!open) setUrlInputFocused(false) }
   })
 
 const showProblemBadge = !diagnosticsOpen && problemCount > 0
@@ -168,6 +201,7 @@ const showProblemBadge = !diagnosticsOpen && problemCount > 0
     void window.panelApi.getLoadingStates().then(setLoadingStates)
     void window.panelApi.getSyncEnabled().then(setSyncEnabled)
     void window.panelApi.listProjects().then(setProjects)
+    void window.panelApi.listHistory().then(setHistory)
     void window.panelApi.getOpenPanels().then((openPanels) => {
       setSidebarOpen(openPanels.includes('sidebar-left'))
       setDiagnosticsOpen(openPanels.includes('diagnostics-right'))
@@ -182,10 +216,13 @@ const showProblemBadge = !diagnosticsOpen && problemCount > 0
       setFaviconUrl(state.faviconUrl)
       setCanGoBack(state.canGoBack)
       setCanGoForward(state.canGoForward)
+      setUrlInputFocused(false)
+      setActiveHistoryIndex(-1)
       if (isCommittedPageUrl(state.barUrl)) {
         setCommittedUrl(state.barUrl)
       }
     })
+    const unsubscribeHistory = window.panelApi.onHistoryUpdated(setHistory)
     const unsubscribeLoading = window.panelApi.onPaneLoading(({ paneId, loading }) => {
       setLoadingStates((current) => ({ ...current, [paneId]: loading }))
     })
@@ -219,6 +256,7 @@ const showProblemBadge = !diagnosticsOpen && problemCount > 0
 
     return () => {
       unsubscribeNavigation()
+      unsubscribeHistory()
       unsubscribeLoading()
       unsubscribeProjects()
       unsubscribeAction()
@@ -263,6 +301,8 @@ const showProblemBadge = !diagnosticsOpen && problemCount > 0
   }, [])
 
   const handleNavigate = useCallback(async (nextUrl: string) => {
+    setUrlInputFocused(false)
+    setActiveHistoryIndex(-1)
     setNavigating(true)
     try {
       const normalized = await window.panelApi.navigate(nextUrl)
@@ -442,13 +482,45 @@ const showProblemBadge = !diagnosticsOpen && problemCount > 0
             <Icon icon={ArrowRight01Icon} size={14} />
           </button>
           <UrlBar
+            containerRef={urlBarRef}
             value={url}
             pageTitle={pageTitle}
             faviconUrl={faviconUrl}
-            onChange={setUrl}
+            onChange={(next) => { setUrl(next); setActiveHistoryIndex(-1) }}
             onNavigate={(nextUrl) => void handleNavigate(nextUrl)}
             onRefresh={() => void handleRefresh()}
             onStop={handleStop}
+            onFocusInput={() => setUrlInputFocused(true)}
+            onBlurInput={() => {
+              setTimeout(() => setUrlInputFocused(false), 150)
+            }}
+            onKeyDownInput={(event) => {
+              if (!urlHistoryOpen) return
+              if (event.key === 'ArrowDown') {
+                event.preventDefault()
+                setActiveHistoryIndex((i) => Math.min(i + 1, filteredHistory.length - 1))
+              } else if (event.key === 'ArrowUp') {
+                event.preventDefault()
+                setActiveHistoryIndex((i) => Math.max(i - 1, -1))
+              } else if (event.key === 'Escape') {
+                event.preventDefault()
+                setUrlInputFocused(false)
+                setActiveHistoryIndex(-1)
+              } else if (event.key === 'Enter' && activeHistoryIndex >= 0) {
+                const selected = filteredHistory[activeHistoryIndex]
+                if (selected) {
+                  event.preventDefault()
+                  void handleNavigate(selected.url)
+                }
+              } else if (event.key === 'Tab' && activeHistoryIndex >= 0) {
+                const selected = filteredHistory[activeHistoryIndex]
+                if (selected) {
+                  event.preventDefault()
+                  setUrl(selected.url)
+                  setActiveHistoryIndex(-1)
+                }
+              }
+            }}
             loading={isLoading}
             disabled={navigating}
             canSaveProject={canSaveProject}

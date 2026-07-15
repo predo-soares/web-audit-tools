@@ -13,7 +13,8 @@ const PANEL_SIZE_CLASS: Record<PanelId, string> = {
   theme: '',
   'sidebar-left': 'w-[280px]',
   'diagnostics-right': 'w-[320px]',
-  'toolbar-top': 'w-full'
+  'toolbar-top': 'w-full',
+  'url-history': 'w-[42rem] max-h-[320px]'
 }
 
 function prefersReducedMotion(): boolean {

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useEffect, useState, KeyboardEvent } from 'react'
 import { Input } from '@renderer/components/ui/input'
 import { Button } from '@renderer/components/ui/button'
 import { SaveProjectButton } from '@renderer/components/save-project-button'
@@ -14,12 +14,16 @@ interface UrlBarProps {
   onNavigate: (url: string) => void
   onRefresh: () => void
   onStop: () => void
+  onFocusInput?: () => void
+  onBlurInput?: () => void
+  onKeyDownInput?: (event: KeyboardEvent<HTMLInputElement>) => void
   loading?: boolean
   disabled?: boolean
   canSaveProject: boolean
   isSavedProject: boolean
   saveSuggestedName: string
   onSaveProject: (name: string) => void
+  containerRef?: React.Ref<HTMLFormElement>
   className?: string
 }
 
@@ -31,12 +35,16 @@ export function UrlBar({
   onNavigate,
   onRefresh,
   onStop,
+  onFocusInput,
+  onBlurInput,
+  onKeyDownInput,
   loading = false,
   disabled,
   canSaveProject,
   isSavedProject,
   saveSuggestedName,
   onSaveProject,
+  containerRef,
   className
 }: UrlBarProps): React.JSX.Element {
   const [faviconFailed, setFaviconFailed] = useState(false)
@@ -56,6 +64,7 @@ export function UrlBar({
 
   return (
     <form
+      ref={containerRef}
       className={cn(
         'flex min-w-0 flex-1 items-center gap-2 rounded-lg bg-white/20 focus-within:bg-white/10 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50',
         className
@@ -93,11 +102,16 @@ export function UrlBar({
           placeholder="Enter a URL"
           value={value}
           onChange={(event) => onChange(event.target.value)}
+          onFocus={onFocusInput}
+          onBlur={onBlurInput}
+          onKeyDown={onKeyDownInput}
           disabled={disabled}
           className={cn(
             'min-w-0 flex-1 pl-9  border-none !bg-transparent focus-visible:ring-0',
             pageTitle ? 'pr-64' : 'pr-20'
           )}
+          autoComplete="off"
+          spellCheck={false}
         />
         {pageTitle ? (
           <span className="pointer-events-none absolute top-1/2 right-16 z-10 max-w-52 -translate-y-1/2 truncate text-sm text-muted-foreground/70">
