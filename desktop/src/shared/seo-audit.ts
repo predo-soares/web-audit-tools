@@ -122,33 +122,11 @@ export interface InternationalizationResult {
   targets: AlternateTargetEvidence[]
 }
 
-export type LighthouseProfile = 'mobile' | 'desktop'
-export interface LighthouseAssessmentResult {
-  lighthouseVersion: string
-  configuration: string
-  deviceMode: LighthouseProfile
-  completedAt: number
-  targetUrl: string
-  pageAuditId: string | null
-  distinctLoad: true
-  stale: boolean
-  scores: Record<string, number | null>
-  findings: { id: string; title: string; score: number | null; displayValue: string | null }[]
-}
-export type LighthouseAssessmentState =
-  | {
-      phase: 'idle' | 'cancelled' | 'failed'
-      result: LighthouseAssessmentResult | null
-      error: string | null
-    }
-  | {
-      phase: 'running'
-      result: LighthouseAssessmentResult | null
-      error: null
-      profile: LighthouseProfile
-      targetUrl: string
-    }
-  | { phase: 'completed'; result: LighthouseAssessmentResult; error: null }
+export type {
+  LighthouseAssessmentResult,
+  LighthouseAssessmentState,
+  LighthouseProfile
+} from './lighthouse'
 
 export interface ImageEvidence {
   sourceIndex: number

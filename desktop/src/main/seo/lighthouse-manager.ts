@@ -3,13 +3,15 @@ import type {
   LighthouseAssessmentResult,
   LighthouseAssessmentState,
   LighthouseProfile
-} from '../../shared/seo-audit'
+} from '../../shared/lighthouse'
+import { projectLighthouseResult, sanitizeLighthouseError } from '../../shared/lighthouse'
 import { sanitizeUrl } from '../../shared/seo-sanitize'
+import type { PaneId } from '../../shared/types'
 
 export interface LighthouseRunInput {
   url: string
   profile: LighthouseProfile
-  pageAuditId: string | null
+  paneId?: PaneId
   shareSession: boolean
   headers?: Record<string, string>
 }
@@ -19,8 +21,14 @@ export type LighthouseRunner = (
 ) => Promise<LighthouseAssessmentResult>
 
 export class LighthouseManager {
-  private state: LighthouseAssessmentState = { phase: 'idle', result: null, error: null }
+  private state: LighthouseAssessmentState = {
+    phase: 'idle',
+    result: null,
+    error: null,
+    progress: null
+  }
   private abort: AbortController | null = null
+  private runId = 0
   constructor(
     private readonly notify: (state: LighthouseAssessmentState) => void,
     private readonly runner: LighthouseRunner = runLighthouse
@@ -30,27 +38,30 @@ export class LighthouseManager {
   }
   async run(input: LighthouseRunInput): Promise<LighthouseAssessmentState> {
     if (this.state.phase === 'running') return this.state
+    const runId = ++this.runId
     this.abort = new AbortController()
     this.set({
       phase: 'running',
       result: this.state.result,
       error: null,
       profile: input.profile,
-      targetUrl: sanitizeUrl(input.url)
+      targetUrl: sanitizeUrl(input.url),
+      progress: { runId, phase: 'launching', label: 'Launching isolated Chrome target…' }
     })
     try {
       const result = await this.runner(input, this.abort.signal)
-      if (this.abort.signal.aborted)
-        return this.set({ phase: 'cancelled', result: this.state.result, error: null })
-      return this.set({ phase: 'completed', result, error: null })
+      if (this.abort.signal.aborted || runId !== this.runId)
+        return this.set({ phase: 'cancelled', result: this.state.result, error: null, progress: null })
+      return this.set({ phase: 'completed', result, error: null, progress: null })
     } catch (error) {
       return this.set(
         this.abort.signal.aborted
-          ? { phase: 'cancelled', result: this.state.result, error: null }
+          ? { phase: 'cancelled', result: this.state.result, error: null, progress: null }
           : {
               phase: 'failed',
               result: this.state.result,
-              error: error instanceof Error ? error.message : String(error)
+              error: sanitizeLighthouseError(error),
+              progress: null
             }
       )
     } finally {
@@ -58,6 +69,7 @@ export class LighthouseManager {
     }
   }
   cancel(): void {
+    this.runId++
     this.abort?.abort()
   }
   markStale(): void {
@@ -96,29 +108,16 @@ export const runLighthouse: LighthouseRunner = async (input, signal) => {
       extraHeaders: input.shareSession ? input.headers : undefined
     })
     if (!run) throw new Error('Lighthouse returned no result')
-    const categories = run.lhr.categories
-    return {
-      lighthouseVersion: run.lhr.lighthouseVersion,
-      configuration: 'navigation-default',
-      deviceMode: input.profile,
-      completedAt: Date.now(),
-      targetUrl: sanitizeUrl(input.url),
-      pageAuditId: input.pageAuditId,
-      distinctLoad: true,
-      stale: false,
-      scores: Object.fromEntries(
-        Object.entries(categories).map(([id, category]) => [id, category.score])
-      ),
-      findings: Object.values(run.lhr.audits)
-        .filter((audit) => audit.score !== null && audit.score < 1)
-        .slice(0, 30)
-        .map((audit) => ({
-          id: audit.id,
-          title: audit.title,
-          score: audit.score,
-          displayValue: audit.displayValue ?? null
-        }))
-    }
+    const completedAt = Date.now()
+    return projectLighthouseResult(run.lhr, {
+      id: `lighthouse-${completedAt}-${Math.random().toString(36).slice(2, 8)}`,
+      paneId: input.paneId ?? 'desktop',
+      profile: input.profile,
+      requestedUrl: sanitizeUrl(input.url),
+      shareSession: input.shareSession,
+      startedAt: completedAt,
+      completedAt
+    })
   } finally {
     signal.removeEventListener('abort', stop)
     try {

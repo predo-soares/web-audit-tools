@@ -188,25 +188,19 @@ export function registerIpcHandlers(
   ipcMain.handle('seo-lighthouse:get-state', () => lighthouseManager.getState())
   ipcMain.handle(
     'seo-lighthouse:run',
-    async (_event, profile: LighthouseProfile, shareSession: boolean) => {
+    async (_event, profile: LighthouseProfile, _shareSession: boolean) => {
       const navigation = paneManager.getNavigationState()
       if (!navigation.barUrl) return lighthouseManager.getState()
       const headers: Record<string, string> = {
         'User-Agent': paneManager.getUserAgentForPane(navigation.activePane ?? 'desktop')
       }
-      if (shareSession) {
-        const cookieHeader = await sessionCookieHeader(
-          paneManager.getPreviewSession(),
-          navigation.barUrl
-        )
-        if (cookieHeader) headers.Cookie = cookieHeader
-      }
       return lighthouseManager.run({
         url: navigation.barUrl,
         profile,
-        shareSession,
+        paneId: navigation.activePane ?? 'desktop',
+        // Disabled until cookies can be seeded into an isolated Chrome jar safely.
+        shareSession: false,
         headers,
-        pageAuditId: auditManager.getState().result?.id ?? null
       })
     }
   )
@@ -252,7 +246,7 @@ export function registerIpcHandlers(
   })
 
   ipcMain.handle('pane:set-device-profile', async (_event, paneId: string, profile: unknown) => {
-    await paneManager.setDeviceProfile(paneId as import('../../shared/types').PaneId, profile as import('../../shared/types').DeviceProfile)
+    await paneManager.setDeviceProfile(paneId as import('../shared/types').PaneId, profile as import('../shared/types').DeviceProfile)
   })
 
   ipcMain.handle('preview:navigate', async (_event, rawUrl: string) => {

@@ -1,18 +1,27 @@
 import { describe, expect, it, vi } from 'vitest'
 import { LighthouseManager } from '../../src/main/seo/lighthouse-manager'
-import type { LighthouseAssessmentResult } from '../../src/shared/seo-audit'
+import type { LighthouseAssessmentResult } from '../../src/shared/lighthouse'
 
 const result: LighthouseAssessmentResult = {
+  id: 'lh-1',
+  paneId: 'iphone',
   lighthouseVersion: '13.4.0',
   configuration: 'navigation-default',
   deviceMode: 'mobile',
+  startedAt: 1,
   completedAt: 10,
-  targetUrl: 'https://site.test/',
-  pageAuditId: 'audit-1',
+  requestedUrl: 'https://site.test/',
+  finalUrl: 'https://site.test/',
+  shareSession: false,
   distinctLoad: true,
   stale: false,
-  scores: { performance: 0.9 },
-  findings: []
+  categories: [{ id: 'performance', title: 'Performance', score: 0.9, auditIds: [] }],
+  audits: {},
+  opportunityIds: [],
+  diagnosticIds: [],
+  retainedAuditCount: 0,
+  totalAuditCount: 0,
+  truncatedAuditCount: 0
 }
 
 describe('LighthouseManager', () => {
@@ -23,7 +32,7 @@ describe('LighthouseManager', () => {
     const completed = await manager.run({
       url: 'https://site.test/',
       profile: 'mobile',
-      pageAuditId: 'audit-1',
+      paneId: 'iphone',
       shareSession: false
     })
     expect(states).toEqual(['running', 'completed'])
@@ -43,7 +52,7 @@ describe('LighthouseManager', () => {
     const pending = manager.run({
       url: 'https://site.test/',
       profile: 'desktop',
-      pageAuditId: null,
+      paneId: 'desktop',
       shareSession: true,
       headers: { Cookie: 'private' }
     })
@@ -59,7 +68,7 @@ describe('LighthouseManager', () => {
     await manager.run({
       url: 'https://site.test/',
       profile: 'mobile',
-      pageAuditId: 'audit-1',
+      paneId: 'iphone',
       shareSession: false
     })
     manager.markStale()

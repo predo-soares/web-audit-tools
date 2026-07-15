@@ -1,0 +1,47 @@
+import { describe, expect, it } from 'vitest'
+import { projectLighthouseResult, sanitizeLighthouseError } from '../../src/shared/lighthouse'
+
+describe('Lighthouse result projection', () => {
+  it('projects categories and prioritizes opportunities and diagnostics', () => {
+    const result = projectLighthouseResult(
+      {
+        lighthouseVersion: '13.4.0',
+        finalDisplayedUrl: 'https://site.test/final',
+        categories: {
+          performance: {
+            title: 'Performance',
+            score: 0.82,
+            auditRefs: [
+              { id: 'unused-css', group: 'load-opportunities' },
+              { id: 'main-thread', group: 'diagnostics' }
+            ]
+          }
+        },
+        audits: {
+          'unused-css': { title: 'Remove unused CSS', score: 0.2, displayValue: '120 KiB' },
+          'main-thread': { title: 'Main thread work', score: 0.5, numericValue: 2400 }
+        }
+      },
+      {
+        id: 'lh-1',
+        paneId: 'iphone',
+        profile: 'mobile',
+        requestedUrl: 'https://site.test/',
+        shareSession: false,
+        startedAt: 1,
+        completedAt: 2
+      }
+    )
+
+    expect(result.categories[0]).toMatchObject({ id: 'performance', score: 0.82 })
+    expect(result.opportunityIds).toEqual(['unused-css'])
+    expect(result.diagnosticIds).toEqual(['main-thread'])
+    expect(result.finalUrl).toBe('https://site.test/final')
+  })
+
+  it('sanitizes sensitive failure text', () => {
+    expect(sanitizeLighthouseError(new Error('failed /Users/me/secret Cookie:token'))).not.toContain(
+      '/Users/me/secret'
+    )
+  })
+})
