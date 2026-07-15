@@ -1,11 +1,30 @@
 import { describe, expect, it } from 'vitest'
-import { buildEmulatedMedia } from '../../src/shared/media-features'
+import { buildEmulatedMedia, normalizeMediaFeatures } from '../../src/shared/media-features'
 import { DEFAULT_MEDIA_FEATURES } from '../../src/shared/types'
 import type { MediaFeatureState } from '../../src/shared/types'
 
 function featureMap(features: { name: string; value: string }[]): Record<string, string> {
   return Object.fromEntries(features.map((f) => [f.name, f.value]))
 }
+
+describe('normalizeMediaFeatures', () => {
+  it('fills missing keys from defaults so CDP params stay valid', () => {
+    const result = normalizeMediaFeatures({
+      reducedMotion: 'reduce',
+      autoDarkMode: true
+    })
+    expect(result.reducedMotion).toBe('reduce')
+    expect(result.autoDarkMode).toBe(true)
+    expect(result.visionDeficiency).toBe('none')
+    expect(result.osTextScale).toBe(1)
+    expect(result.focusedPage).toBe(false)
+  })
+
+  it('returns defaults for nullish input', () => {
+    expect(normalizeMediaFeatures(null)).toEqual(DEFAULT_MEDIA_FEATURES)
+    expect(normalizeMediaFeatures(undefined)).toEqual(DEFAULT_MEDIA_FEATURES)
+  })
+})
 
 describe('buildEmulatedMedia', () => {
   it('emits nothing when theme is system and all features default', () => {
@@ -40,6 +59,7 @@ describe('buildEmulatedMedia', () => {
 
   it('combines theme, media type, and every overridden feature', () => {
     const state: MediaFeatureState = {
+      ...DEFAULT_MEDIA_FEATURES,
       reducedMotion: 'reduce',
       reducedData: 'reduce',
       reducedTransparency: 'reduce',

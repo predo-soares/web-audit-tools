@@ -4,6 +4,7 @@ import { UrlBar } from '@renderer/components/url-bar'
 import { useOverlayPanel } from '@renderer/hooks/use-overlay-panel'
 import { DIAGNOSTICS_DRAWER_WIDTH_PX } from '../../../../../shared/runtime-evidence'
 import type { MediaFeatureState, ThemePreference } from '../../../../../shared/types'
+import { normalizeMediaFeatures } from '../../../../../shared/media-features'
 import { TOOLBAR_HEIGHT_PX } from '../../../../../shared/sidebar'
 import {
   hasProjectForUrl,
@@ -253,8 +254,8 @@ const showProblemBadge = !diagnosticsOpen && problemCount > 0
     const stored = window.localStorage.getItem(MEDIA_FEATURES_STORAGE_KEY)
     if (!stored) return
     try {
-      const parsed = JSON.parse(stored) as MediaFeatureState
-      void window.panelApi.setMediaFeatures(parsed)
+      const parsed = JSON.parse(stored) as Partial<MediaFeatureState>
+      void window.panelApi.setMediaFeatures(normalizeMediaFeatures(parsed))
     } catch {
       // Ignore malformed persisted media features.
     }

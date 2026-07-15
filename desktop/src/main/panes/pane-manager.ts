@@ -10,6 +10,7 @@ import type {
   ThemePreference
 } from '../../shared/types'
 import { DEFAULT_MEDIA_FEATURES } from '../../shared/types'
+import { normalizeMediaFeatures } from '../../shared/media-features'
 import {
   RUNTIME_EVIDENCE_EMIT_WINDOW_MS,
   type RuntimeEvidenceChannel,
@@ -758,9 +759,11 @@ export class PaneManager {
   }
 
   async setMediaFeatures(state: MediaFeatureState): Promise<void> {
-    this.mediaFeatures = state
+    this.mediaFeatures = normalizeMediaFeatures(state)
     await this.deviceReady
-    await Promise.all(PANE_IDS.map((paneId) => this.getEngine(paneId).setMediaFeatures(state)))
+    await Promise.all(
+      PANE_IDS.map((paneId) => this.getEngine(paneId).setMediaFeatures(this.mediaFeatures))
+    )
   }
 
   getMediaFeatures(): MediaFeatureState {

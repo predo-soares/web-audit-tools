@@ -1,4 +1,4 @@
-import type { MediaFeatureState, ThemePreference } from './types'
+import { DEFAULT_MEDIA_FEATURES, type MediaFeatureState, type ThemePreference } from './types'
 
 export interface EmulatedMediaFeature {
   name: string
@@ -10,6 +10,17 @@ export interface EmulatedMedia {
   media: string
   /** Only the features the user has actually overridden. */
   features: EmulatedMediaFeature[]
+}
+
+/**
+ * Fill any missing keys from persisted / partial media-feature payloads so CDP
+ * commands always receive valid parameters (undefined enum values throw
+ * "Invalid parameters").
+ */
+export function normalizeMediaFeatures(
+  state: Partial<MediaFeatureState> | null | undefined
+): MediaFeatureState {
+  return { ...DEFAULT_MEDIA_FEATURES, ...(state ?? {}) }
 }
 
 /**

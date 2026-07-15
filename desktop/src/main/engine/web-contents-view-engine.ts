@@ -10,7 +10,7 @@ import type {
   ThemePreference
 } from '../../shared/types'
 import { DEFAULT_MEDIA_FEATURES } from '../../shared/types'
-import { buildEmulatedMedia } from '../../shared/media-features'
+import { buildEmulatedMedia, normalizeMediaFeatures } from '../../shared/media-features'
 import {
   createElementMirror,
   type ElementFingerprint,
@@ -266,7 +266,7 @@ export class WebContentsViewEngine implements EngineView {
   }
 
   async setMediaFeatures(state: MediaFeatureState): Promise<void> {
-    this.mediaFeatures = state
+    this.mediaFeatures = normalizeMediaFeatures(state)
     await this.applyEmulatedMedia()
   }
 
@@ -704,34 +704,45 @@ export class WebContentsViewEngine implements EngineView {
   }
 
   private async applyEmulatedMedia(): Promise<void> {
+    const mediaFeatures = normalizeMediaFeatures(this.mediaFeatures)
+    this.mediaFeatures = mediaFeatures
+
     try {
       await this.ensureDebugger()
+    } catch (error) {
+      console.error(`[pane:${this.paneId}] CDP debugger attach failed:`, error)
+      return
+    }
+
+    try {
       // One CDP command carries the media type + every overridden feature
       // (prefers-color-scheme comes from themePreference); a second command
       // covers Chrome's automatic dark theme, which has no media-feature form.
-      const { media, features } = buildEmulatedMedia(this.themePreference, this.mediaFeatures)
+      const { media, features } = buildEmulatedMedia(this.themePreference, mediaFeatures)
       await this.webContents.debugger.sendCommand('Emulation.setEmulatedMedia', {
         media,
         features
       })
-      await this.webContents.debugger.sendCommand('Emulation.setAutoDarkModeOverride', {
-        enabled: this.mediaFeatures.autoDarkMode
-      })
+      // Omit `enabled` to clear the override (matches DevTools Rendering panel).
+      await this.webContents.debugger.sendCommand(
+        'Emulation.setAutoDarkModeOverride',
+        mediaFeatures.autoDarkMode ? { enabled: true } : {}
+      )
       await this.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', {
-        enabled: this.mediaFeatures.focusedPage
+        enabled: mediaFeatures.focusedPage
       })
       await this.webContents.debugger.sendCommand('Emulation.setEmulatedVisionDeficiency', {
-        type: this.mediaFeatures.visionDeficiency
+        type: mediaFeatures.visionDeficiency
       })
       const disabledImageTypes: string[] = []
-      if (this.mediaFeatures.disableAvif) disabledImageTypes.push('avif')
-      if (this.mediaFeatures.disableWebp) disabledImageTypes.push('webp')
+      if (mediaFeatures.disableAvif) disabledImageTypes.push('avif')
+      if (mediaFeatures.disableWebp) disabledImageTypes.push('webp')
       await this.webContents.debugger.sendCommand('Emulation.setDisabledImageTypes', {
         imageTypes: disabledImageTypes
       })
-      if (this.mediaFeatures.osTextScale !== 1) {
+      if (typeof mediaFeatures.osTextScale === 'number' && mediaFeatures.osTextScale !== 1) {
         await this.webContents.debugger.sendCommand('Emulation.setEmulatedOSTextScale', {
-          scale: this.mediaFeatures.osTextScale
+          scale: mediaFeatures.osTextScale
         })
       }
     } catch (error) {
@@ -747,22 +758,22 @@ export class WebContentsViewEngine implements EngineView {
     try {
       await this.webContents.debugger.sendCommand('Overlay.enable')
       await this.webContents.debugger.sendCommand('Overlay.setShowPaintRects', {
-        result: this.mediaFeatures.paintFlashing
+        result: mediaFeatures.paintFlashing
       })
       await this.webContents.debugger.sendCommand('Overlay.setShowLayoutShiftRegions', {
-        result: this.mediaFeatures.layoutShiftRegions
+        result: mediaFeatures.layoutShiftRegions
       })
       await this.webContents.debugger.sendCommand('Overlay.setShowDebugBorders', {
-        show: this.mediaFeatures.layerBorders
+        show: mediaFeatures.layerBorders
       })
       await this.webContents.debugger.sendCommand('Overlay.setShowFPSCounter', {
-        show: this.mediaFeatures.frameRenderingStats
+        show: mediaFeatures.frameRenderingStats
       })
       await this.webContents.debugger.sendCommand('Overlay.setShowScrollBottleneckRects', {
-        show: this.mediaFeatures.scrollingPerf
+        show: mediaFeatures.scrollingPerf
       })
       await this.webContents.debugger.sendCommand('Overlay.setShowAdHighlights', {
-        show: this.mediaFeatures.highlightAds
+        show: mediaFeatures.highlightAds
       })
     } catch (error) {
       console.error(`[pane:${this.paneId}] CDP overlay rendering flags failed:`, error)
@@ -770,7 +781,7 @@ export class WebContentsViewEngine implements EngineView {
     try {
       await this.webContents.debugger.sendCommand('CSS.enable')
       await this.webContents.debugger.sendCommand('CSS.setLocalFontsEnabled', {
-        enabled: !this.mediaFeatures.disableLocalFonts
+        enabled: !mediaFeatures.disableLocalFonts
       })
     } catch (error) {
       console.error(`[pane:${this.paneId}] CDP CSS local fonts override failed:`, error)
