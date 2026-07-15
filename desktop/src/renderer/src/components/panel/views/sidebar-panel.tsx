@@ -15,6 +15,8 @@ import {
   AccordionTrigger
 } from '@renderer/components/ui/accordion'
 import { cn } from '@renderer/lib/utils'
+import { SearchList01Icon } from '@hugeicons/core-free-icons'
+import { Icon } from '@renderer/components/ui/icon'
 
 const sidebarSectionTriggerClassName = cn(
   'mb-2 items-center rounded-none border-0 px-2 py-0 text-xs font-normal tracking-wide text-muted-foreground/50',
@@ -150,6 +152,21 @@ export function SidebarPanel({
             className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-4"
             style={{ paddingTop: TOOLBAR_HEIGHT_PX }}
           >
+            <div className="mb-4 border-b border-white/10 pb-4">
+              <button
+                type="button"
+                data-testid="sidebar-seo-view"
+                className={cn(
+                  'flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-sm text-foreground/70 transition-colors',
+                  'hover:bg-white/5 hover:text-foreground',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50'
+                )}
+                onClick={() => onAction({ type: 'enter-seo-view' })}
+              >
+                <Icon icon={SearchList01Icon} size={16} />
+                SEO
+              </button>
+            </div>
             <Accordion multiple defaultValue={['projects', 'history']} className="gap-0  ">
               <AccordionItem value="projects" className="mb-6 border-0">
                 <AccordionTrigger className={sidebarSectionTriggerClassName}>
