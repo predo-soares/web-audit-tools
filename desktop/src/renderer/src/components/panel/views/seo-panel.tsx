@@ -17,6 +17,7 @@ import {
 } from '../../../../../shared/seo-audit'
 import { cn } from '@renderer/lib/utils'
 import { SegmentedControl } from '@renderer/components/ui/segmented-control'
+import { Checkbox } from '@renderer/components/ui/checkbox'
 import { auditMarkdown } from '../../../../../shared/seo-markdown'
 
 const CATEGORIES = Object.keys(CATEGORY_LABEL) as AuditCategory[]
@@ -363,11 +364,11 @@ export function SeoPanel(): React.JSX.Element {
                     </button>
                   ))}
                 </div>
-                <label className="mt-2 flex items-start gap-2 text-[10px] text-muted-foreground">
-                  <input
-                    type="checkbox"
+                <label className="mt-2 flex cursor-pointer items-start gap-2 text-[10px] text-muted-foreground">
+                  <Checkbox
+                    className="mt-0.5 size-3"
                     checked={shareSession}
-                    onChange={(event) => setShareSession(event.target.checked)}
+                    onCheckedChange={(v) => setShareSession(Boolean(v))}
                   />
                   Explicitly share authenticated session cookies with the isolated target
                 </label>

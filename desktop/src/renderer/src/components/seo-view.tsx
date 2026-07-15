@@ -17,6 +17,7 @@ import {
 } from '../../../shared/seo-audit'
 import { cn } from '@renderer/lib/utils'
 import { SegmentedControl } from '@renderer/components/ui/segmented-control'
+import { Checkbox } from '@renderer/components/ui/checkbox'
 import { auditMarkdown } from '../../../shared/seo-markdown'
 import { ArrowLeft01Icon } from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
@@ -595,11 +596,11 @@ export function SeoView({ onClose }: { onClose: () => void }): React.JSX.Element
                       </button>
                     ))}
                   </div>
-                  <label className="mt-2 flex items-start gap-2 text-xs text-muted-foreground">
-                    <input
-                      type="checkbox"
+                  <label className="mt-2 flex cursor-pointer items-start gap-2 text-xs text-muted-foreground">
+                    <Checkbox
+                      className="mt-0.5"
                       checked={shareSession}
-                      onChange={(event) => setShareSession(event.target.checked)}
+                      onCheckedChange={(v) => setShareSession(Boolean(v))}
                     />
                     Share authenticated session cookies with the isolated target
                   </label>
