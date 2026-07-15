@@ -340,7 +340,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
                   aria-label={`Filter ${activeTab} output`}
                   placeholder={`Filter ${activeTab}`}
                   value={activeTab === 'console' ? consoleFilter : networkFilter}
-                  className="h-7 rounded-md pl-7 font-sans text-xs"
+                  className="h-7 rounded-md border-0 pl-7 font-sans text-xs"
                   onChange={(event) => {
                     if (activeTab === 'console') {
                       setConsoleFilter(event.target.value)
