@@ -12,7 +12,7 @@ import {
 } from '../../../../../shared/runtime-evidence'
 import { TOOLBAR_HEIGHT_PX } from '../../../../../shared/sidebar'
 import { cn } from '@renderer/lib/utils'
-import { ArrowDown01Icon, ArrowRight01Icon, SearchVisualIcon } from '@hugeicons/core-free-icons'
+import { ArrowDown01Icon, ArrowRight01Icon, Search01Icon } from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
 import { Input } from '@renderer/components/ui/input'
 import { RenderingControls } from './rendering-controls'
@@ -331,7 +331,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
             <div className="flex items-center gap-2 border-b border-white/10 px-2 py-2">
               <div className="relative min-w-0 flex-1">
                 <Icon
-                  icon={SearchVisualIcon}
+                  icon={Search01Icon}
                   className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
                 />
                 <Input
