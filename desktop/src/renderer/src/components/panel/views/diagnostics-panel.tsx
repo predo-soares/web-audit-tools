@@ -15,6 +15,10 @@ import { cn } from '@renderer/lib/utils'
 import { ArrowDown01Icon, ArrowRight01Icon, Search01Icon } from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
 import { Input } from '@renderer/components/ui/input'
+import { Badge } from '@renderer/components/ui/badge'
+import { Button } from '@renderer/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@renderer/components/ui/select'
+import { Tabs, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
 import { RenderingControls } from './rendering-controls'
 
 type DiagnosticsTab = RuntimeEvidenceChannel | 'rendering'
@@ -264,65 +268,53 @@ export function DiagnosticsPanel(): React.JSX.Element {
         className="absolute inset-y-0 left-0 z-20 w-1 -translate-x-1/2 cursor-col-resize touch-none hover:bg-white/10 active:bg-white/15"
         onPointerDown={handleResizePointerDown}
       />
-      <div className="relative z-[1] flex min-h-0 flex-1 flex-col" style={{ width: panelWidth }}>
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => v && setActiveTab(v as DiagnosticsTab)}
+        className="relative z-[1] flex min-h-0 flex-1 flex-col gap-0"
+        style={{ width: panelWidth }}
+      >
         <header
           className="flex items-center gap-1 border-b border-white/10 px-2 py-2"
           style={{ paddingTop: TOOLBAR_HEIGHT_PX }}
         >
-          <button
-            type="button"
-            data-testid="diagnostics-tab-console"
-            aria-selected={activeTab === 'console'}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors',
-              activeTab === 'console'
-                ? 'bg-white/10 text-foreground'
-                : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
-            )}
-            onClick={() => setActiveTab('console')}
-          >
-            Console
-            <span
-              data-testid="diagnostics-console-badge"
-              className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] tabular-nums"
+          <TabsList variant="line" className="h-auto gap-0 bg-transparent p-0">
+            <TabsTrigger
+              value="console"
+              data-testid="diagnostics-tab-console"
+              className="h-auto gap-1.5 rounded-md px-2 py-1 text-xs font-medium data-active:bg-white/10 data-active:text-foreground data-active:shadow-none after:hidden"
             >
-              {consoleCount}
-            </span>
-          </button>
-          <button
-            type="button"
-            data-testid="diagnostics-tab-network"
-            aria-selected={activeTab === 'network'}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors',
-              activeTab === 'network'
-                ? 'bg-white/10 text-foreground'
-                : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
-            )}
-            onClick={() => setActiveTab('network')}
-          >
-            Network
-            <span
-              data-testid="diagnostics-network-badge"
-              className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] tabular-nums"
+              Console
+              <Badge
+                data-testid="diagnostics-console-badge"
+                variant="secondary"
+                className="h-auto px-1.5 py-0.5 text-[10px] tabular-nums"
+              >
+                {consoleCount}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger
+              value="network"
+              data-testid="diagnostics-tab-network"
+              className="h-auto gap-1.5 rounded-md px-2 py-1 text-xs font-medium data-active:bg-white/10 data-active:text-foreground data-active:shadow-none after:hidden"
             >
-              {networkCount}
-            </span>
-          </button>
-          <button
-            type="button"
-            data-testid="diagnostics-tab-rendering"
-            aria-selected={activeTab === 'rendering'}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors',
-              activeTab === 'rendering'
-                ? 'bg-white/10 text-foreground'
-                : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
-            )}
-            onClick={() => setActiveTab('rendering')}
-          >
-            Rendering
-          </button>
+              Network
+              <Badge
+                data-testid="diagnostics-network-badge"
+                variant="secondary"
+                className="h-auto px-1.5 py-0.5 text-[10px] tabular-nums"
+              >
+                {networkCount}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger
+              value="rendering"
+              data-testid="diagnostics-tab-rendering"
+              className="h-auto rounded-md px-2 py-1 text-xs font-medium data-active:bg-white/10 data-active:text-foreground data-active:shadow-none after:hidden"
+            >
+              Rendering
+            </TabsTrigger>
+          </TabsList>
         </header>
         {activeTab === 'rendering' ? (
           <RenderingControls />
@@ -351,44 +343,56 @@ export function DiagnosticsPanel(): React.JSX.Element {
                 />
               </div>
               {activeTab === 'console' ? (
-                <select
-                  data-testid="diagnostics-console-level-filter"
-                  aria-label="Filter console by severity"
+                <Select
                   value={consoleLevelFilter}
-                  className="h-7 shrink-0 rounded-md bg-white/5 px-2 font-sans text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                  onChange={(event) =>
-                    setConsoleLevelFilter(event.target.value as ConsoleLevelFilter)
-                  }
+                  onValueChange={(v) => setConsoleLevelFilter(v as ConsoleLevelFilter)}
                 >
-                  <option value="all">All levels</option>
-                  <option value="errors">Errors</option>
-                  <option value="warnings">Warnings</option>
-                  <option value="info">Info</option>
-                </select>
+                  <SelectTrigger
+                    size="sm"
+                    data-testid="diagnostics-console-level-filter"
+                    aria-label="Filter console by severity"
+                    className="h-7 shrink-0 w-auto font-sans text-xs"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All levels</SelectItem>
+                    <SelectItem value="errors">Errors</SelectItem>
+                    <SelectItem value="warnings">Warnings</SelectItem>
+                    <SelectItem value="info">Info</SelectItem>
+                  </SelectContent>
+                </Select>
               ) : (
-                <select
-                  data-testid="diagnostics-network-outcome-filter"
-                  aria-label="Filter network by outcome"
+                <Select
                   value={networkOutcomeFilter}
-                  className="h-7 shrink-0 rounded-md bg-white/5 px-2 font-sans text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                  onChange={(event) =>
-                    setNetworkOutcomeFilter(event.target.value as NetworkOutcomeFilter)
-                  }
+                  onValueChange={(v) => setNetworkOutcomeFilter(v as NetworkOutcomeFilter)}
                 >
-                  <option value="all">All outcomes</option>
-                  <option value="failed">Failed</option>
-                  <option value="4xx">4xx</option>
-                  <option value="5xx">5xx</option>
-                </select>
+                  <SelectTrigger
+                    size="sm"
+                    data-testid="diagnostics-network-outcome-filter"
+                    aria-label="Filter network by outcome"
+                    className="h-7 shrink-0 w-auto font-sans text-xs"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All outcomes</SelectItem>
+                    <SelectItem value="failed">Failed</SelectItem>
+                    <SelectItem value="4xx">4xx</SelectItem>
+                    <SelectItem value="5xx">5xx</SelectItem>
+                  </SelectContent>
+                </Select>
               )}
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 data-testid={`diagnostics-clear-${activeTab}`}
-                className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+                className="h-7 shrink-0 px-2 text-xs font-medium text-muted-foreground"
                 onClick={() => handleClear(activeTab)}
               >
                 Clear
-              </button>
+              </Button>
             </div>
             <div
               ref={listRef}
@@ -579,7 +583,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
             </div>
           </div>
         )}
-      </div>
+      </Tabs>
     </aside>
   )
 }
