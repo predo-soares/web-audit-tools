@@ -50,7 +50,7 @@ export function SidebarPanel({
   const [committedUrl, setCommittedUrl] = useState('')
   const [clearDialogOpen, setClearDialogOpen] = useState(false)
   const [historyExpanded, setHistoryExpanded] = useState(false)
-  const [activeTab, setActiveTab] = useState<'seo' | 'devices' | null>(null)
+  const [activeTab, setActiveTab] = useState<'seo' | 'lighthouse' | 'devices' | null>(null)
   const HISTORY_PAGE_SIZE = 10
   const historyHeadingRef = useRef<HTMLButtonElement>(null)
   const historyRowRefs = useRef<Array<HTMLButtonElement | null>>([])
@@ -182,6 +182,23 @@ export function SidebarPanel({
             >
               <Icon icon={SearchVisualIcon} size={16} />
               <span className="text-foreground">SEO</span>
+            </button>
+            <button
+              type="button"
+              data-testid="sidebar-lighthouse-view"
+              className={cn(
+                'flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors',
+                activeTab === 'lighthouse'
+                  ? 'bg-white/10 text-foreground'
+                  : 'text-foreground/70 hover:bg-white/5 hover:text-foreground'
+              )}
+              onClick={() => {
+                setActiveTab((value) => (value === 'lighthouse' ? null : 'lighthouse'))
+                onAction({ type: 'enter-lighthouse-view' })
+              }}
+            >
+              <Icon icon={SearchVisualIcon} size={16} />
+              <span className="text-foreground">Lighthouse</span>
             </button>
             <button
               type="button"

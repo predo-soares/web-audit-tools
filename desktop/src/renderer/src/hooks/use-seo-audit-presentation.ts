@@ -17,7 +17,8 @@ import type { SnapshotResult } from '../../../shared/snapshot'
 const IDLE_LIGHTHOUSE_STATE: LighthouseAssessmentState = {
   phase: 'idle',
   result: null,
-  error: null
+  error: null,
+  progress: null
 }
 
 export interface SeoAuditPresentationAdapter {

@@ -98,6 +98,7 @@ export interface PreviewApi {
   cancelLighthouse: () => Promise<void>
   onLighthouseState: (callback: (state: LighthouseAssessmentState) => void) => () => void
   onEnterSeoView: (callback: () => void) => () => void
+  onEnterLighthouseView: (callback: () => void) => () => void
   onEnterDevicesView: (callback: () => void) => () => void
   setDeviceProfile: (paneId: PaneId, profile: DeviceProfile) => Promise<void>
   setPanesVisible: (visible: boolean) => Promise<void>
@@ -281,6 +282,11 @@ const api: PreviewApi = {
     const listener = (): void => callback()
     ipcRenderer.on('app:seo-view', listener)
     return () => ipcRenderer.removeListener('app:seo-view', listener)
+  },
+  onEnterLighthouseView: (callback) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('app:lighthouse-view', listener)
+    return () => ipcRenderer.removeListener('app:lighthouse-view', listener)
   },
   onEnterDevicesView: (callback) => {
     const listener = (): void => callback()

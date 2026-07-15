@@ -6,6 +6,7 @@ import { isCommittedPageUrl } from '../../shared/project'
 import { PreviewCanvas } from '@renderer/components/preview-canvas'
 import { SeoView } from '@renderer/components/seo-view'
 import { DevicesView } from '@renderer/components/devices-view'
+import { LighthouseView } from '@renderer/components/lighthouse-view'
 import { ToolbarProvider } from '@renderer/context/toolbar-context'
 import { DiagnosticsProvider } from '@renderer/context/diagnostics-context'
 import { SidebarProvider } from '@renderer/context/sidebar-context'
@@ -45,8 +46,7 @@ export default function App(): React.JSX.Element {
   const [activePane, setActivePane] = useState<PaneId | null>(null)
   const [committedUrl, setCommittedUrl] = useState('')
   const [safariChromeEnabled, setSafariChromeEnabled] = useState(false)
-  const [seoViewOpen, setSeoViewOpen] = useState(false)
-  const [devicesViewOpen, setDevicesViewOpen] = useState(false)
+  const [workspace, setWorkspace] = useState<'browser' | 'seo' | 'lighthouse' | 'devices'>('browser')
   const [selectedPresets, setSelectedPresets] = useState<SelectedPresets>(DEFAULT_SELECTED)
 
   const visiblePanes: PaneId[] = PANE_IDS.filter((id) => selectedPresets[id] !== undefined)
@@ -112,16 +112,23 @@ export default function App(): React.JSX.Element {
     })
     const unsubscribeSafariChrome = window.api.onSafariChromeEnabledChanged(setSafariChromeEnabled)
     const unsubscribeSeoView = window.api.onEnterSeoView(() => {
-      setSeoViewOpen((v) => {
-        const next = !v
-        void window.api.setPanesVisible(!next)
+      setWorkspace((current) => {
+        const next = current === 'seo' ? 'browser' : 'seo'
+        void window.api.setPanesVisible(next === 'browser')
+        return next
+      })
+    })
+    const unsubscribeLighthouseView = window.api.onEnterLighthouseView(() => {
+      setWorkspace((current) => {
+        const next = current === 'lighthouse' ? 'browser' : 'lighthouse'
+        void window.api.setPanesVisible(next === 'browser')
         return next
       })
     })
     const unsubscribeDevicesView = window.api.onEnterDevicesView(() => {
-      setDevicesViewOpen((v) => {
-        const next = !v
-        void window.api.setPanesVisible(!next)
+      setWorkspace((current) => {
+        const next = current === 'devices' ? 'browser' : 'devices'
+        void window.api.setPanesVisible(next === 'browser')
         return next
       })
     })
@@ -132,6 +139,7 @@ export default function App(): React.JSX.Element {
       unsubscribeNavigation()
       unsubscribeSafariChrome()
       unsubscribeSeoView()
+      unsubscribeLighthouseView()
       unsubscribeDevicesView()
     }
   }, [])
@@ -164,17 +172,22 @@ export default function App(): React.JSX.Element {
     <SidebarProvider>
       <DiagnosticsProvider>
           <ToolbarProvider>
-            {seoViewOpen ? (
+            {workspace === 'seo' ? (
               <SeoView onClose={() => {
-                setSeoViewOpen(false)
+                setWorkspace('browser')
                 void window.api.setPanesVisible(true)
               }} />
-            ) : devicesViewOpen ? (
+            ) : workspace === 'lighthouse' ? (
+              <LighthouseView onClose={() => {
+                setWorkspace('browser')
+                void window.api.setPanesVisible(true)
+              }} />
+            ) : workspace === 'devices' ? (
               <DevicesView
                 selectedPresets={selectedPresets}
                 onTogglePreset={(id) => void handleTogglePreset(id)}
                 onClose={() => {
-                  setDevicesViewOpen(false)
+                  setWorkspace('browser')
                   void window.api.setPanesVisible(true)
                 }}
               />

@@ -448,6 +448,14 @@ export function registerIpcHandlers(
       return
     }
 
+    if (action.type === 'enter-lighthouse-view') {
+      const mainWindow = BrowserWindow.getAllWindows()[0]
+      if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+        mainWindow.webContents.send('app:lighthouse-view')
+      }
+      return
+    }
+
     if (action.type === 'toggle-diagnostics') {
       panelManager.notifyToolbarPanel('panel:toggle-diagnostics')
       return

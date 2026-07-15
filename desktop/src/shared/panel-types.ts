@@ -77,6 +77,7 @@ export type PanelAction =
   | { type: 'stop-loading' }
   | { type: 'set-sync-enabled'; enabled: boolean }
   | { type: 'enter-seo-view' }
+  | { type: 'enter-lighthouse-view' }
   | { type: 'enter-devices-view' }
 
 export const PANEL_MIN_SIZE: Record<PanelId, Size> = {

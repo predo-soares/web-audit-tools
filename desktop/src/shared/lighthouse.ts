@@ -38,10 +38,16 @@ export interface LighthouseAssessmentResult {
   completedAt: number
   requestedUrl: string
   finalUrl: string
+  /** @deprecated Page SEO compatibility; removed with the presentation migration. */
+  targetUrl: string
+  /** @deprecated Page SEO compatibility; Lighthouse no longer links to an audit. */
+  pageAuditId: null
   shareSession: boolean
   distinctLoad: true
   stale: boolean
   categories: LighthouseCategory[]
+  /** @deprecated Page SEO compatibility; prefer categories. */
+  scores: Record<string, number | null>
   audits: Record<string, LighthouseAuditDetail>
   opportunityIds: string[]
   diagnosticIds: string[]
@@ -150,6 +156,8 @@ export function projectLighthouseResult(
     completedAt: input.completedAt,
     requestedUrl: input.requestedUrl,
     finalUrl: text(lhr.finalDisplayedUrl || input.requestedUrl),
+    targetUrl: text(lhr.finalDisplayedUrl || input.requestedUrl),
+    pageAuditId: null,
     shareSession: input.shareSession,
     distinctLoad: true,
     stale: false,
@@ -159,6 +167,12 @@ export function projectLighthouseResult(
       score: typeof category.score === 'number' ? category.score : null,
       auditIds: (category.auditRefs ?? []).map((ref) => ref.id).filter((id) => retainedSet.has(id))
     })),
+    scores: Object.fromEntries(
+      categoryEntries.map(([id, category]) => [
+        id,
+        typeof category.score === 'number' ? category.score : null
+      ])
+    ),
     audits,
     opportunityIds: opportunityIds.filter((id) => retainedSet.has(id)),
     diagnosticIds: diagnosticIds.filter((id) => retainedSet.has(id)),
