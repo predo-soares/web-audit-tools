@@ -10,11 +10,7 @@ describe('Page SEO audit presentation navigation', () => {
 
   it('tracks the current URL and page title', () => {
     expect(
-      applySeoNavigation(
-        current,
-        { barUrl: 'https://example.com/docs', pageTitle: 'Docs' },
-        false
-      )
+      applySeoNavigation(current, { barUrl: 'https://example.com/docs', pageTitle: 'Docs' }, false)
     ).toMatchObject({ url: 'https://example.com/docs', pageTitle: 'Docs' })
   })
 

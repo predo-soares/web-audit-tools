@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import {
   IDLE_AUDIT_STATE,
   inferIndexingIntent,
@@ -40,6 +40,36 @@ export interface SeoNavigationPresentation {
   intent: IndexingIntent
 }
 
+export interface SeoAuditPresentation {
+  url: string
+  pageTitle: string
+  intent: IndexingIntent
+  auditable: boolean
+  job: AuditJobState
+  result: AuditJobState['result']
+  running: boolean
+  linkFilter: string
+  setLinkFilter: Dispatch<SetStateAction<string>>
+  findingCategory: AuditCategory | null
+  setFindingCategory: Dispatch<SetStateAction<AuditCategory | null>>
+  findingOutcome: FindingOutcome | null
+  setFindingOutcome: Dispatch<SetStateAction<FindingOutcome | null>>
+  copied: string
+  exportStatus: string
+  lighthouse: LighthouseAssessmentState
+  lighthouseProfile: LighthouseProfile
+  setLighthouseProfile: Dispatch<SetStateAction<LighthouseProfile>>
+  shareSession: boolean
+  setShareSession: Dispatch<SetStateAction<boolean>>
+  handleIntentChange(intent: IndexingIntent): void
+  handleRun(): void
+  handleCancel(): void
+  copyMarkdown(markdown: string, label: string): void
+  exportWithSnapshot(): void
+  runLighthouse(): void
+  cancelLighthouse(): void
+}
+
 export function applySeoNavigation(
   current: SeoNavigationPresentation,
   navigation: Pick<PaneNavigationState, 'barUrl' | 'pageTitle'>,
@@ -55,7 +85,9 @@ export function applySeoNavigation(
   }
 }
 
-export function useSeoAuditPresentation(adapter: SeoAuditPresentationAdapter) {
+export function useSeoAuditPresentation(
+  adapter: SeoAuditPresentationAdapter
+): SeoAuditPresentation {
   const [navigation, setNavigation] = useState<SeoNavigationPresentation>({
     url: '',
     pageTitle: '',
@@ -66,8 +98,7 @@ export function useSeoAuditPresentation(adapter: SeoAuditPresentationAdapter) {
   const [findingOutcome, setFindingOutcome] = useState<FindingOutcome | null>(null)
   const [copied, setCopied] = useState('')
   const [exportStatus, setExportStatus] = useState('')
-  const [lighthouse, setLighthouse] =
-    useState<LighthouseAssessmentState>(IDLE_LIGHTHOUSE_STATE)
+  const [lighthouse, setLighthouse] = useState<LighthouseAssessmentState>(IDLE_LIGHTHOUSE_STATE)
   const [lighthouseProfile, setLighthouseProfile] = useState<LighthouseProfile>('mobile')
   const [shareSession, setShareSession] = useState(false)
   const [job, setJob] = useState<AuditJobState>(IDLE_AUDIT_STATE)
