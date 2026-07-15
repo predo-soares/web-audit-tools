@@ -1,9 +1,7 @@
 import {
   SEO_RULE_CATALOG_VERSION,
-  isAuditableUrl,
   type AuditAccessContext,
   type AuditResult,
-  type AuditRunResult,
   type DeliveredEvidence,
   type Finding,
   type IndexabilityResult,
@@ -185,55 +183,4 @@ export interface AuditPort {
 export interface AuditDeps {
   nowMs(): number
   newId(): string
-}
-
-export interface AuditOptions {
-  indexingIntent: IndexingIntent
-}
-
-const defaultDeps: AuditDeps = {
-  nowMs: () => Date.now(),
-  newId: () => `audit-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-}
-
-/**
- * Run a Page SEO audit against the active pane and return a versioned
- * {@link AuditResult}. Returns `{ ok: false, reason: 'no-url' }` when there is
- * no committed page to audit — no evidence is gathered in that case.
- */
-export async function runAudit(
-  port: AuditPort,
-  options: AuditOptions,
-  deps: AuditDeps = defaultDeps
-): Promise<AuditRunResult> {
-  const url = port.getActivePaneUrl()
-  if (!isAuditableUrl(url)) {
-    return { ok: false, reason: 'no-url' }
-  }
-
-  const paneId = port.getActivePaneId() ?? 'desktop'
-  const startedAt = deps.nowMs()
-  const rendered = await port.extractRendered(paneId)
-  const [delivered, accessContext] = await gatherReferencedEvidence(port, url)
-  const indexability = await port.fetchIndexability(url, rendered, delivered)
-  const socialSharing = await port.fetchSocial(url, rendered, delivered)
-  const internationalization = await port.fetchInternational(url, rendered, delivered)
-
-  const result = buildAuditResult(deps, {
-    paneId,
-    url,
-    navigationTimestamp: port.getLastNavTimestamp(paneId),
-    startedAt,
-    indexingIntent: options.indexingIntent,
-    evidence: {
-      rendered,
-      delivered,
-      accessContext,
-      indexability,
-      socialSharing,
-      internationalization
-    }
-  })
-
-  return { ok: true, result }
 }
