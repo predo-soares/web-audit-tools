@@ -72,6 +72,11 @@ test('diagnostics console filter narrows visible output without changing the bad
     await filter.fill('exceptional-no-match')
     await expect(drawer.getByText('No console output matches this filter.')).toBeVisible()
 
+    await filter.fill('')
+    await drawer.getByTestId('diagnostics-console-level-filter').selectOption('errors')
+    await expect(drawer.getByText('fixture-filter-hide')).toBeVisible()
+    await expect(drawer.getByText('fixture-filter-keep')).toHaveCount(0)
+
   } finally {
     await close()
   }
@@ -140,6 +145,13 @@ test('diagnostics network toolbar filters requests and contains the clear action
 
     await filter.fill('request-that-does-not-exist')
     await expect(drawer.getByText('No network requests match this filter.')).toBeVisible()
+
+    await filter.fill('')
+    await drawer.getByTestId('diagnostics-network-outcome-filter').selectOption('4xx')
+    await expect(
+      drawer.getByTestId('diagnostics-network-path').filter({ hasText: '/api/missing' })
+    ).toBeVisible()
+    await expect(drawer.getByTestId('diagnostics-network-entry')).toHaveCount(1)
 
   } finally {
     await close()

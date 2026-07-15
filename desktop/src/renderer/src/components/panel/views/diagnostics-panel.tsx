@@ -18,6 +18,8 @@ import { Input } from '@renderer/components/ui/input'
 import { RenderingControls } from './rendering-controls'
 
 type DiagnosticsTab = RuntimeEvidenceChannel | 'rendering'
+type ConsoleLevelFilter = 'all' | 'errors' | 'warnings' | 'info'
+type NetworkOutcomeFilter = 'all' | 'failed' | '4xx' | '5xx'
 
 const SCROLL_TAIL_THRESHOLD_PX = 24
 
@@ -69,6 +71,23 @@ const LEVEL_CLASS: Record<ConsoleEvidenceEntry['level'], string> = {
   rejection: 'text-destructive'
 }
 
+function matchesConsoleLevel(entry: ConsoleEvidenceEntry, filter: ConsoleLevelFilter): boolean {
+  if (filter === 'all') return true
+  if (filter === 'errors') return ['error', 'exception', 'rejection'].includes(entry.level)
+  if (filter === 'warnings') return entry.level === 'warn'
+  return ['info', 'log', 'debug'].includes(entry.level)
+}
+
+function matchesNetworkOutcome(entry: NetworkEvidenceEntry, filter: NetworkOutcomeFilter): boolean {
+  if (filter === 'all') return true
+  if (filter === 'failed') {
+    return entry.failed || (entry.status !== undefined && entry.status >= 400)
+  }
+  if (filter === '4xx')
+    return entry.status !== undefined && entry.status >= 400 && entry.status < 500
+  return entry.status !== undefined && entry.status >= 500
+}
+
 export function DiagnosticsPanel(): React.JSX.Element {
   const listRef = useRef<HTMLDivElement>(null)
   const stickToBottomRef = useRef(true)
@@ -78,38 +97,42 @@ export function DiagnosticsPanel(): React.JSX.Element {
   const [expandedEntryIds, setExpandedEntryIds] = useState<Set<string>>(() => new Set())
   const [consoleFilter, setConsoleFilter] = useState('')
   const [networkFilter, setNetworkFilter] = useState('')
+  const [consoleLevelFilter, setConsoleLevelFilter] = useState<ConsoleLevelFilter>('all')
+  const [networkOutcomeFilter, setNetworkOutcomeFilter] = useState<NetworkOutcomeFilter>('all')
 
   const visibleConsoleEntries = useMemo(() => {
     const entries = evidence?.console ?? []
     const query = consoleFilter.trim().toLocaleLowerCase()
-    if (!query) return entries
-
-    return entries.filter((entry) =>
-      [entry.level, entry.message, entry.sourceUrl, entry.line, entry.column, entry.stack]
-        .filter((value) => value !== undefined)
-        .some((value) => String(value).toLocaleLowerCase().includes(query))
+    return entries.filter(
+      (entry) =>
+        matchesConsoleLevel(entry, consoleLevelFilter) &&
+        (!query ||
+          [entry.level, entry.message, entry.sourceUrl, entry.line, entry.column, entry.stack]
+            .filter((value) => value !== undefined)
+            .some((value) => String(value).toLocaleLowerCase().includes(query)))
     )
-  }, [consoleFilter, evidence?.console])
+  }, [consoleFilter, consoleLevelFilter, evidence?.console])
 
   const visibleNetworkEntries = useMemo(() => {
     const entries = evidence?.network ?? []
     const query = networkFilter.trim().toLocaleLowerCase()
-    if (!query) return entries
-
-    return entries.filter((entry) =>
-      [
-        entry.status,
-        entry.method,
-        entry.path,
-        entry.durationMs,
-        entry.failed ? 'failed' : undefined,
-        formatHeaders(entry.requestHeaders),
-        formatHeaders(entry.responseHeaders)
-      ]
-        .filter((value) => value !== undefined)
-        .some((value) => String(value).toLocaleLowerCase().includes(query))
+    return entries.filter(
+      (entry) =>
+        matchesNetworkOutcome(entry, networkOutcomeFilter) &&
+        (!query ||
+          [
+            entry.status,
+            entry.method,
+            entry.path,
+            entry.durationMs,
+            entry.failed ? 'failed' : undefined,
+            formatHeaders(entry.requestHeaders),
+            formatHeaders(entry.responseHeaders)
+          ]
+            .filter((value) => value !== undefined)
+            .some((value) => String(value).toLocaleLowerCase().includes(query)))
     )
-  }, [evidence?.network, networkFilter])
+  }, [evidence?.network, networkFilter, networkOutcomeFilter])
 
   useEffect(() => {
     void window.panelApi.getDiagnosticsWidth().then((width) => {
@@ -327,6 +350,37 @@ export function DiagnosticsPanel(): React.JSX.Element {
                   }}
                 />
               </div>
+              {activeTab === 'console' ? (
+                <select
+                  data-testid="diagnostics-console-level-filter"
+                  aria-label="Filter console by severity"
+                  value={consoleLevelFilter}
+                  className="h-7 shrink-0 rounded-md bg-white/5 px-2 font-sans text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                  onChange={(event) =>
+                    setConsoleLevelFilter(event.target.value as ConsoleLevelFilter)
+                  }
+                >
+                  <option value="all">All levels</option>
+                  <option value="errors">Errors</option>
+                  <option value="warnings">Warnings</option>
+                  <option value="info">Info</option>
+                </select>
+              ) : (
+                <select
+                  data-testid="diagnostics-network-outcome-filter"
+                  aria-label="Filter network by outcome"
+                  value={networkOutcomeFilter}
+                  className="h-7 shrink-0 rounded-md bg-white/5 px-2 font-sans text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                  onChange={(event) =>
+                    setNetworkOutcomeFilter(event.target.value as NetworkOutcomeFilter)
+                  }
+                >
+                  <option value="all">All outcomes</option>
+                  <option value="failed">Failed</option>
+                  <option value="4xx">4xx</option>
+                  <option value="5xx">5xx</option>
+                </select>
+              )}
               <button
                 type="button"
                 data-testid={`diagnostics-clear-${activeTab}`}
