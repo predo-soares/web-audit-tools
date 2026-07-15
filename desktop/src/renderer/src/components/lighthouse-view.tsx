@@ -4,9 +4,12 @@ import type {
   LighthouseProfile
 } from '../../../shared/lighthouse'
 import { isAuditableUrl } from '../../../shared/seo-audit'
-import { TOOLBAR_HEIGHT_PX } from '../../../shared/sidebar'
+import { SIDEBAR_WIDTH_PX, TOOLBAR_HEIGHT_PX } from '../../../shared/sidebar'
+import { useSidebar } from '@renderer/context/sidebar-context'
 
 export function LighthouseView({ onClose }: { onClose: () => void }): React.JSX.Element {
+  const { isOpen: sidebarOpen, isTransitioning: sidebarTransitioning } = useSidebar()
+  const sidebarOffset = sidebarOpen || sidebarTransitioning ? SIDEBAR_WIDTH_PX : 0
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
   const [profile, setProfile] = useState<LighthouseProfile>('mobile')
@@ -32,7 +35,7 @@ export function LighthouseView({ onClose }: { onClose: () => void }): React.JSX.
   const auditRows = (ids: string[]) => ids.map((id) => result?.audits[id]).filter(Boolean)
 
   return (
-    <main data-testid="lighthouse-view" className="h-screen overflow-y-auto bg-background px-8 pb-10 text-foreground" style={{ paddingTop: TOOLBAR_HEIGHT_PX + 20 }}>
+    <main data-testid="lighthouse-view" className="h-screen overflow-y-auto bg-background pr-8 pb-10 text-foreground" style={{ paddingTop: TOOLBAR_HEIGHT_PX + 20, paddingLeft: sidebarOffset + 32 }}>
       <header className="flex items-start justify-between border-b border-white/10 pb-5">
         <div>
           <button type="button" onClick={onClose} className="mb-3 text-xs text-muted-foreground">← Browser</button>

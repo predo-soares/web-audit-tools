@@ -15,7 +15,7 @@ import {
   AccordionTrigger
 } from '@renderer/components/ui/accordion'
 import { cn } from '@renderer/lib/utils'
-import { LaptopPhoneSyncIcon, SearchVisualIcon } from '@hugeicons/core-free-icons'
+import { GaugeIcon, LaptopPhoneSyncIcon, SearchVisualIcon } from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
 
 const sidebarSectionTriggerClassName = cn(
@@ -161,7 +161,7 @@ export function SidebarPanel({
             <span className='font-light tracking-tight text-muted-foreground'>Tools</span>
           </div>
 
-          <div className="mb-3 px-2">
+          <div className="mb-3 px-2 flex flex-col gap-0.5">
             <button
               type="button"
               data-testid="sidebar-seo-view"
@@ -197,7 +197,7 @@ export function SidebarPanel({
                 onAction({ type: 'enter-lighthouse-view' })
               }}
             >
-              <Icon icon={SearchVisualIcon} size={16} />
+              <Icon icon={GaugeIcon} size={16} />
               <span className="text-foreground">Lighthouse</span>
             </button>
             <button
