@@ -161,7 +161,6 @@ export function registerIpcHandlers(
   auditManager: AuditManager
 ): void {
   const lighthouseManager = new LighthouseManager((state) => {
-    panelManager.notifyPanel('seo-right', 'seo-lighthouse:state', state)
     const mainWindow = BrowserWindow.getAllWindows()[0]
     if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
       mainWindow.webContents.send('seo-lighthouse:state', state)

@@ -10,7 +10,6 @@ export const SEARCH_ENHANCEMENT_PROFILE_VERSION = 'google-search-gallery-2026-07
 
 // Width of the docked SEO panel. Fixed for now — unlike the diagnostics drawer
 // the SEO panel is not user-resizable yet.
-export const SEO_PANEL_WIDTH_PX = 380
 
 /**
  * The user's declared expectation for how the audited page should be treated.
