@@ -8,7 +8,6 @@ import { CANVAS_GLASS_SURFACE_CLASS } from '@renderer/lib/glass-surface'
 import { cn } from '@renderer/lib/utils'
 import { PreviewCanvasContext } from '@renderer/context/preview-canvas-context'
 import { useDiagnostics } from '@renderer/context/diagnostics-context'
-import { useSeoPanel } from '@renderer/context/seo-panel-context'
 import { useSidebar } from '@renderer/context/sidebar-context'
 import { isCommittedPageUrl } from '../../../shared/project'
 
@@ -34,13 +33,8 @@ export function PreviewCanvas({
     isTransitioning: diagnosticsTransitioning,
     width: diagnosticsWidth
   } = useDiagnostics()
-  const { isOpen: seoOpen, isTransitioning: seoTransitioning, width: seoWidth } = useSeoPanel()
   const sidebarOffset = sidebarOpen || sidebarTransitioning ? SIDEBAR_WIDTH_PX : 0
-  // The diagnostics drawer and SEO panel share the right edge (mutually
-  // exclusive), so reserve whichever is currently occupying it.
-  const diagnosticsOffset = diagnosticsOpen || diagnosticsTransitioning ? diagnosticsWidth : 0
-  const seoOffset = seoOpen || seoTransitioning ? seoWidth : 0
-  const rightOffset = Math.max(diagnosticsOffset, seoOffset)
+  const rightOffset = diagnosticsOpen || diagnosticsTransitioning ? diagnosticsWidth : 0
   const hasPreview = isCommittedPageUrl(committedUrl) || Object.values(loadingStates).some(Boolean)
 
   useEffect(() => {

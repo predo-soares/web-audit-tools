@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import type { PaneId, PaneLoadError } from '../../shared/types'
 import { isCommittedPageUrl } from '../../shared/project'
 import { PreviewCanvas } from '@renderer/components/preview-canvas'
+import { SeoView } from '@renderer/components/seo-view'
 import { ToolbarProvider } from '@renderer/context/toolbar-context'
 import { DiagnosticsProvider } from '@renderer/context/diagnostics-context'
-import { SeoPanelProvider } from '@renderer/context/seo-panel-context'
 import { SidebarProvider } from '@renderer/context/sidebar-context'
 
 export default function App(): React.JSX.Element {
@@ -21,6 +21,7 @@ export default function App(): React.JSX.Element {
   const [activePane, setActivePane] = useState<PaneId | null>(null)
   const [committedUrl, setCommittedUrl] = useState('')
   const [safariChromeEnabled, setSafariChromeEnabled] = useState(false)
+  const [seoViewOpen, setSeoViewOpen] = useState(false)
 
   useEffect(() => {
     void window.api.getLoadingStates().then(setLoadingStates)
@@ -45,12 +46,20 @@ export default function App(): React.JSX.Element {
       }
     })
     const unsubscribeSafariChrome = window.api.onSafariChromeEnabledChanged(setSafariChromeEnabled)
+    const unsubscribeSeoView = window.api.onEnterSeoView(() => {
+      setSeoViewOpen((v) => {
+        const next = !v
+        void window.api.setPanesVisible(!next)
+        return next
+      })
+    })
 
     return () => {
       unsubscribeLoading()
       unsubscribeLoadError()
       unsubscribeNavigation()
       unsubscribeSafariChrome()
+      unsubscribeSeoView()
     }
   }, [])
 
@@ -81,17 +90,22 @@ export default function App(): React.JSX.Element {
   return (
     <SidebarProvider>
       <DiagnosticsProvider>
-        <SeoPanelProvider>
           <ToolbarProvider>
-            <PreviewCanvas
-              loadingStates={loadingStates}
-              errorStates={errorStates}
-              committedUrl={committedUrl}
-              activePane={activePane}
-              safariChromeEnabled={safariChromeEnabled}
-            />
+            {seoViewOpen ? (
+              <SeoView onClose={() => {
+                setSeoViewOpen(false)
+                void window.api.setPanesVisible(true)
+              }} />
+            ) : (
+              <PreviewCanvas
+                loadingStates={loadingStates}
+                errorStates={errorStates}
+                committedUrl={committedUrl}
+                activePane={activePane}
+                safariChromeEnabled={safariChromeEnabled}
+              />
+            )}
           </ToolbarProvider>
-        </SeoPanelProvider>
       </DiagnosticsProvider>
     </SidebarProvider>
   )
