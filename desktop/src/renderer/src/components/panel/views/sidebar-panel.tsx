@@ -15,7 +15,7 @@ import {
   AccordionTrigger
 } from '@renderer/components/ui/accordion'
 import { cn } from '@renderer/lib/utils'
-import { SearchVisualIcon } from '@hugeicons/core-free-icons'
+import { LaptopPhoneSyncIcon, SearchVisualIcon } from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
 
 const sidebarSectionTriggerClassName = cn(
@@ -50,7 +50,7 @@ export function SidebarPanel({
   const [committedUrl, setCommittedUrl] = useState('')
   const [clearDialogOpen, setClearDialogOpen] = useState(false)
   const [historyExpanded, setHistoryExpanded] = useState(false)
-  const [seoActive, setSeoActive] = useState(false)
+  const [activeTab, setActiveTab] = useState<'seo' | 'devices' | null>(null)
   const HISTORY_PAGE_SIZE = 10
   const historyHeadingRef = useRef<HTMLButtonElement>(null)
   const historyRowRefs = useRef<Array<HTMLButtonElement | null>>([])
@@ -167,18 +167,42 @@ export function SidebarPanel({
               data-testid="sidebar-seo-view"
               className={cn(
                 'flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors',
-                seoActive
+                activeTab === 'seo'
                   ? 'bg-white/10 text-foreground'
                   : 'text-foreground/70 hover:bg-white/5 hover:text-foreground',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50'
               )}
               onClick={() => {
-                setSeoActive((v) => !v)
+                if (activeTab === 'devices') {
+                  onAction({ type: 'enter-devices-view' })
+                }
+                setActiveTab((v) => (v === 'seo' ? null : 'seo'))
                 onAction({ type: 'enter-seo-view' })
               }}
             >
               <Icon icon={SearchVisualIcon} size={16} />
               <span className="text-foreground">SEO</span>
+            </button>
+            <button
+              type="button"
+              data-testid="sidebar-devices-view"
+              className={cn(
+                'flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors',
+                activeTab === 'devices'
+                  ? 'bg-white/10 text-foreground'
+                  : 'text-foreground/70 hover:bg-white/5 hover:text-foreground',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50'
+              )}
+              onClick={() => {
+                if (activeTab === 'seo') {
+                  onAction({ type: 'enter-seo-view' })
+                }
+                setActiveTab((v) => (v === 'devices' ? null : 'devices'))
+                onAction({ type: 'enter-devices-view' })
+              }}
+            >
+              <Icon icon={LaptopPhoneSyncIcon} size={16} />
+              <span className="text-foreground">Devices</span>
             </button>
           </div>
 
