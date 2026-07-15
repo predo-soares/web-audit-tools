@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   ConsoleEvidenceEntry,
   NetworkEvidenceEntry,
@@ -12,8 +12,9 @@ import {
 } from '../../../../../shared/runtime-evidence'
 import { TOOLBAR_HEIGHT_PX } from '../../../../../shared/sidebar'
 import { cn } from '@renderer/lib/utils'
-import { ArrowDown01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons'
+import { ArrowDown01Icon, ArrowRight01Icon, SearchVisualIcon } from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
+import { Input } from '@renderer/components/ui/input'
 import { RenderingControls } from './rendering-controls'
 
 type DiagnosticsTab = RuntimeEvidenceChannel | 'rendering'
@@ -55,9 +56,7 @@ function formatHeaders(headers?: Record<string, string>): string {
 }
 
 function isScrolledToBottom(element: HTMLElement): boolean {
-  return (
-    element.scrollHeight - element.scrollTop - element.clientHeight <= SCROLL_TAIL_THRESHOLD_PX
-  )
+  return element.scrollHeight - element.scrollTop - element.clientHeight <= SCROLL_TAIL_THRESHOLD_PX
 }
 
 const LEVEL_CLASS: Record<ConsoleEvidenceEntry['level'], string> = {
@@ -77,6 +76,40 @@ export function DiagnosticsPanel(): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<DiagnosticsTab>('console')
   const [evidence, setEvidence] = useState<RuntimeEvidenceSnapshot | null>(null)
   const [expandedEntryIds, setExpandedEntryIds] = useState<Set<string>>(() => new Set())
+  const [consoleFilter, setConsoleFilter] = useState('')
+  const [networkFilter, setNetworkFilter] = useState('')
+
+  const visibleConsoleEntries = useMemo(() => {
+    const entries = evidence?.console ?? []
+    const query = consoleFilter.trim().toLocaleLowerCase()
+    if (!query) return entries
+
+    return entries.filter((entry) =>
+      [entry.level, entry.message, entry.sourceUrl, entry.line, entry.column, entry.stack]
+        .filter((value) => value !== undefined)
+        .some((value) => String(value).toLocaleLowerCase().includes(query))
+    )
+  }, [consoleFilter, evidence?.console])
+
+  const visibleNetworkEntries = useMemo(() => {
+    const entries = evidence?.network ?? []
+    const query = networkFilter.trim().toLocaleLowerCase()
+    if (!query) return entries
+
+    return entries.filter((entry) =>
+      [
+        entry.status,
+        entry.method,
+        entry.path,
+        entry.durationMs,
+        entry.failed ? 'failed' : undefined,
+        formatHeaders(entry.requestHeaders),
+        formatHeaders(entry.responseHeaders)
+      ]
+        .filter((value) => value !== undefined)
+        .some((value) => String(value).toLocaleLowerCase().includes(query))
+    )
+  }, [evidence?.network, networkFilter])
 
   useEffect(() => {
     void window.panelApi.getDiagnosticsWidth().then((width) => {
@@ -160,34 +193,37 @@ export function DiagnosticsPanel(): React.JSX.Element {
   const consoleCount = evidence?.console.length ?? 0
   const networkCount = evidence?.network.length ?? 0
 
-  const handleResizePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    const startX = event.clientX
-    const startWidth = panelWidth
-    const handle = event.currentTarget
+  const handleResizePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      event.preventDefault()
+      const startX = event.clientX
+      const startWidth = panelWidth
+      const handle = event.currentTarget
 
-    handle.setPointerCapture(event.pointerId)
+      handle.setPointerCapture(event.pointerId)
 
-    const handlePointerMove = (moveEvent: PointerEvent): void => {
-      const nextWidth = clampDiagnosticsDrawerWidth(startWidth + (startX - moveEvent.clientX))
-      setPanelWidth(nextWidth)
-      window.panelApi.resizeDockedPanel(nextWidth, 'preview')
-    }
+      const handlePointerMove = (moveEvent: PointerEvent): void => {
+        const nextWidth = clampDiagnosticsDrawerWidth(startWidth + (startX - moveEvent.clientX))
+        setPanelWidth(nextWidth)
+        window.panelApi.resizeDockedPanel(nextWidth, 'preview')
+      }
 
-    const finishResize = (endEvent: PointerEvent): void => {
-      handle.releasePointerCapture(endEvent.pointerId)
-      const nextWidth = clampDiagnosticsDrawerWidth(startWidth + (startX - endEvent.clientX))
-      setPanelWidth(nextWidth)
-      window.panelApi.resizeDockedPanel(nextWidth, 'commit')
-      handle.removeEventListener('pointermove', handlePointerMove)
-      handle.removeEventListener('pointerup', finishResize)
-      handle.removeEventListener('pointercancel', finishResize)
-    }
+      const finishResize = (endEvent: PointerEvent): void => {
+        handle.releasePointerCapture(endEvent.pointerId)
+        const nextWidth = clampDiagnosticsDrawerWidth(startWidth + (startX - endEvent.clientX))
+        setPanelWidth(nextWidth)
+        window.panelApi.resizeDockedPanel(nextWidth, 'commit')
+        handle.removeEventListener('pointermove', handlePointerMove)
+        handle.removeEventListener('pointerup', finishResize)
+        handle.removeEventListener('pointercancel', finishResize)
+      }
 
-    handle.addEventListener('pointermove', handlePointerMove)
-    handle.addEventListener('pointerup', finishResize)
-    handle.addEventListener('pointercancel', finishResize)
-  }, [panelWidth])
+      handle.addEventListener('pointermove', handlePointerMove)
+      handle.addEventListener('pointerup', finishResize)
+      handle.addEventListener('pointercancel', finishResize)
+    },
+    [panelWidth]
+  )
 
   return (
     <aside
@@ -205,10 +241,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
         className="absolute inset-y-0 left-0 z-20 w-1 -translate-x-1/2 cursor-col-resize touch-none hover:bg-white/10 active:bg-white/15"
         onPointerDown={handleResizePointerDown}
       />
-      <div
-        className="relative z-[1] flex min-h-0 flex-1 flex-col"
-        style={{ width: panelWidth }}
-      >
+      <div className="relative z-[1] flex min-h-0 flex-1 flex-col" style={{ width: panelWidth }}>
         <header
           className="flex items-center gap-1 border-b border-white/10 px-2 py-2"
           style={{ paddingTop: TOOLBAR_HEIGHT_PX }}
@@ -267,186 +300,230 @@ export function DiagnosticsPanel(): React.JSX.Element {
           >
             Rendering
           </button>
-          {activeTab !== 'rendering' ? (
-            <button
-              type="button"
-              data-testid={`diagnostics-clear-${activeTab}`}
-              className="ml-auto rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
-              onClick={() => handleClear(activeTab)}
-            >
-              Clear
-            </button>
-          ) : null}
         </header>
         {activeTab === 'rendering' ? (
           <RenderingControls />
         ) : (
-        <div
-          ref={listRef}
-          data-testid="diagnostics-list"
-          className="min-h-0 flex-1 overflow-y-auto px-2 py-2 font-mono text-xs"
-          onScroll={handleListScroll}
-        >
-          {activeTab === 'console' ? (
-            !evidence || evidence.console.length === 0 ? (
-              <p className="px-1 py-2 text-sm font-sans text-muted-foreground">
-                No console output for the active pane yet.
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-1">
-                {evidence.console.map((entry) => {
-                  const source = formatSource(entry)
-                  const expanded = expandedEntryIds.has(entry.id)
-                  const canExpand = Boolean(entry.stack)
-                  return (
-                    <li
-                      key={entry.id}
-                      data-testid="diagnostics-console-entry"
-                      className="rounded-md px-2 py-1.5 hover:bg-white/5"
-                    >
-                      <div className="flex items-start gap-2">
-                        {canExpand ? (
-                          <button
-                            type="button"
-                            data-testid="diagnostics-console-expand"
-                            aria-expanded={expanded}
-                            aria-label={expanded ? 'Collapse stack trace' : 'Expand stack trace'}
-                            className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground"
-                            onClick={() => toggleExpanded(entry.id)}
-                          >
-                            <Icon
-                              icon={expanded ? ArrowDown01Icon : ArrowRight01Icon}
-                              className="size-3"
-                            />
-                          </button>
-                        ) : (
-                          <span className="w-3 shrink-0" />
-                        )}
-                        <span
-                          data-testid="diagnostics-console-level"
-                          className={cn('shrink-0 uppercase', LEVEL_CLASS[entry.level])}
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex items-center gap-2 border-b border-white/10 px-2 py-2">
+              <div className="relative min-w-0 flex-1">
+                <Icon
+                  icon={SearchVisualIcon}
+                  className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                />
+                <Input
+                  type="search"
+                  data-testid={`diagnostics-${activeTab}-filter`}
+                  aria-label={`Filter ${activeTab} output`}
+                  placeholder={`Filter ${activeTab}`}
+                  value={activeTab === 'console' ? consoleFilter : networkFilter}
+                  className="h-7 rounded-md pl-7 font-sans text-xs"
+                  onChange={(event) => {
+                    if (activeTab === 'console') {
+                      setConsoleFilter(event.target.value)
+                    } else {
+                      setNetworkFilter(event.target.value)
+                    }
+                  }}
+                />
+              </div>
+              <button
+                type="button"
+                data-testid={`diagnostics-clear-${activeTab}`}
+                className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+                onClick={() => handleClear(activeTab)}
+              >
+                Clear
+              </button>
+            </div>
+            <div
+              ref={listRef}
+              data-testid="diagnostics-list"
+              className="min-h-0 flex-1 overflow-y-auto px-2 py-2 font-mono text-xs"
+              onScroll={handleListScroll}
+            >
+              {activeTab === 'console' ? (
+                !evidence || evidence.console.length === 0 ? (
+                  <p className="px-1 py-2 text-sm font-sans text-muted-foreground">
+                    No console output for the active pane yet.
+                  </p>
+                ) : visibleConsoleEntries.length === 0 ? (
+                  <p className="px-1 py-2 text-sm font-sans text-muted-foreground">
+                    No console output matches this filter.
+                  </p>
+                ) : (
+                  <ul className="flex flex-col gap-1">
+                    {visibleConsoleEntries.map((entry) => {
+                      const source = formatSource(entry)
+                      const expanded = expandedEntryIds.has(entry.id)
+                      const canExpand = Boolean(entry.stack)
+                      return (
+                        <li
+                          key={entry.id}
+                          data-testid="diagnostics-console-entry"
+                          className="rounded-md px-2 py-1.5 hover:bg-white/5"
                         >
-                          {entry.level}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="break-words text-foreground">{entry.message}</p>
-                          {source ? (
+                          <div className="flex items-start gap-2">
+                            {canExpand ? (
+                              <button
+                                type="button"
+                                data-testid="diagnostics-console-expand"
+                                aria-expanded={expanded}
+                                aria-label={
+                                  expanded ? 'Collapse stack trace' : 'Expand stack trace'
+                                }
+                                className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground"
+                                onClick={() => toggleExpanded(entry.id)}
+                              >
+                                <Icon
+                                  icon={expanded ? ArrowDown01Icon : ArrowRight01Icon}
+                                  className="size-3"
+                                />
+                              </button>
+                            ) : (
+                              <span className="w-3 shrink-0" />
+                            )}
+                            <span
+                              data-testid="diagnostics-console-level"
+                              className={cn('shrink-0 uppercase', LEVEL_CLASS[entry.level])}
+                            >
+                              {entry.level}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="break-words text-foreground">{entry.message}</p>
+                              {source ? (
+                                <button
+                                  type="button"
+                                  data-testid="diagnostics-console-source-link"
+                                  className="mt-0.5 block max-w-full truncate text-left text-[11px] text-sky-400 hover:underline"
+                                  title={formatClipboardLocation(entry) ?? source}
+                                  onClick={() => copySourceLocation(entry)}
+                                >
+                                  {source}
+                                </button>
+                              ) : null}
+                              {expanded && entry.stack ? (
+                                <pre
+                                  data-testid="diagnostics-console-stack"
+                                  className="mt-1 whitespace-pre-wrap break-words text-[10px] text-muted-foreground"
+                                >
+                                  {entry.stack}
+                                </pre>
+                              ) : null}
+                            </div>
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )
+              ) : !evidence || evidence.network.length === 0 ? (
+                <p className="px-1 py-2 text-sm font-sans text-muted-foreground">
+                  No network requests for the active pane yet.
+                </p>
+              ) : visibleNetworkEntries.length === 0 ? (
+                <p className="px-1 py-2 text-sm font-sans text-muted-foreground">
+                  No network requests match this filter.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-1">
+                  {visibleNetworkEntries.map((entry) => {
+                    const expanded = expandedEntryIds.has(entry.id)
+                    const requestHeaders = formatHeaders(entry.requestHeaders)
+                    const responseHeaders = formatHeaders(entry.responseHeaders)
+                    const canExpand = Boolean(requestHeaders || responseHeaders)
+                    return (
+                      <li
+                        key={entry.id}
+                        data-testid="diagnostics-network-entry"
+                        className={cn(
+                          'rounded-md px-2 py-1.5 hover:bg-white/5',
+                          entry.failed && 'text-destructive'
+                        )}
+                      >
+                        <div className="flex items-start gap-2">
+                          {canExpand ? (
                             <button
                               type="button"
-                              data-testid="diagnostics-console-source-link"
-                              className="mt-0.5 block max-w-full truncate text-left text-[11px] text-sky-400 hover:underline"
-                              title={formatClipboardLocation(entry) ?? source}
-                              onClick={() => copySourceLocation(entry)}
+                              data-testid="diagnostics-network-expand"
+                              aria-expanded={expanded}
+                              aria-label={expanded ? 'Collapse headers' : 'Expand headers'}
+                              className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground"
+                              onClick={() => toggleExpanded(entry.id)}
                             >
-                              {source}
+                              <Icon
+                                icon={expanded ? ArrowDown01Icon : ArrowRight01Icon}
+                                className="size-3"
+                              />
                             </button>
-                          ) : null}
-                          {expanded && entry.stack ? (
-                            <pre
-                              data-testid="diagnostics-console-stack"
-                              className="mt-1 whitespace-pre-wrap break-words text-[10px] text-muted-foreground"
-                            >
-                              {entry.stack}
-                            </pre>
-                          ) : null}
-                        </div>
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
-            )
-          ) : !evidence || evidence.network.length === 0 ? (
-            <p className="px-1 py-2 text-sm font-sans text-muted-foreground">
-              No network requests for the active pane yet.
-            </p>
-          ) : (
-            <ul className="flex flex-col gap-1">
-              {evidence.network.map((entry) => {
-                const expanded = expandedEntryIds.has(entry.id)
-                const requestHeaders = formatHeaders(entry.requestHeaders)
-                const responseHeaders = formatHeaders(entry.responseHeaders)
-                const canExpand = Boolean(requestHeaders || responseHeaders)
-                return (
-                  <li
-                    key={entry.id}
-                    data-testid="diagnostics-network-entry"
-                    className={cn(
-                      'rounded-md px-2 py-1.5 hover:bg-white/5',
-                      entry.failed && 'text-destructive'
-                    )}
-                  >
-                    <div className="flex items-start gap-2">
-                      {canExpand ? (
-                        <button
-                          type="button"
-                          data-testid="diagnostics-network-expand"
-                          aria-expanded={expanded}
-                          aria-label={expanded ? 'Collapse headers' : 'Expand headers'}
-                          className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground"
-                          onClick={() => toggleExpanded(entry.id)}
-                        >
-                          <Icon
-                            icon={expanded ? ArrowDown01Icon : ArrowRight01Icon}
-                            className="size-3"
-                          />
-                        </button>
-                      ) : (
-                        <span className="w-3 shrink-0" />
-                      )}
-                      <span
-                        data-testid="diagnostics-network-status"
-                        className={cn('w-10 shrink-0 tabular-nums', entry.failed && 'text-destructive')}
-                      >
-                        {formatStatus(entry)}
-                      </span>
-                      <span
-                        data-testid="diagnostics-network-method"
-                        className="w-12 shrink-0 uppercase text-muted-foreground"
-                      >
-                        {entry.method}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p
-                          data-testid="diagnostics-network-path"
-                          className="truncate text-foreground"
-                          title={entry.path}
-                        >
-                          {entry.path}
-                        </p>
-                        {expanded ? (
-                          <div
-                            data-testid="diagnostics-network-headers"
-                            className="mt-1 space-y-1 text-[10px] text-muted-foreground"
+                          ) : (
+                            <span className="w-3 shrink-0" />
+                          )}
+                          <span
+                            data-testid="diagnostics-network-status"
+                            className={cn(
+                              'w-10 shrink-0 tabular-nums',
+                              entry.failed && 'text-destructive'
+                            )}
                           >
-                            {requestHeaders ? (
-                              <div>
-                                <p className="font-sans font-medium text-foreground/80">Request</p>
-                                <pre className="whitespace-pre-wrap break-words">{requestHeaders}</pre>
-                              </div>
-                            ) : null}
-                            {responseHeaders ? (
-                              <div>
-                                <p className="font-sans font-medium text-foreground/80">Response</p>
-                                <pre className="whitespace-pre-wrap break-words">{responseHeaders}</pre>
+                            {formatStatus(entry)}
+                          </span>
+                          <span
+                            data-testid="diagnostics-network-method"
+                            className="w-12 shrink-0 uppercase text-muted-foreground"
+                          >
+                            {entry.method}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p
+                              data-testid="diagnostics-network-path"
+                              className="truncate text-foreground"
+                              title={entry.path}
+                            >
+                              {entry.path}
+                            </p>
+                            {expanded ? (
+                              <div
+                                data-testid="diagnostics-network-headers"
+                                className="mt-1 space-y-1 text-[10px] text-muted-foreground"
+                              >
+                                {requestHeaders ? (
+                                  <div>
+                                    <p className="font-sans font-medium text-foreground/80">
+                                      Request
+                                    </p>
+                                    <pre className="whitespace-pre-wrap break-words">
+                                      {requestHeaders}
+                                    </pre>
+                                  </div>
+                                ) : null}
+                                {responseHeaders ? (
+                                  <div>
+                                    <p className="font-sans font-medium text-foreground/80">
+                                      Response
+                                    </p>
+                                    <pre className="whitespace-pre-wrap break-words">
+                                      {responseHeaders}
+                                    </pre>
+                                  </div>
+                                ) : null}
                               </div>
                             ) : null}
                           </div>
-                        ) : null}
-                      </div>
-                      <span
-                        data-testid="diagnostics-network-duration"
-                        className="shrink-0 tabular-nums text-muted-foreground"
-                      >
-                        {formatDuration(entry.durationMs)}
-                      </span>
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </div>
+                          <span
+                            data-testid="diagnostics-network-duration"
+                            className="shrink-0 tabular-nums text-muted-foreground"
+                          >
+                            {formatDuration(entry.durationMs)}
+                          </span>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </aside>

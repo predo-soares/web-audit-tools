@@ -40,7 +40,9 @@ test('diagnostics drawer shows console errors from the active pane', async ({ fi
   }
 })
 
-test('diagnostics drawer network tab shows failed fetch from the active pane', async ({ fixturePort }) => {
+test('diagnostics console filter narrows visible output without changing the badge', async ({
+  fixturePort
+}) => {
   const { window, close } = await launchApp()
 
   try {
@@ -50,8 +52,41 @@ test('diagnostics drawer network tab shows failed fetch from the active pane', a
     await evaluateInPane(
       window,
       'desktop',
-      `document.getElementById('emit-fetch-404')?.click()`
+      `console.log('fixture-filter-keep'); console.error('fixture-filter-hide')`
     )
+    await window.waitForTimeout(300)
+
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('diagnostics-toggle').click()
+
+    const drawer = await getDiagnosticsDrawerPage(window)
+    const badge = drawer.getByTestId('diagnostics-console-badge')
+    const countBeforeFiltering = await badge.textContent()
+    const filter = drawer.getByTestId('diagnostics-console-filter')
+
+    await filter.fill('fixture-filter-keep')
+    await expect(drawer.getByText('fixture-filter-keep')).toBeVisible()
+    await expect(drawer.getByText('fixture-filter-hide')).toHaveCount(0)
+    await expect(badge).toHaveText(countBeforeFiltering ?? '')
+
+    await filter.fill('exceptional-no-match')
+    await expect(drawer.getByText('No console output matches this filter.')).toBeVisible()
+
+  } finally {
+    await close()
+  }
+})
+
+test('diagnostics drawer network tab shows failed fetch from the active pane', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/runtime-evidence'))
+    await waitForPaneElement(window, 'desktop', 'runtime-evidence-fixture')
+
+    await evaluateInPane(window, 'desktop', `document.getElementById('emit-fetch-404')?.click()`)
 
     await window.waitForTimeout(500)
 
@@ -61,12 +96,51 @@ test('diagnostics drawer network tab shows failed fetch from the active pane', a
     const drawer = await getDiagnosticsDrawerPage(window)
     await drawer.getByTestId('diagnostics-tab-network').click()
 
-    const failedEntry = drawer
-      .getByTestId('diagnostics-network-entry')
-      .filter({ has: drawer.getByTestId('diagnostics-network-path').filter({ hasText: '/runtime-evidence/api/missing' }) })
+    const failedEntry = drawer.getByTestId('diagnostics-network-entry').filter({
+      has: drawer
+        .getByTestId('diagnostics-network-path')
+        .filter({ hasText: '/runtime-evidence/api/missing' })
+    })
     await expect(failedEntry).toBeVisible()
     await expect(failedEntry.getByTestId('diagnostics-network-status')).toHaveText('404')
     await expect(failedEntry.getByTestId('diagnostics-network-method')).toHaveText('GET')
+  } finally {
+    await close()
+  }
+})
+
+test('diagnostics network toolbar filters requests and contains the clear action', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/runtime-evidence'))
+    await waitForPaneElement(window, 'desktop', 'runtime-evidence-fixture')
+
+    await evaluateInPane(window, 'desktop', `document.getElementById('emit-fetch-404')?.click()`)
+    await evaluateInPane(window, 'desktop', `document.getElementById('emit-fetch-fail')?.click()`)
+    await window.waitForTimeout(500)
+
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('diagnostics-toggle').click()
+
+    const drawer = await getDiagnosticsDrawerPage(window)
+    await drawer.getByTestId('diagnostics-tab-network').click()
+
+    const filter = drawer.getByTestId('diagnostics-network-filter')
+    const channelToolbar = filter.locator('../..')
+    await expect(channelToolbar.getByTestId('diagnostics-clear-network')).toBeVisible()
+
+    await filter.fill('/api/missing')
+    await expect(
+      drawer.getByTestId('diagnostics-network-path').filter({ hasText: '/api/missing' })
+    ).toBeVisible()
+    await expect(drawer.getByTestId('diagnostics-network-entry')).toHaveCount(1)
+
+    await filter.fill('request-that-does-not-exist')
+    await expect(drawer.getByText('No network requests match this filter.')).toBeVisible()
+
   } finally {
     await close()
   }
@@ -84,11 +158,7 @@ test('diagnostics clear console leaves network evidence intact', async ({ fixtur
       'desktop',
       `document.getElementById('emit-console-error')?.click()`
     )
-    await evaluateInPane(
-      window,
-      'desktop',
-      `document.getElementById('emit-fetch-404')?.click()`
-    )
+    await evaluateInPane(window, 'desktop', `document.getElementById('emit-fetch-404')?.click()`)
     await window.waitForTimeout(500)
 
     const toolbar = await getToolbarPage(window)
@@ -118,11 +188,7 @@ test('diagnostics clear network leaves console evidence intact', async ({ fixtur
       'desktop',
       `document.getElementById('emit-console-error')?.click()`
     )
-    await evaluateInPane(
-      window,
-      'desktop',
-      `document.getElementById('emit-fetch-404')?.click()`
-    )
+    await evaluateInPane(window, 'desktop', `document.getElementById('emit-fetch-404')?.click()`)
     await window.waitForTimeout(500)
 
     const toolbar = await getToolbarPage(window)
@@ -147,11 +213,7 @@ test('diagnostics console row expands to show stack trace', async ({ fixturePort
     await navigateTo(window, fixtureUrl(fixturePort, '/runtime-evidence'))
     await waitForPaneElement(window, 'desktop', 'runtime-evidence-fixture')
 
-    await evaluateInPane(
-      window,
-      'desktop',
-      `document.getElementById('emit-throw-error')?.click()`
-    )
+    await evaluateInPane(window, 'desktop', `document.getElementById('emit-throw-error')?.click()`)
     await window.waitForTimeout(300)
 
     const toolbar = await getToolbarPage(window)
@@ -177,11 +239,7 @@ test('diagnostics network row expands to show headers', async ({ fixturePort }) 
     await navigateTo(window, fixtureUrl(fixturePort, '/runtime-evidence'))
     await waitForPaneElement(window, 'desktop', 'runtime-evidence-fixture')
 
-    await evaluateInPane(
-      window,
-      'desktop',
-      `document.getElementById('emit-fetch-404')?.click()`
-    )
+    await evaluateInPane(window, 'desktop', `document.getElementById('emit-fetch-404')?.click()`)
     await window.waitForTimeout(500)
 
     const toolbar = await getToolbarPage(window)
@@ -190,9 +248,11 @@ test('diagnostics network row expands to show headers', async ({ fixturePort }) 
     const drawer = await getDiagnosticsDrawerPage(window)
     await drawer.getByTestId('diagnostics-tab-network').click()
 
-    const entry = drawer
-      .getByTestId('diagnostics-network-entry')
-      .filter({ has: drawer.getByTestId('diagnostics-network-path').filter({ hasText: '/runtime-evidence/api/missing' }) })
+    const entry = drawer.getByTestId('diagnostics-network-entry').filter({
+      has: drawer
+        .getByTestId('diagnostics-network-path')
+        .filter({ hasText: '/runtime-evidence/api/missing' })
+    })
     await entry.getByTestId('diagnostics-network-expand').click()
 
     const headers = entry.getByTestId('diagnostics-network-headers')
@@ -248,11 +308,7 @@ test('diagnostics list smart-scrolls only when already at the bottom', async ({ 
     await navigateTo(window, fixtureUrl(fixturePort, '/runtime-evidence'))
     await waitForPaneElement(window, 'desktop', 'runtime-evidence-fixture')
 
-    await evaluateInPane(
-      window,
-      'desktop',
-      `document.getElementById('emit-many-logs')?.click()`
-    )
+    await evaluateInPane(window, 'desktop', `document.getElementById('emit-many-logs')?.click()`)
     await window.waitForTimeout(500)
 
     const toolbar = await getToolbarPage(window)
@@ -269,11 +325,7 @@ test('diagnostics list smart-scrolls only when already at the bottom', async ({ 
     })
     expect(scrollTopBeforePause).toBe(0)
 
-    await evaluateInPane(
-      window,
-      'desktop',
-      `document.getElementById('emit-many-logs')?.click()`
-    )
+    await evaluateInPane(window, 'desktop', `document.getElementById('emit-many-logs')?.click()`)
     await window.waitForTimeout(500)
 
     const scrollTopAfterBurst = await list.evaluate((element) => element.scrollTop)
@@ -349,7 +401,10 @@ test('diagnostics toolbar badge increments while drawer stays closed', async ({ 
     await waitForPaneElement(window, 'desktop', 'runtime-evidence-fixture')
 
     const toolbar = await getToolbarPage(window)
-    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute('aria-expanded', 'false')
+    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
 
     const badge = toolbar.getByTestId('diagnostics-problem-badge')
     const countBefore = (await badge.count()) > 0 ? Number(await badge.textContent()) : 0
@@ -362,7 +417,10 @@ test('diagnostics toolbar badge increments while drawer stays closed', async ({ 
     await window.waitForTimeout(300)
 
     await expect(badge).toHaveText(String(countBefore + 1))
-    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute('aria-expanded', 'false')
+    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
   } finally {
     await close()
   }
@@ -386,7 +444,10 @@ test('diagnostics drawer does not auto-open when a new problem arrives', async (
     await window.waitForTimeout(300)
 
     await expect(toolbar.getByTestId('diagnostics-problem-badge')).not.toHaveText('0')
-    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute('aria-expanded', 'false')
+    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
   } finally {
     await close()
   }
@@ -400,13 +461,19 @@ test('diagnostics drawer toggles with keyboard shortcut', async ({ fixturePort }
     await waitForPaneElement(window, 'desktop', 'runtime-evidence-fixture')
 
     const toolbar = await getToolbarPage(window)
-    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute('aria-expanded', 'false')
+    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
 
     await window.keyboard.press(diagnosticsToggleShortcut())
     await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute('aria-expanded', 'true')
 
     await window.keyboard.press(diagnosticsToggleShortcut())
-    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute('aria-expanded', 'false')
+    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
   } finally {
     await close()
   }
@@ -419,21 +486,9 @@ test('diagnostics drawer opens on the tab with more problems', async ({ fixtureP
     await navigateTo(window, fixtureUrl(fixturePort, '/runtime-evidence'))
     await waitForPaneElement(window, 'desktop', 'runtime-evidence-fixture')
 
-    await evaluateInPane(
-      window,
-      'desktop',
-      `document.getElementById('emit-fetch-404')?.click()`
-    )
-    await evaluateInPane(
-      window,
-      'desktop',
-      `document.getElementById('emit-fetch-404')?.click()`
-    )
-    await evaluateInPane(
-      window,
-      'desktop',
-      `document.getElementById('emit-fetch-fail')?.click()`
-    )
+    await evaluateInPane(window, 'desktop', `document.getElementById('emit-fetch-404')?.click()`)
+    await evaluateInPane(window, 'desktop', `document.getElementById('emit-fetch-404')?.click()`)
+    await evaluateInPane(window, 'desktop', `document.getElementById('emit-fetch-fail')?.click()`)
     await window.waitForTimeout(500)
 
     const expectedTab = await window.evaluate(async () => {
@@ -472,11 +527,7 @@ test('diagnostics drawer opens on console when problem counts tie', async ({ fix
       'desktop',
       `document.getElementById('emit-console-error')?.click()`
     )
-    await evaluateInPane(
-      window,
-      'desktop',
-      `document.getElementById('emit-fetch-404')?.click()`
-    )
+    await evaluateInPane(window, 'desktop', `document.getElementById('emit-fetch-404')?.click()`)
     await window.waitForTimeout(500)
 
     const toolbar = await getToolbarPage(window)
