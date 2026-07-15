@@ -8,6 +8,15 @@ export type ThemePreference = 'system' | 'light' | 'dark'
  */
 export type MediaOverride<T extends string> = 'no-override' | T
 
+export type VisionDeficiency =
+  | 'none'
+  | 'blurredVision'
+  | 'reducedContrast'
+  | 'achromatopsia'
+  | 'deuteranopia'
+  | 'protanopia'
+  | 'tritanopia'
+
 /**
  * Emulated CSS media features applied to every pane, matching the DevTools
  * Rendering panel. `prefers-color-scheme` is intentionally excluded — it stays
@@ -23,6 +32,22 @@ export interface MediaFeatureState {
   colorGamut: MediaOverride<'srgb' | 'p3' | 'rec2020'>
   mediaType: MediaOverride<'screen' | 'print'>
   autoDarkMode: boolean
+  // Rendering overlay flags (DevTools Rendering panel checkboxes)
+  paintFlashing: boolean
+  layoutShiftRegions: boolean
+  layerBorders: boolean
+  frameRenderingStats: boolean
+  scrollingPerf: boolean
+  highlightAds: boolean
+  disableLocalFonts: boolean
+  focusedPage: boolean
+  // Vision / accessibility emulation
+  visionDeficiency: VisionDeficiency
+  // OS text scale emulation (1 = no override)
+  osTextScale: number
+  // Image format disabling
+  disableAvif: boolean
+  disableWebp: boolean
 }
 
 export const DEFAULT_MEDIA_FEATURES: MediaFeatureState = {
@@ -33,7 +58,19 @@ export const DEFAULT_MEDIA_FEATURES: MediaFeatureState = {
   contrast: 'no-override',
   colorGamut: 'no-override',
   mediaType: 'no-override',
-  autoDarkMode: false
+  autoDarkMode: false,
+  paintFlashing: false,
+  layoutShiftRegions: false,
+  layerBorders: false,
+  frameRenderingStats: false,
+  scrollingPerf: false,
+  highlightAds: false,
+  disableLocalFonts: false,
+  focusedPage: false,
+  visionDeficiency: 'none',
+  osTextScale: 1,
+  disableAvif: false,
+  disableWebp: false
 }
 
 export interface Bounds {

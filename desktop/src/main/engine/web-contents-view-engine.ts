@@ -717,8 +717,63 @@ export class WebContentsViewEngine implements EngineView {
       await this.webContents.debugger.sendCommand('Emulation.setAutoDarkModeOverride', {
         enabled: this.mediaFeatures.autoDarkMode
       })
+      await this.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', {
+        enabled: this.mediaFeatures.focusedPage
+      })
+      await this.webContents.debugger.sendCommand('Emulation.setEmulatedVisionDeficiency', {
+        type: this.mediaFeatures.visionDeficiency
+      })
+      const disabledImageTypes: string[] = []
+      if (this.mediaFeatures.disableAvif) disabledImageTypes.push('avif')
+      if (this.mediaFeatures.disableWebp) disabledImageTypes.push('webp')
+      await this.webContents.debugger.sendCommand('Emulation.setDisabledImageTypes', {
+        imageTypes: disabledImageTypes
+      })
+      if (this.mediaFeatures.osTextScale !== 1) {
+        await this.webContents.debugger.sendCommand('Emulation.setEmulatedOSTextScale', {
+          scale: this.mediaFeatures.osTextScale
+        })
+      }
     } catch (error) {
       console.error(`[pane:${this.paneId}] CDP emulated media override failed:`, error)
+    }
+    // Overlay/CSS agents depend on DOM being enabled first.
+    try {
+      await this.webContents.debugger.sendCommand('DOM.enable')
+    } catch (error) {
+      console.error(`[pane:${this.paneId}] CDP DOM.enable failed:`, error)
+      return
+    }
+    try {
+      await this.webContents.debugger.sendCommand('Overlay.enable')
+      await this.webContents.debugger.sendCommand('Overlay.setShowPaintRects', {
+        result: this.mediaFeatures.paintFlashing
+      })
+      await this.webContents.debugger.sendCommand('Overlay.setShowLayoutShiftRegions', {
+        result: this.mediaFeatures.layoutShiftRegions
+      })
+      await this.webContents.debugger.sendCommand('Overlay.setShowDebugBorders', {
+        show: this.mediaFeatures.layerBorders
+      })
+      await this.webContents.debugger.sendCommand('Overlay.setShowFPSCounter', {
+        show: this.mediaFeatures.frameRenderingStats
+      })
+      await this.webContents.debugger.sendCommand('Overlay.setShowScrollBottleneckRects', {
+        show: this.mediaFeatures.scrollingPerf
+      })
+      await this.webContents.debugger.sendCommand('Overlay.setShowAdHighlights', {
+        show: this.mediaFeatures.highlightAds
+      })
+    } catch (error) {
+      console.error(`[pane:${this.paneId}] CDP overlay rendering flags failed:`, error)
+    }
+    try {
+      await this.webContents.debugger.sendCommand('CSS.enable')
+      await this.webContents.debugger.sendCommand('CSS.setLocalFontsEnabled', {
+        enabled: !this.mediaFeatures.disableLocalFonts
+      })
+    } catch (error) {
+      console.error(`[pane:${this.paneId}] CDP CSS local fonts override failed:`, error)
     }
   }
 
