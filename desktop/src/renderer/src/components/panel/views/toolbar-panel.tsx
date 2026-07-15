@@ -1,4 +1,5 @@
 import { buttonVariants } from '@renderer/components/ui/button'
+import { Badge } from '@renderer/components/ui/badge'
 import { cn } from '@renderer/lib/utils'
 import { UrlBar } from '@renderer/components/url-bar'
 import { useOverlayPanel } from '@renderer/hooks/use-overlay-panel'
@@ -501,12 +502,12 @@ const showProblemBadge = !diagnosticsOpen && problemCount > 0
         >
           <Icon icon={SourceCodeIcon} size={14} />
           {showProblemBadge ? (
-            <span
+            <Badge
               data-testid="diagnostics-problem-badge"
-              className="absolute -right-0.5 -top-0.5 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium leading-none text-destructive-foreground tabular-nums"
+              className="absolute -right-0.5 -top-0.5 h-auto min-h-4 min-w-4 rounded-full bg-destructive px-1 py-0 text-[10px] font-medium leading-none text-destructive-foreground tabular-nums"
             >
               {problemCount > 99 ? '99+' : problemCount}
-            </span>
+            </Badge>
           ) : null}
         </button>
         <button

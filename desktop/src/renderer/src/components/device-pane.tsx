@@ -8,6 +8,7 @@ import { usePreviewCanvas } from '@renderer/context/preview-canvas-context'
 import { Loading03Icon, Camera01Icon, Alert01Icon } from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
 import { Button } from '@renderer/components/ui/button'
+import { Badge } from '@renderer/components/ui/badge'
 import { useCallback } from 'react'
 
 interface DevicePaneProps {
@@ -75,12 +76,12 @@ export function DevicePane({
           <div className="flex min-w-0 items-center gap-2">
             <p className="truncate text-sm font-medium">{profile.name}</p>
             {isFocusedPane ? (
-              <span
-                className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium tracking-wide text-primary uppercase"
+              <Badge
                 data-testid={`pane-active-indicator-${paneId}`}
+                className="h-auto shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium tracking-wide text-primary uppercase"
               >
                 Active
-              </span>
+              </Badge>
             ) : null}
           </div>
           <p className="text-xs text-muted-foreground">
