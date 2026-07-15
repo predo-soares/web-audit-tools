@@ -1,18 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
 import { SIDEBAR_WIDTH_PX, TOOLBAR_HEIGHT_PX } from '../../../shared/sidebar'
 import { useSidebar } from '@renderer/context/sidebar-context'
 import {
   CATEGORY_LABEL,
-  IDLE_AUDIT_STATE,
   INDEXING_INTENT_LABEL,
   OUTCOME_LABEL,
-  inferIndexingIntent,
-  isAuditableUrl,
-  type AuditJobState,
   type AuditCategory,
   type FindingOutcome,
   type IndexingIntent,
-  type LighthouseAssessmentState,
   type LighthouseProfile
 } from '../../../shared/seo-audit'
 import { cn } from '@renderer/lib/utils'
@@ -21,6 +15,7 @@ import { Checkbox } from '@renderer/components/ui/checkbox'
 import { auditMarkdown } from '../../../shared/seo-markdown'
 import { ArrowLeft01Icon } from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
+import { useSeoAuditPresentation } from '@renderer/hooks/use-seo-audit-presentation'
 
 const CATEGORIES = Object.keys(CATEGORY_LABEL) as AuditCategory[]
 const OUTCOMES = Object.keys(OUTCOME_LABEL) as FindingOutcome[]
@@ -40,80 +35,35 @@ const INTENT_OPTIONS: { label: string; value: IndexingIntent }[] = (
 export function SeoView({ onClose }: { onClose: () => void }): React.JSX.Element {
   const { isOpen: sidebarOpen, isTransitioning: sidebarTransitioning } = useSidebar()
   const sidebarOffset = sidebarOpen || sidebarTransitioning ? SIDEBAR_WIDTH_PX : 0
-  const [url, setUrl] = useState('')
-  const [pageTitle, setPageTitle] = useState('')
-  const [intent, setIntent] = useState<IndexingIntent>('indexable')
-  const [linkFilter, setLinkFilter] = useState('')
-  const [findingCategory, setFindingCategory] = useState<AuditCategory | null>(null)
-  const [findingOutcome, setFindingOutcome] = useState<FindingOutcome | null>(null)
-  const [copied, setCopied] = useState('')
-  const [exportStatus, setExportStatus] = useState('')
-  const [lighthouse, setLighthouse] = useState<LighthouseAssessmentState>({
-    phase: 'idle',
-    result: null,
-    error: null
-  })
-  const [lighthouseProfile, setLighthouseProfile] = useState<LighthouseProfile>('mobile')
-  const [shareSession, setShareSession] = useState(false)
-  const [job, setJob] = useState<AuditJobState>(IDLE_AUDIT_STATE)
-  const intentTouchedRef = useRef(false)
-
-  const applyNavigation = useCallback((barUrl: string, title: string): void => {
-    setUrl(barUrl)
-    setPageTitle(title)
-    if (!intentTouchedRef.current && isAuditableUrl(barUrl)) {
-      setIntent(inferIndexingIntent(barUrl))
-    }
-  }, [])
-
-  useEffect(() => {
-    void window.api.getNavigationState().then((state) => {
-      applyNavigation(state.barUrl, state.pageTitle)
-    })
-    return window.api.onPaneNavigation((state) => {
-      applyNavigation(state.barUrl, state.pageTitle)
-    })
-  }, [applyNavigation])
-
-  useEffect(() => {
-    void window.api.getSeoAuditState().then(setJob)
-    return window.api.onSeoAuditState(setJob)
-  }, [])
-
-  useEffect(() => {
-    void window.api.getLighthouseState().then(setLighthouse)
-    return window.api.onLighthouseState(setLighthouse)
-  }, [])
-
-  const auditable = isAuditableUrl(url)
-  const running = job.phase === 'running'
-  const { result } = job
-
-  const handleRun = useCallback((): void => {
-    void window.api.runSeoAudit(intent)
-  }, [intent])
-
-  const handleCancel = useCallback((): void => {
-    void window.api.cancelSeoAudit()
-  }, [])
-
-  const handleIntentChange = useCallback((next: IndexingIntent): void => {
-    intentTouchedRef.current = true
-    setIntent(next)
-  }, [])
-
-  const copyMarkdown = useCallback((markdown: string, label: string): void => {
-    void navigator.clipboard.writeText(markdown).then(() => setCopied(label))
-  }, [])
-
-  const exportWithSnapshot = useCallback((): void => {
-    setExportStatus('Exporting…')
-    void window.api
-      .takeSnapshot(true)
-      .then((value) =>
-        setExportStatus(value.ok ? 'SEO Snapshot exported.' : `Export failed: ${value.reason}`)
-      )
-  }, [])
+  const {
+    url,
+    pageTitle,
+    intent,
+    auditable,
+    job,
+    result,
+    running,
+    linkFilter,
+    setLinkFilter,
+    findingCategory,
+    setFindingCategory,
+    findingOutcome,
+    setFindingOutcome,
+    copied,
+    exportStatus,
+    lighthouse,
+    lighthouseProfile,
+    setLighthouseProfile,
+    shareSession,
+    setShareSession,
+    handleIntentChange,
+    handleRun,
+    handleCancel,
+    copyMarkdown,
+    exportWithSnapshot,
+    runLighthouse,
+    cancelLighthouse
+  } = useSeoAuditPresentation(window.api)
 
   return (
     <div
@@ -608,7 +558,7 @@ export function SeoView({ onClose }: { onClose: () => void }): React.JSX.Element
                     <button
                       type="button"
                       data-testid="seo-lighthouse-cancel"
-                      onClick={() => void window.api.cancelLighthouse()}
+                      onClick={cancelLighthouse}
                       className="mt-3 w-full rounded border border-white/10 px-3 py-1.5 text-sm transition-colors hover:bg-white/5"
                     >
                       Cancel Lighthouse
@@ -617,7 +567,7 @@ export function SeoView({ onClose }: { onClose: () => void }): React.JSX.Element
                     <button
                       type="button"
                       data-testid="seo-lighthouse-run"
-                      onClick={() => void window.api.runLighthouse(lighthouseProfile, shareSession)}
+                      onClick={runLighthouse}
                       className="mt-3 w-full rounded border border-white/10 px-3 py-1.5 text-sm text-sky-400 transition-colors hover:bg-white/5"
                     >
                       Run Lighthouse separately
