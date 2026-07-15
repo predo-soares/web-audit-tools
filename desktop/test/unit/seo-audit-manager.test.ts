@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { AuditManager } from '../../src/main/seo/audit-manager'
 import type { AuditPort } from '../../src/main/seo/audit-service'
 import {
+  SEO_RULE_CATALOG_VERSION,
   UNAVAILABLE_DELIVERED_EVIDENCE,
   type AuditJobState,
   type RenderedAuditSnapshot
@@ -10,6 +11,7 @@ import type { PaneId } from '../../src/shared/types'
 import { unavailableIndexability } from '../../src/main/seo/indexability'
 import { unavailableSocialSharing } from '../../src/main/seo/social-sharing'
 import { unavailableInternationalization } from '../../src/main/seo/internationalization'
+import { SEO_RULES, titlePresenceRule } from '../../src/main/seo/rules'
 
 /**
  * A controllable extraction: each call returns a promise the test resolves by
@@ -74,6 +76,70 @@ describe('AuditManager lifecycle', () => {
     expect(manager.getState().result?.url).toBe('https://example.com/')
   })
 
+  it('produces a stable, versioned result bound to the active pane and navigation', async () => {
+    const manager = new AuditManager(makePort(), deps)
+    const run = await manager.run({ indexingIntent: 'indexable' })
+
+    expect(run.ok).toBe(true)
+    if (!run.ok) return
+    expect(run.result).toMatchObject({
+      id: 'audit-1',
+      paneId: 'iphone',
+      url: 'https://example.com/',
+      navigationTimestamp: 1000,
+      startedAt: 5000,
+      completedAt: 5000,
+      ruleCatalogVersion: SEO_RULE_CATALOG_VERSION,
+      indexingIntent: 'indexable'
+    })
+    expect(run.result.findings).toHaveLength(SEO_RULES.length)
+  })
+
+  it('extracts rendered evidence from the active pane', async () => {
+    const extractRendered = vi.fn().mockResolvedValue({ title: 'Example' })
+    const manager = new AuditManager(
+      makePort({ getActivePaneId: () => 'ipad', extractRendered }),
+      deps
+    )
+
+    await manager.run({ indexingIntent: 'indexable' })
+
+    expect(extractRendered).toHaveBeenCalledWith('ipad')
+  })
+
+  it('falls back to the desktop pane when no pane is active', async () => {
+    const extractRendered = vi.fn().mockResolvedValue({ title: 'Example' })
+    const manager = new AuditManager(
+      makePort({ getActivePaneId: () => null, extractRendered }),
+      deps
+    )
+
+    const run = await manager.run({ indexingIntent: 'indexable' })
+
+    expect(run.ok && run.result.paneId).toBe('desktop')
+    expect(extractRendered).toHaveBeenCalledWith('desktop')
+  })
+
+  it('carries the chosen indexing intent into the result', async () => {
+    const manager = new AuditManager(makePort(), deps)
+    const run = await manager.run({ indexingIntent: 'local-private' })
+
+    expect(run.ok && run.result.indexingIntent).toBe('local-private')
+  })
+
+  it('surfaces a missing-title Error through the title rule', async () => {
+    const manager = new AuditManager(
+      makePort({ extractRendered: () => Promise.resolve({ title: null }) }),
+      deps
+    )
+    const run = await manager.run({ indexingIntent: 'indexable' })
+
+    expect(run.ok).toBe(true)
+    if (!run.ok) return
+    const titleFinding = run.result.findings.find((finding) => finding.ruleId === titlePresenceRule.id)
+    expect(titleFinding?.outcome).toBe('error')
+  })
+
   it('returns no-url without touching evidence when nothing is committed', async () => {
     const extractRendered = vi.fn()
     const manager = new AuditManager(
@@ -86,6 +152,20 @@ describe('AuditManager lifecycle', () => {
     })
     expect(extractRendered).not.toHaveBeenCalled()
     expect(manager.getState().phase).toBe('idle')
+  })
+
+  it('rejects about:blank without touching evidence', async () => {
+    const extractRendered = vi.fn()
+    const manager = new AuditManager(
+      makePort({ getActivePaneUrl: () => 'about:blank', extractRendered }),
+      deps
+    )
+
+    expect(await manager.run({ indexingIntent: 'indexable' })).toEqual({
+      ok: false,
+      reason: 'no-url'
+    })
+    expect(extractRendered).not.toHaveBeenCalled()
   })
 
   it('rejects a second run while one is in flight (no queueing)', async () => {

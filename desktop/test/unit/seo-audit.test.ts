@@ -1,34 +1,13 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
-  SEO_RULE_CATALOG_VERSION,
   UNAVAILABLE_DELIVERED_EVIDENCE,
   inferIndexingIntent,
   isAuditableUrl,
   type Finding,
   type RenderedAuditSnapshot
 } from '../../src/shared/seo-audit'
-import { SEO_RULES, titlePresenceRule } from '../../src/main/seo/rules'
+import { titlePresenceRule } from '../../src/main/seo/rules'
 import { normalizeRenderedSnapshot } from '../../src/main/seo/rendered-extraction'
-import { runAudit, type AuditPort } from '../../src/main/seo/audit-service'
-import { unavailableIndexability } from '../../src/main/seo/indexability'
-import { unavailableSocialSharing } from '../../src/main/seo/social-sharing'
-import { unavailableInternationalization } from '../../src/main/seo/internationalization'
-import type { PaneId } from '../../src/shared/types'
-
-function makePort(overrides?: Partial<AuditPort>): AuditPort {
-  return {
-    getActivePaneId: (): PaneId | null => 'iphone',
-    getActivePaneUrl: () => 'https://example.com/',
-    getLastNavTimestamp: () => 1000,
-    extractRendered: () => Promise.resolve({ title: 'Example' }),
-    fetchDelivered: () => Promise.resolve(UNAVAILABLE_DELIVERED_EVIDENCE),
-    getAccessContext: () => Promise.resolve({ authenticated: false }),
-    fetchIndexability: (url) => Promise.resolve(unavailableIndexability(url)),
-    fetchSocial: () => Promise.resolve(unavailableSocialSharing()),
-    fetchInternational: () => Promise.resolve(unavailableInternationalization()),
-    ...overrides
-  }
-}
 
 describe('isAuditableUrl', () => {
   it('rejects empty, whitespace, about:blank, and nullish', () => {
@@ -111,94 +90,5 @@ describe('titlePresenceRule', () => {
   it('has a stable rule id and category', () => {
     expect(titlePresenceRule.id).toBe('search-appearance/title-present')
     expect(titlePresenceRule.category).toBe('search-appearance')
-  })
-})
-
-describe('runAudit', () => {
-  const deps = { nowMs: () => 5000, newId: () => 'audit-fixed' }
-
-  it('returns no-url when there is no committed page', async () => {
-    expect(
-      await runAudit(
-        makePort({ getActivePaneUrl: () => null }),
-        { indexingIntent: 'indexable' },
-        deps
-      )
-    ).toEqual({
-      ok: false,
-      reason: 'no-url'
-    })
-    expect(
-      await runAudit(
-        makePort({ getActivePaneUrl: () => 'about:blank' }),
-        { indexingIntent: 'indexable' },
-        deps
-      )
-    ).toEqual({ ok: false, reason: 'no-url' })
-  })
-
-  it('does not gather evidence when there is no URL', async () => {
-    const extractRendered = vi.fn().mockResolvedValue({ title: 'x' })
-    await runAudit(
-      makePort({ getActivePaneUrl: () => null, extractRendered }),
-      { indexingIntent: 'indexable' },
-      deps
-    )
-    expect(extractRendered).not.toHaveBeenCalled()
-  })
-
-  it('produces a stable, versioned result bound to the active pane and navigation', async () => {
-    const run = await runAudit(makePort(), { indexingIntent: 'indexable' }, deps)
-    expect(run.ok).toBe(true)
-    if (!run.ok) return
-    expect(run.result).toMatchObject({
-      id: 'audit-fixed',
-      paneId: 'iphone',
-      url: 'https://example.com/',
-      navigationTimestamp: 1000,
-      startedAt: 5000,
-      completedAt: 5000,
-      ruleCatalogVersion: SEO_RULE_CATALOG_VERSION,
-      indexingIntent: 'indexable'
-    })
-    expect(run.result.findings).toHaveLength(SEO_RULES.length)
-  })
-
-  it('extracts rendered evidence from the active pane', async () => {
-    const extractRendered = vi.fn().mockResolvedValue({ title: 'Example' })
-    await runAudit(
-      makePort({ getActivePaneId: () => 'ipad', extractRendered }),
-      { indexingIntent: 'indexable' },
-      deps
-    )
-    expect(extractRendered).toHaveBeenCalledWith('ipad')
-  })
-
-  it('falls back to the desktop pane when no pane is active', async () => {
-    const extractRendered = vi.fn().mockResolvedValue({ title: 'Example' })
-    const run = await runAudit(
-      makePort({ getActivePaneId: () => null, extractRendered }),
-      { indexingIntent: 'indexable' },
-      deps
-    )
-    expect(run.ok && run.result.paneId).toBe('desktop')
-    expect(extractRendered).toHaveBeenCalledWith('desktop')
-  })
-
-  it('carries the chosen indexing intent into the result', async () => {
-    const run = await runAudit(makePort(), { indexingIntent: 'local-private' }, deps)
-    expect(run.ok && run.result.indexingIntent).toBe('local-private')
-  })
-
-  it('surfaces a missing-title Error through the title rule', async () => {
-    const run = await runAudit(
-      makePort({ extractRendered: () => Promise.resolve({ title: null }) }),
-      { indexingIntent: 'indexable' },
-      deps
-    )
-    expect(run.ok).toBe(true)
-    if (!run.ok) return
-    const titleFinding = run.result.findings.find((f) => f.ruleId === titlePresenceRule.id)
-    expect(titleFinding?.outcome).toBe('error')
   })
 })
