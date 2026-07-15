@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger
 } from '@renderer/components/ui/dropdown-menu'
 import { cn } from '@renderer/lib/utils'
+import { DevBadge } from '@renderer/components/dev-badge'
 
 interface HistoryRowProps {
   entry: HistoryEntry
@@ -50,7 +51,7 @@ export function HistoryRow({
         data-testid={historyRowTestId(entry.url)}
         data-history-active={isActive ? 'true' : 'false'}
         className={cn(
-          'flex min-w-0 flex-1 items-start gap-2 rounded-md px-2 py-2 text-left transition-colors focus-visible:outline-none'
+          'flex min-w-0 flex-1 items-start gap-2 rounded-md px-2 py-1 text-left transition-colors focus-visible:outline-none'
         )}
         onClick={() => onActivate(entry)}
       >
@@ -71,12 +72,8 @@ export function HistoryRow({
         )}
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 items-center gap-1.5 justify-between">
-            <span className="truncate text-sm font-medium">{title}</span>
-            {isDev && (
-              <span className="shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold leading-none bg-emerald-500/20 text-emerald-400">
-                DEV
-              </span>
-            )}
+            <span className="truncate text-xs font-medium max-w-[22ch]">{title}</span>
+            {isDev && <DevBadge />}
           </span>
           <span className="block truncate text-xs text-muted-foreground max-w-[24ch]">
             {entry.url}
@@ -91,7 +88,7 @@ export function HistoryRow({
               data-testid={`${historyRowTestId(entry.url)}-menu`}
               aria-label={`History actions for ${title}`}
               className={cn(
-                'absolute bottom-1 right-1 inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-background/60 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none',
+                'absolute inset-y-0 right-1 my-auto inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-background/60 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none',
                 menuOpen
                   ? 'opacity-100'
                   : 'opacity-0 group-hover/history-row:opacity-100 group-focus-within/history-row:opacity-100'

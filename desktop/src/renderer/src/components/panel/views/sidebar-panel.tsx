@@ -15,11 +15,12 @@ import {
   AccordionTrigger
 } from '@renderer/components/ui/accordion'
 import { cn } from '@renderer/lib/utils'
-import { SearchList01Icon } from '@hugeicons/core-free-icons'
+import { SearchVisualIcon } from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
 
 const sidebarSectionTriggerClassName = cn(
-  'mb-2 items-center rounded-none border-0 px-2 py-0 text-xs font-normal tracking-wide text-muted-foreground/50',
+
+  'mb-2 items-center rounded-none  border-0 px-4 py-0 text-xs font-medium tracking-wide text-muted-foreground/50',
   'hover:bg-transparent hover:no-underline',
   'focus-visible:ring-2 focus-visible:ring-ring/50',
   'justify-start gap-2',
@@ -36,7 +37,7 @@ const sidebarSectionTriggerClassName = cn(
 )
 
 const sidebarListClassName = 'flex flex-col gap-0.5'
-const sidebarSectionContentClassName = 'pb-0 [&>div]:pb-0'
+const sidebarSectionContentClassName = 'pb-0 px-2 [&>div]:pb-0'
 
 export function SidebarPanel({
   onAction
@@ -48,6 +49,9 @@ export function SidebarPanel({
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [committedUrl, setCommittedUrl] = useState('')
   const [clearDialogOpen, setClearDialogOpen] = useState(false)
+  const [historyExpanded, setHistoryExpanded] = useState(false)
+  const [seoActive, setSeoActive] = useState(false)
+  const HISTORY_PAGE_SIZE = 10
   const historyHeadingRef = useRef<HTMLButtonElement>(null)
   const historyRowRefs = useRef<Array<HTMLButtonElement | null>>([])
 
@@ -149,32 +153,42 @@ export function SidebarPanel({
         style={{ width: SIDEBAR_WIDTH_PX }}
       >
         <nav
-            className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-4"
+            className="flex min-h-0 flex-1 flex-col overflow-y-auto  py-4 gap-3"
             style={{ paddingTop: TOOLBAR_HEIGHT_PX }}
-          >
-            <div className="mb-4 border-b border-white/10 pb-4">
-              <button
-                type="button"
-                data-testid="sidebar-seo-view"
-                className={cn(
-                  'flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-sm text-foreground/70 transition-colors',
-                  'hover:bg-white/5 hover:text-foreground',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50'
-                )}
-                onClick={() => onAction({ type: 'enter-seo-view' })}
-              >
-                <Icon icon={SearchList01Icon} size={16} />
-                SEO
-              </button>
-            </div>
+        >
+          <div className="px-4">
+            <span className='font-semibold tracking-tight'>Audit</span>
+          </div>
+
+          <div className="mb-3 px-2">
+            <button
+              type="button"
+              data-testid="sidebar-seo-view"
+              className={cn(
+                'flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors',
+                seoActive
+                  ? 'bg-white/10 text-foreground'
+                  : 'text-foreground/70 hover:bg-white/5 hover:text-foreground',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50'
+              )}
+              onClick={() => {
+                setSeoActive((v) => !v)
+                onAction({ type: 'enter-seo-view' })
+              }}
+            >
+              <Icon icon={SearchVisualIcon} size={16} />
+              <span className="text-foreground">SEO</span>
+            </button>
+          </div>
+
             <Accordion multiple defaultValue={['projects', 'history']} className="gap-0  ">
               <AccordionItem value="projects" className="mb-6 border-0">
-                <AccordionTrigger className={sidebarSectionTriggerClassName}>
+                <AccordionTrigger className={sidebarSectionTriggerClassName} >
                   Projects
                 </AccordionTrigger>
                 <AccordionContent className={sidebarSectionContentClassName}>
                   {projects.length === 0 ? (
-                    <p className="px-2 text-sm text-muted-foreground">
+                    <p className="px-1 text-xs font-medium text-muted-foreground">
                       Save the current page to create a project.
                     </p>
                   ) : (
@@ -194,13 +208,13 @@ export function SidebarPanel({
               </AccordionItem>
 
               <AccordionItem value="history" className="border-0">
-                <div className="mb-2 flex items-center justify-between gap-2 px-2">
+                <div className="mb-2 flex items-center justify-between gap-2 px-4">
                   <div className="min-w-0 flex-1">
                     <AccordionTrigger
                       ref={historyHeadingRef}
                       tabIndex={-1}
                       data-testid="history-heading"
-                      className={cn(sidebarSectionTriggerClassName, 'mb-0 w-full px-0')}
+                      className={cn(sidebarSectionTriggerClassName, 'mb-0 w-full px-0 font-medium')}
                     >
                       History
                     </AccordionTrigger>
@@ -209,7 +223,7 @@ export function SidebarPanel({
                     <button
                       type="button"
                       data-testid="history-clear-all"
-                      className="shrink-0 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                      className="shrink-0 text-xs text-muted-foreground/50 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                       onClick={() => setClearDialogOpen(true)}
                     >
                       Clear all
@@ -218,25 +232,36 @@ export function SidebarPanel({
                 </div>
                 <AccordionContent className={sidebarSectionContentClassName}>
                   {history.length === 0 ? (
-                    <p className="px-2 text-sm text-muted-foreground">
+                    <p className="px-1 text-xs font-medium text-muted-foreground">
                       Pages you visit will appear here.
                     </p>
                   ) : (
-                    <ul data-sidebar-list className={sidebarListClassName}>
-                      {history.map((entry, index) => (
-                        <li key={entry.url}>
-                          <HistoryRow
-                            entry={entry}
-                            isActive={entry.url === committedUrl}
-                            rowRef={(node) => {
-                              historyRowRefs.current[index] = node
-                            }}
-                            onActivate={handleHistoryActivate}
-                            onDelete={(item) => void handleHistoryDelete(item)}
-                          />
-                        </li>
-                      ))}
-                    </ul>
+                    <>
+                      <ul data-sidebar-list className={sidebarListClassName}>
+                        {(historyExpanded ? history : history.slice(0, HISTORY_PAGE_SIZE)).map((entry, index) => (
+                          <li key={entry.url}>
+                            <HistoryRow
+                              entry={entry}
+                              isActive={entry.url === committedUrl}
+                              rowRef={(node) => {
+                                historyRowRefs.current[index] = node
+                              }}
+                              onActivate={handleHistoryActivate}
+                              onDelete={(item) => void handleHistoryDelete(item)}
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                      {history.length > HISTORY_PAGE_SIZE && (
+                        <button
+                          type="button"
+                          className="mt-1 w-full pl-8 pr-2 py-1 text-left text-xs text-muted-foreground/50 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                          onClick={() => setHistoryExpanded((v) => !v)}
+                        >
+                          {historyExpanded ? 'Show less' : `Show ${history.length - HISTORY_PAGE_SIZE} more`}
+                        </button>
+                      )}
+                    </>
                   )}
                 </AccordionContent>
               </AccordionItem>
