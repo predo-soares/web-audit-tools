@@ -153,11 +153,12 @@ export function SidebarPanel({
         style={{ width: SIDEBAR_WIDTH_PX }}
       >
         <nav
-            className="flex min-h-0 flex-1 flex-col overflow-y-auto  py-4 gap-3"
+            className="flex min-h-0 flex-1 flex-col overflow-y-auto  py-4 gap-4"
             style={{ paddingTop: TOOLBAR_HEIGHT_PX }}
         >
-          <div className="px-4">
-            <span className='font-semibold tracking-tight'>Audit</span>
+          <div className="px-4 flex gap-1 ">
+            <span className='font-semibold tracking-tight'>Audit Web</span>
+            <span className='font-light tracking-tight text-muted-foreground'>Tools</span>
           </div>
 
           <div className="mb-3 px-2">

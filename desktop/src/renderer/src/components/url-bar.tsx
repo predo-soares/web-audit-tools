@@ -68,7 +68,7 @@ export function UrlBar({
             src={faviconUrl}
             alt=""
             aria-hidden="true"
-            className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 rounded-sm"
+            className="pointer-events-none absolute top-1/2 left-2 z-10 size-4.5 -translate-y-1/2 rounded-sm"
             onLoad={() => {
               console.debug('[favicon]', JSON.stringify({ action: 'url-bar:load', faviconUrl }))
             }}
@@ -84,7 +84,7 @@ export function UrlBar({
           <Icon
             aria-hidden
             icon={Globe02Icon}
-            className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 text-muted-foreground"
+            className="pointer-events-none absolute top-1/2 left-2 z-10 size-4.5 -translate-y-1/2 text-muted-foreground"
           />
         )}
         <Input
