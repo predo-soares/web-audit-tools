@@ -1,5 +1,5 @@
 import { DEVICE_PRESETS, PANE_IDS } from './device-presets'
-import type { PaneId } from './types'
+import type { DeviceProfile, PaneId } from './types'
 
 export const DEFAULT_ZOOM = 0.75
 export const MIN_ZOOM = 0.1
@@ -60,8 +60,8 @@ export interface MockupDimensions {
   screenCornerRadius: number
 }
 
-export function getMockupDimensions(paneId: PaneId): MockupDimensions {
-  const profile = DEVICE_PRESETS[paneId]
+export function getMockupDimensions(paneId: PaneId, profileOverride?: Pick<DeviceProfile, 'width' | 'height'>): MockupDimensions {
+  const profile = profileOverride ?? DEVICE_PRESETS[paneId]
   const chrome = MOCKUP_CHROME[paneId]
   const screenHeight = profile.height - chrome.screenHeightReduction
 

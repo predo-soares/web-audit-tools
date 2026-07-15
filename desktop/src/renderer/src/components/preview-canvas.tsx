@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { PANE_IDS } from '../../../shared/device-presets'
 import { CANVAS_GAP, clampZoom, DEFAULT_ZOOM } from '../../../shared/mockup-layout'
 import { SIDEBAR_WIDTH_PX, TOOLBAR_HEIGHT_PX } from '../../../shared/sidebar'
-import type { PaneId, PaneLoadError } from '../../../shared/types'
+import type { DeviceProfile, PaneId, PaneLoadError } from '../../../shared/types'
 import { DevicePane } from '@renderer/components/device-pane'
 import { CANVAS_GLASS_SURFACE_CLASS } from '@renderer/lib/glass-surface'
 import { cn } from '@renderer/lib/utils'
@@ -17,6 +17,8 @@ interface PreviewCanvasProps {
   committedUrl: string
   activePane: PaneId | null
   safariChromeEnabled: boolean
+  visiblePanes?: PaneId[]
+  paneProfiles?: Partial<Record<PaneId, DeviceProfile>>
 }
 
 export function PreviewCanvas({
@@ -24,7 +26,9 @@ export function PreviewCanvas({
   errorStates,
   committedUrl,
   activePane,
-  safariChromeEnabled
+  safariChromeEnabled,
+  visiblePanes = PANE_IDS,
+  paneProfiles
 }: PreviewCanvasProps): React.JSX.Element {
   const [zoom, setZoomState] = useState(DEFAULT_ZOOM)
   const { isOpen: sidebarOpen, isTransitioning: sidebarTransitioning } = useSidebar()
@@ -77,7 +81,7 @@ export function PreviewCanvas({
         >
           <div className="flex min-h-full w-max min-w-full items-start justify-center py-6">
             <div className="flex items-start px-8" style={{ gap: CANVAS_GAP, zoom }}>
-              {PANE_IDS.map((paneId) => (
+              {PANE_IDS.filter((id) => visiblePanes.includes(id)).map((paneId) => (
                 <DevicePane
                   key={paneId}
                   paneId={paneId}
@@ -86,6 +90,7 @@ export function PreviewCanvas({
                   loading={loadingStates[paneId]}
                   error={errorStates[paneId]}
                   safariChromeEnabled={safariChromeEnabled}
+                  profileOverride={paneProfiles?.[paneId]}
                 />
               ))}
             </div>

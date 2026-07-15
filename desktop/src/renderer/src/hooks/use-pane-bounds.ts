@@ -4,12 +4,13 @@ import { SIDEBAR_TRANSITION_MS } from '../../../shared/sidebar'
 import { useDiagnostics } from '@renderer/context/diagnostics-context'
 import { LAYOUT_SETTLED_EVENT, useSidebar } from '@renderer/context/sidebar-context'
 import { usePreviewCanvas } from '@renderer/context/preview-canvas-context'
-import type { Bounds, PaneId } from '../../../shared/types'
+import type { Bounds, DeviceProfile, PaneId } from '../../../shared/types'
 
 export function usePaneBounds(
   paneId: PaneId,
   cornerRadius: number,
-  enabled = true
+  enabled = true,
+  profileOverride?: Pick<DeviceProfile, 'width' | 'height'>
 ): (node: HTMLDivElement | null) => void {
   const { zoom } = usePreviewCanvas()
   const { isOpen: sidebarOpen, isTransitioning: sidebarTransitioning } = useSidebar()
@@ -25,7 +26,7 @@ export function usePaneBounds(
     if (!element) return
 
     const rect = element.getBoundingClientRect()
-    const dimensions = getMockupDimensions(paneId)
+    const dimensions = getMockupDimensions(paneId, profileOverride)
     // CSS `zoom` on an ancestor affects x/y but getBoundingClientRect may
     // return the pre-zoom layout size for width/height. Compute them from
     // known device dimensions so the native WebContentsView is always sized
@@ -45,7 +46,7 @@ export function usePaneBounds(
       cornerRadius,
       zoom
     })
-  }, [cornerRadius, enabled, paneId, zoom])
+  }, [cornerRadius, enabled, paneId, profileOverride, zoom])
 
   const scheduleReport = useCallback(() => {
     if (frameRefs.current.length > 0) return

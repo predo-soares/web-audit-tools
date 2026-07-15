@@ -1,6 +1,6 @@
 import { DEVICE_PRESETS } from '../../../shared/device-presets'
 import { getMockupDimensions, getScaledScreenCornerRadius } from '../../../shared/mockup-layout'
-import type { PaneId, PaneLoadError } from '../../../shared/types'
+import type { DeviceProfile, PaneId, PaneLoadError } from '../../../shared/types'
 import { cn } from '@renderer/lib/utils'
 import { useSidebar } from '@renderer/context/sidebar-context'
 import { usePaneBounds } from '@renderer/hooks/use-pane-bounds'
@@ -18,6 +18,7 @@ interface DevicePaneProps {
   loading: boolean
   error: PaneLoadError | null
   safariChromeEnabled?: boolean
+  profileOverride?: DeviceProfile
 }
 
 function friendlyErrorMessage(description: string): string {
@@ -49,15 +50,16 @@ export function DevicePane({
   isFocusedPane,
   loading,
   error,
-  safariChromeEnabled = false
+  safariChromeEnabled = false,
+  profileOverride
 }: DevicePaneProps): React.JSX.Element {
   const { zoom } = usePreviewCanvas()
   const { isTransitioning } = useSidebar()
-  const profile = DEVICE_PRESETS[paneId]
-  const dimensions = getMockupDimensions(paneId)
+  const profile = profileOverride ?? DEVICE_PRESETS[paneId]
+  const dimensions = getMockupDimensions(paneId, profileOverride)
   const { chrome } = dimensions
   const cornerRadius = getScaledScreenCornerRadius(paneId, zoom)
-  const setBoundsRef = usePaneBounds(paneId, cornerRadius, active)
+  const setBoundsRef = usePaneBounds(paneId, cornerRadius, active, profileOverride)
 
   const handleScreenshot = useCallback(() => {
     void window.api.savePaneScreenshot(paneId)
