@@ -142,6 +142,9 @@ function createWindow(): BrowserWindow {
   })
   auditManager.subscribe((state) => {
     panelManager.notifyOverlayPanels('seo-audit:state', state)
+    if (!mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+      mainWindow.webContents.send('seo-audit:state', state)
+    }
   })
   registerIpcHandlers(
     paneManager,

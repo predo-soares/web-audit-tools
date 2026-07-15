@@ -12,7 +12,13 @@ import type {
   ThemePreference
 } from '../shared/types'
 import type { SnapshotResult } from '../shared/snapshot'
-import type { AuditJobState, AuditRunResult, IndexingIntent } from '../shared/seo-audit'
+import type {
+  AuditJobState,
+  AuditRunResult,
+  IndexingIntent,
+  LighthouseAssessmentState,
+  LighthouseProfile
+} from '../shared/seo-audit'
 
 export interface PreviewApi {
   closeWindow: () => Promise<void>
@@ -82,6 +88,16 @@ export interface PreviewApi {
   runSeoAudit: (indexingIntent: IndexingIntent) => Promise<AuditRunResult>
   cancelSeoAudit: () => Promise<void>
   getSeoAuditState: () => Promise<AuditJobState>
+  onSeoAuditState: (callback: (state: AuditJobState) => void) => () => void
+  getLighthouseState: () => Promise<LighthouseAssessmentState>
+  runLighthouse: (
+    profile: LighthouseProfile,
+    shareSession: boolean
+  ) => Promise<LighthouseAssessmentState>
+  cancelLighthouse: () => Promise<void>
+  onLighthouseState: (callback: (state: LighthouseAssessmentState) => void) => () => void
+  onEnterSeoView: (callback: () => void) => () => void
+  setPanesVisible: (visible: boolean) => Promise<void>
 }
 
 const api: PreviewApi = {
@@ -239,7 +255,31 @@ const api: PreviewApi = {
   },
   runSeoAudit: (indexingIntent) => ipcRenderer.invoke('seo-audit:run', indexingIntent),
   cancelSeoAudit: () => ipcRenderer.invoke('seo-audit:cancel'),
-  getSeoAuditState: () => ipcRenderer.invoke('seo-audit:get-state')
+  getSeoAuditState: () => ipcRenderer.invoke('seo-audit:get-state'),
+  onSeoAuditState: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, state: AuditJobState): void =>
+      callback(state)
+    ipcRenderer.on('seo-audit:state', listener)
+    return () => ipcRenderer.removeListener('seo-audit:state', listener)
+  },
+  getLighthouseState: () => ipcRenderer.invoke('seo-lighthouse:get-state'),
+  runLighthouse: (profile, shareSession) =>
+    ipcRenderer.invoke('seo-lighthouse:run', profile, shareSession),
+  cancelLighthouse: () => ipcRenderer.invoke('seo-lighthouse:cancel'),
+  onLighthouseState: (callback) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      state: LighthouseAssessmentState
+    ): void => callback(state)
+    ipcRenderer.on('seo-lighthouse:state', listener)
+    return () => ipcRenderer.removeListener('seo-lighthouse:state', listener)
+  },
+  onEnterSeoView: (callback) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('app:seo-view', listener)
+    return () => ipcRenderer.removeListener('app:seo-view', listener)
+  },
+  setPanesVisible: (visible) => ipcRenderer.invoke('pane:set-visible', visible)
 }
 
 contextBridge.exposeInMainWorld('api', api)

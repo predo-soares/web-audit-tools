@@ -76,6 +76,7 @@ export type PanelAction =
   | { type: 'reload' }
   | { type: 'stop-loading' }
   | { type: 'set-sync-enabled'; enabled: boolean }
+  | { type: 'enter-seo-view' }
 
 export const PANEL_MIN_SIZE: Record<PanelId, Size> = {
   zoom: { width: 144, height: 224 },

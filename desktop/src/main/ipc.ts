@@ -160,9 +160,13 @@ export function registerIpcHandlers(
   safariChromeManager: SafariChromeManager,
   auditManager: AuditManager
 ): void {
-  const lighthouseManager = new LighthouseManager((state) =>
+  const lighthouseManager = new LighthouseManager((state) => {
     panelManager.notifyPanel('seo-right', 'seo-lighthouse:state', state)
-  )
+    const mainWindow = BrowserWindow.getAllWindows()[0]
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+      mainWindow.webContents.send('seo-lighthouse:state', state)
+    }
+  })
   ipcMain.handle('snapshot:take', async (_event, includeSeoAudit = false) => {
     return captureSnapshot(makeSnapshotPort(paneManager), undefined, {
       includeSeoAudit,
@@ -241,6 +245,10 @@ export function registerIpcHandlers(
 
   ipcMain.handle('pane:mount', (_event, paneId: PaneId, mount: PaneMount) => {
     paneManager.mount(paneId, mount)
+  })
+
+  ipcMain.handle('pane:set-visible', (_event, visible: boolean) => {
+    paneManager.setPanesVisible(visible)
   })
 
   ipcMain.handle('preview:navigate', async (_event, rawUrl: string) => {
@@ -422,6 +430,14 @@ export function registerIpcHandlers(
       const mainWindow = BrowserWindow.getAllWindows()[0]
       if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
         mainWindow.webContents.send('panel:toggle-sidebar')
+      }
+      return
+    }
+
+    if (action.type === 'enter-seo-view') {
+      const mainWindow = BrowserWindow.getAllWindows()[0]
+      if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+        mainWindow.webContents.send('app:seo-view')
       }
       return
     }
