@@ -488,6 +488,9 @@ export function registerIpcHandlers(
 
     if (action.type === 'navigate') {
       void paneManager.navigateAll(normalizeUrl(action.url))
+      if (panelId === 'url-history') {
+        panelManager.close(panelId)
+      }
       return
     }
 

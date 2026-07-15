@@ -90,7 +90,8 @@ const ALL_PANEL_IDS: PanelId[] = [
   'sidebar-left',
   'diagnostics-right',
   'toolbar-top',
-  'zoom'
+  'zoom',
+  'url-history'
 ]
 
 const PANEL_Z_ORDER: PanelId[] = ALL_PANEL_IDS
@@ -278,7 +279,7 @@ export class PanelManager {
     entry.size = null
     entry.isOpen = true
     entry.isClosing = false
-    if (options.mode === 'docked') {
+    if (options.mode === 'docked' || options.mode === 'anchored') {
       entry.view.setVisible(true)
     }
     this.bringToFront(panelId)
