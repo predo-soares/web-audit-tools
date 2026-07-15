@@ -6,12 +6,10 @@ import {
   OUTCOME_LABEL,
   type AuditCategory,
   type FindingOutcome,
-  type IndexingIntent,
-  type LighthouseProfile
+  type IndexingIntent
 } from '../../../shared/seo-audit'
 import { cn } from '@renderer/lib/utils'
 import { SegmentedControl } from '@renderer/components/ui/segmented-control'
-import { Checkbox } from '@renderer/components/ui/checkbox'
 import { auditMarkdown } from '../../../shared/seo-markdown'
 import { ArrowLeft01Icon } from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
@@ -51,18 +49,11 @@ export function SeoView({ onClose }: { onClose: () => void }): React.JSX.Element
     setFindingOutcome,
     copied,
     exportStatus,
-    lighthouse,
-    lighthouseProfile,
-    setLighthouseProfile,
-    shareSession,
-    setShareSession,
     handleIntentChange,
     handleRun,
     handleCancel,
     copyMarkdown,
-    exportWithSnapshot,
-    runLighthouse,
-    cancelLighthouse
+    exportWithSnapshot
   } = useSeoAuditPresentation(window.api)
 
   return (
@@ -517,108 +508,6 @@ export function SeoView({ onClose }: { onClose: () => void }): React.JSX.Element
                       ))}
                     </ul>
                   </details>
-                </section>
-
-                {/* Lighthouse */}
-                <section
-                  data-testid="seo-lighthouse"
-                  className="rounded-lg border border-white/10 p-4"
-                >
-                  <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Lighthouse assessment
-                    </h2>
-                    <span className="text-xs text-muted-foreground">Explicit separate load</span>
-                  </div>
-                  <div className="flex gap-2">
-                    {(['mobile', 'desktop'] as LighthouseProfile[]).map((profile) => (
-                      <button
-                        type="button"
-                        key={profile}
-                        aria-pressed={lighthouseProfile === profile}
-                        onClick={() => setLighthouseProfile(profile)}
-                        className={cn(
-                          'flex-1 rounded border border-white/10 px-3 py-1.5 text-sm capitalize transition-colors',
-                          lighthouseProfile === profile ? 'bg-white/10' : 'hover:bg-white/5'
-                        )}
-                      >
-                        {profile}
-                      </button>
-                    ))}
-                  </div>
-                  <label className="mt-2 flex cursor-pointer items-start gap-2 text-xs text-muted-foreground">
-                    <Checkbox
-                      className="mt-0.5"
-                      checked={shareSession}
-                      onCheckedChange={(v) => setShareSession(Boolean(v))}
-                    />
-                    Share authenticated session cookies with the isolated target
-                  </label>
-                  {lighthouse.phase === 'running' ? (
-                    <button
-                      type="button"
-                      data-testid="seo-lighthouse-cancel"
-                      onClick={cancelLighthouse}
-                      className="mt-3 w-full rounded border border-white/10 px-3 py-1.5 text-sm transition-colors hover:bg-white/5"
-                    >
-                      Cancel Lighthouse
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      data-testid="seo-lighthouse-run"
-                      onClick={runLighthouse}
-                      className="mt-3 w-full rounded border border-white/10 px-3 py-1.5 text-sm text-sky-400 transition-colors hover:bg-white/5"
-                    >
-                      Run Lighthouse separately
-                    </button>
-                  )}
-                  {lighthouse.phase === 'running' ? (
-                    <p
-                      data-testid="seo-lighthouse-progress"
-                      className="mt-2 text-xs text-muted-foreground"
-                    >
-                      Launching isolated hidden Chrome target…
-                    </p>
-                  ) : null}
-                  {lighthouse.phase === 'failed' ? (
-                    <p className="mt-2 text-xs text-destructive">
-                      Lighthouse failed: {lighthouse.error}
-                    </p>
-                  ) : null}
-                  {lighthouse.result ? (
-                    <div data-testid="seo-lighthouse-result" className="mt-3 border-t border-white/10 pt-3">
-                      <p className="text-xs text-muted-foreground">
-                        Lighthouse {lighthouse.result.lighthouseVersion} ·{' '}
-                        {lighthouse.result.configuration} · {lighthouse.result.deviceMode} ·{' '}
-                        {new Date(lighthouse.result.completedAt).toLocaleString()}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Target {lighthouse.result.targetUrl} · distinct load ·{' '}
-                        {lighthouse.result.stale ||
-                        job.stale ||
-                        lighthouse.result.pageAuditId !== result.id
-                          ? 'stale/different Page SEO audit'
-                          : 'linked to this Page SEO audit'}
-                      </p>
-                      <ul className="mt-3 grid grid-cols-4 gap-2">
-                        {Object.entries(lighthouse.result.scores).map(([category, score]) => (
-                          <li
-                            key={category}
-                            data-testid="seo-lighthouse-score"
-                            className="rounded border border-white/10 p-2 text-center"
-                          >
-                            <p className="text-[10px] capitalize text-muted-foreground">
-                              {category}
-                            </p>
-                            <p className="mt-1 text-lg font-semibold">
-                              {score === null ? 'n/a' : Math.round(score * 100)}
-                            </p>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
                 </section>
 
                 {/* Structured data */}

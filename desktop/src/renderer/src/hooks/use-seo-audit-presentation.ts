@@ -7,19 +7,10 @@ import {
   type AuditJobState,
   type AuditRunResult,
   type FindingOutcome,
-  type IndexingIntent,
-  type LighthouseAssessmentState,
-  type LighthouseProfile
+  type IndexingIntent
 } from '../../../shared/seo-audit'
 import type { PaneNavigationState } from '../../../shared/types'
 import type { SnapshotResult } from '../../../shared/snapshot'
-
-const IDLE_LIGHTHOUSE_STATE: LighthouseAssessmentState = {
-  phase: 'idle',
-  result: null,
-  error: null,
-  progress: null
-}
 
 export interface SeoAuditPresentationAdapter {
   getNavigationState(): Promise<PaneNavigationState>
@@ -28,10 +19,6 @@ export interface SeoAuditPresentationAdapter {
   onSeoAuditState(callback: (state: AuditJobState) => void): () => void
   runSeoAudit(indexingIntent: IndexingIntent): Promise<AuditRunResult>
   cancelSeoAudit(): Promise<void>
-  getLighthouseState(): Promise<LighthouseAssessmentState>
-  onLighthouseState(callback: (state: LighthouseAssessmentState) => void): () => void
-  runLighthouse(profile: LighthouseProfile, shareSession: boolean): Promise<unknown>
-  cancelLighthouse(): Promise<unknown>
   takeSnapshot(includeSeoAudit?: boolean): Promise<SnapshotResult>
 }
 
@@ -57,18 +44,11 @@ export interface SeoAuditPresentation {
   setFindingOutcome: Dispatch<SetStateAction<FindingOutcome | null>>
   copied: string
   exportStatus: string
-  lighthouse: LighthouseAssessmentState
-  lighthouseProfile: LighthouseProfile
-  setLighthouseProfile: Dispatch<SetStateAction<LighthouseProfile>>
-  shareSession: boolean
-  setShareSession: Dispatch<SetStateAction<boolean>>
   handleIntentChange(intent: IndexingIntent): void
   handleRun(): void
   handleCancel(): void
   copyMarkdown(markdown: string, label: string): void
   exportWithSnapshot(): void
-  runLighthouse(): void
-  cancelLighthouse(): void
 }
 
 export function applySeoNavigation(
@@ -99,9 +79,6 @@ export function useSeoAuditPresentation(
   const [findingOutcome, setFindingOutcome] = useState<FindingOutcome | null>(null)
   const [copied, setCopied] = useState('')
   const [exportStatus, setExportStatus] = useState('')
-  const [lighthouse, setLighthouse] = useState<LighthouseAssessmentState>(IDLE_LIGHTHOUSE_STATE)
-  const [lighthouseProfile, setLighthouseProfile] = useState<LighthouseProfile>('mobile')
-  const [shareSession, setShareSession] = useState(false)
   const [job, setJob] = useState<AuditJobState>(IDLE_AUDIT_STATE)
   const intentTouchedRef = useRef(false)
 
@@ -117,11 +94,6 @@ export function useSeoAuditPresentation(
   useEffect(() => {
     void adapter.getSeoAuditState().then(setJob)
     return adapter.onSeoAuditState(setJob)
-  }, [adapter])
-
-  useEffect(() => {
-    void adapter.getLighthouseState().then(setLighthouse)
-    return adapter.onLighthouseState(setLighthouse)
   }, [adapter])
 
   const handleIntentChange = useCallback((intent: IndexingIntent): void => {
@@ -150,14 +122,6 @@ export function useSeoAuditPresentation(
       )
   }, [adapter])
 
-  const runLighthouse = useCallback((): void => {
-    void adapter.runLighthouse(lighthouseProfile, shareSession)
-  }, [adapter, lighthouseProfile, shareSession])
-
-  const cancelLighthouse = useCallback((): void => {
-    void adapter.cancelLighthouse()
-  }, [adapter])
-
   return {
     url: navigation.url,
     pageTitle: navigation.pageTitle,
@@ -174,17 +138,10 @@ export function useSeoAuditPresentation(
     setFindingOutcome,
     copied,
     exportStatus,
-    lighthouse,
-    lighthouseProfile,
-    setLighthouseProfile,
-    shareSession,
-    setShareSession,
     handleIntentChange,
     handleRun,
     handleCancel,
     copyMarkdown,
-    exportWithSnapshot,
-    runLighthouse,
-    cancelLighthouse
+    exportWithSnapshot
   }
 }
