@@ -1,9 +1,15 @@
 import type { ThemePreference } from './types'
 import type { Size } from './types'
 import { DIAGNOSTICS_DRAWER_WIDTH_PX, type RuntimeEvidenceChannel } from './runtime-evidence'
+import type { HistoryEntry } from './history'
 
 export type PanelId =
-  'zoom' | 'theme' | 'sidebar-left' | 'diagnostics-right' | 'toolbar-top'
+  | 'zoom'
+  | 'theme'
+  | 'sidebar-left'
+  | 'diagnostics-right'
+  | 'toolbar-top'
+  | 'url-history'
 
 export type PanelMode = 'anchored' | 'docked'
 
@@ -31,7 +37,16 @@ export interface DiagnosticsPanelPayload {
   initialTab: RuntimeEvidenceChannel
 }
 
-export type PanelPayload = ZoomPanelPayload | ThemePanelPayload | DiagnosticsPanelPayload
+export interface UrlHistoryPanelPayload {
+  items: HistoryEntry[]
+  activeIndex: number
+}
+
+export type PanelPayload =
+  | ZoomPanelPayload
+  | ThemePanelPayload
+  | DiagnosticsPanelPayload
+  | UrlHistoryPanelPayload
 
 export interface PanelOpenOptions {
   panelId: PanelId
@@ -84,7 +99,8 @@ export const PANEL_MIN_SIZE: Record<PanelId, Size> = {
   theme: { width: 176, height: 120 },
   'sidebar-left': { width: 280, height: 400 },
   'diagnostics-right': { width: DIAGNOSTICS_DRAWER_WIDTH_PX, height: 400 },
-  'toolbar-top': { width: 400, height: 52 }
+  'toolbar-top': { width: 400, height: 52 },
+  'url-history': { width: 400, height: 48 }
 }
 
 export const PANEL_FIXED_SIZE: Partial<Record<PanelId, Size>> = {
