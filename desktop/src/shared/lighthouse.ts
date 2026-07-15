@@ -63,6 +63,7 @@ export type LighthouseAssessmentState =
       result: LighthouseAssessmentResult | null
       error: null
       profile: LighthouseProfile
+      paneId: PaneId
       targetUrl: string
       progress: LighthouseProgress
     }

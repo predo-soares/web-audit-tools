@@ -166,6 +166,7 @@ export function registerIpcHandlers(
       mainWindow.webContents.send('seo-lighthouse:state', state)
     }
   })
+  paneManager.onPaneDocumentChange((paneId) => lighthouseManager.handlePaneDocumentChange(paneId))
   ipcMain.handle('snapshot:take', async (_event, includeSeoAudit = false) => {
     return captureSnapshot(makeSnapshotPort(paneManager), undefined, {
       includeSeoAudit,

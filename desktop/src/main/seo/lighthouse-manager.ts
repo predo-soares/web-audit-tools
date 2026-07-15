@@ -45,6 +45,7 @@ export class LighthouseManager {
       result: this.state.result,
       error: null,
       profile: input.profile,
+      paneId: input.paneId ?? 'desktop',
       targetUrl: sanitizeUrl(input.url),
       progress: { runId, phase: 'launching', label: 'Launching isolated Chrome target…' }
     })
@@ -71,6 +72,10 @@ export class LighthouseManager {
   cancel(): void {
     this.runId++
     this.abort?.abort()
+  }
+  handlePaneDocumentChange(paneId: PaneId): void {
+    if (this.state.phase === 'running' && this.state.paneId === paneId) this.cancel()
+    if (this.state.result?.paneId === paneId) this.markStale()
   }
   markStale(): void {
     if (this.state.result)

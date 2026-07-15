@@ -77,4 +77,18 @@ describe('LighthouseManager', () => {
     manager.markStale()
     expect(manager.getState().result?.stale).toBe(true)
   })
+
+  it('marks only the matching pane result stale', async () => {
+    const manager = new LighthouseManager(() => {}, async () => result)
+    await manager.run({
+      url: 'https://site.test/',
+      profile: 'mobile',
+      paneId: 'iphone',
+      shareSession: false
+    })
+    manager.handlePaneDocumentChange('desktop')
+    expect(manager.getState().result?.stale).toBe(false)
+    manager.handlePaneDocumentChange('iphone')
+    expect(manager.getState().result?.stale).toBe(true)
+  })
 })
