@@ -26,7 +26,7 @@ import type {
   AuditRunResult,
   IndexingIntent,
   LighthouseAssessmentState,
-  LighthouseProfile
+  LighthouseLabSelection
 } from '../shared/seo-audit'
 
 export interface PanelOverlayApi {
@@ -95,10 +95,7 @@ export interface PanelOverlayApi {
   getSeoAuditState: () => Promise<AuditJobState>
   onSeoAuditState: (callback: (state: AuditJobState) => void) => () => void
   getLighthouseState: () => Promise<LighthouseAssessmentState>
-  runLighthouse: (
-    profile: LighthouseProfile,
-    shareSession: boolean
-  ) => Promise<LighthouseAssessmentState>
+  runLighthouse: (labSelection?: LighthouseLabSelection) => Promise<LighthouseAssessmentState>
   cancelLighthouse: () => Promise<void>
   onLighthouseState: (callback: (state: LighthouseAssessmentState) => void) => () => void
 }
@@ -290,8 +287,7 @@ const panelApi: PanelOverlayApi = {
     return () => ipcRenderer.removeListener('seo-audit:state', listener)
   },
   getLighthouseState: () => ipcRenderer.invoke('seo-lighthouse:get-state'),
-  runLighthouse: (profile, shareSession) =>
-    ipcRenderer.invoke('seo-lighthouse:run', profile, shareSession),
+  runLighthouse: (labSelection) => ipcRenderer.invoke('seo-lighthouse:run', labSelection),
   cancelLighthouse: () => ipcRenderer.invoke('seo-lighthouse:cancel'),
   onLighthouseState: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, state: LighthouseAssessmentState): void =>

@@ -18,7 +18,7 @@ import type {
   AuditRunResult,
   IndexingIntent,
   LighthouseAssessmentState,
-  LighthouseProfile
+  LighthouseLabSelection
 } from '../shared/seo-audit'
 
 export interface PreviewApi {
@@ -91,10 +91,7 @@ export interface PreviewApi {
   getSeoAuditState: () => Promise<AuditJobState>
   onSeoAuditState: (callback: (state: AuditJobState) => void) => () => void
   getLighthouseState: () => Promise<LighthouseAssessmentState>
-  runLighthouse: (
-    profile: LighthouseProfile,
-    shareSession: boolean
-  ) => Promise<LighthouseAssessmentState>
+  runLighthouse: (labSelection?: LighthouseLabSelection) => Promise<LighthouseAssessmentState>
   cancelLighthouse: () => Promise<void>
   onLighthouseState: (callback: (state: LighthouseAssessmentState) => void) => () => void
   onEnterSeoView: (callback: () => void) => () => void
@@ -267,8 +264,7 @@ const api: PreviewApi = {
     return () => ipcRenderer.removeListener('seo-audit:state', listener)
   },
   getLighthouseState: () => ipcRenderer.invoke('seo-lighthouse:get-state'),
-  runLighthouse: (profile, shareSession) =>
-    ipcRenderer.invoke('seo-lighthouse:run', profile, shareSession),
+  runLighthouse: (labSelection) => ipcRenderer.invoke('seo-lighthouse:run', labSelection),
   cancelLighthouse: () => ipcRenderer.invoke('seo-lighthouse:cancel'),
   onLighthouseState: (callback) => {
     const listener = (

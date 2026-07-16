@@ -124,6 +124,7 @@ export interface InternationalizationResult {
 export type {
   LighthouseAssessmentResult,
   LighthouseAssessmentState,
+  LighthouseLabSelection,
   LighthouseProfile
 } from './lighthouse'
 

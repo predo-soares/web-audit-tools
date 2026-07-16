@@ -19,6 +19,7 @@ import {
 import { captureDeliveredEvidence } from './seo/delivered-evidence'
 import { nodeFetchTransport } from './seo/referenced-fetch'
 import { UNAVAILABLE_DELIVERED_EVIDENCE, type IndexingIntent } from '../shared/seo-audit'
+import type { LighthouseLabSelection } from '../shared/lighthouse'
 import { unavailableIndexability, verifyIndexability } from './seo/indexability'
 import { resolveSocialSharing, unavailableSocialSharing } from './seo/social-sharing'
 import {
@@ -26,7 +27,6 @@ import {
   verifyInternationalization
 } from './seo/internationalization'
 import { LighthouseManager } from './seo/lighthouse-manager'
-import type { LighthouseProfile } from '../shared/seo-audit'
 
 /**
  * Build a request Cookie header from the pane session so delivered evidence is
@@ -186,24 +186,21 @@ export function registerIpcHandlers(
     return auditManager.getState()
   })
   ipcMain.handle('seo-lighthouse:get-state', () => lighthouseManager.getState())
-  ipcMain.handle(
-    'seo-lighthouse:run',
-    async (_event, profile: LighthouseProfile, _shareSession: boolean) => {
-      const navigation = paneManager.getNavigationState()
-      if (!navigation.barUrl) return lighthouseManager.getState()
-      const headers: Record<string, string> = {
-        'User-Agent': paneManager.getUserAgentForPane(navigation.activePane ?? 'desktop')
-      }
-      return lighthouseManager.run({
-        url: navigation.barUrl,
-        profile,
-        paneId: navigation.activePane ?? 'desktop',
-        // Disabled until cookies can be seeded into an isolated Chrome jar safely.
-        shareSession: false,
-        headers,
-      })
+  ipcMain.handle('seo-lighthouse:run', async (_event, labSelection?: LighthouseLabSelection) => {
+    const navigation = paneManager.getNavigationState()
+    if (!navigation.barUrl) return lighthouseManager.getState()
+    const headers: Record<string, string> = {
+      'User-Agent': paneManager.getUserAgentForPane(navigation.activePane ?? 'desktop')
     }
-  )
+    return lighthouseManager.run({
+      url: navigation.barUrl,
+      paneId: navigation.activePane ?? 'desktop',
+      // Disabled until cookies can be seeded into an isolated Chrome jar safely.
+      shareSession: false,
+      headers,
+      labSelection
+    })
+  })
   ipcMain.handle('seo-lighthouse:cancel', () => lighthouseManager.cancel())
 
   ipcMain.on('diagnostics:toggle', () => {

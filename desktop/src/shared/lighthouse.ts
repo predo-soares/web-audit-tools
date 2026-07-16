@@ -1,10 +1,55 @@
 import type { PaneId } from './types'
+import type { LighthouseLabSpecSnapshot } from './lighthouse-lab'
+
+export type { LighthouseLabSpecSnapshot } from './lighthouse-lab'
+export {
+  DEFAULT_LIGHTHOUSE_LAB_SELECTION,
+  LIGHTHOUSE_DESKTOP_DEVICES,
+  LIGHTHOUSE_MOBILE_DEVICES,
+  LIGHTHOUSE_NETWORK_PRESETS,
+  buildLabSpecSnapshot,
+  resolveLighthouseDevice,
+  resolveLighthouseNetwork,
+  type LighthouseLabSelection,
+  type LighthouseNetworkId,
+  type LighthouseMobileDeviceId,
+  type LighthouseDesktopDeviceId
+} from './lighthouse-lab'
 
 export type LighthouseProfile = 'mobile' | 'desktop'
 export type LighthouseProgressPhase = 'launching' | 'loading' | 'auditing' | 'projecting' | 'cleanup'
 
+export const LIGHTHOUSE_PROFILES: LighthouseProfile[] = ['mobile', 'desktop']
+
+export const LIGHTHOUSE_PROGRESS_PHASES: LighthouseProgressPhase[] = [
+  'launching',
+  'loading',
+  'auditing',
+  'projecting',
+  'cleanup'
+]
+
+export const LIGHTHOUSE_PROGRESS_STEP_LABEL: Record<LighthouseProgressPhase, string> = {
+  launching: 'Launch',
+  loading: 'Load',
+  auditing: 'Audit',
+  projecting: 'Prepare',
+  cleanup: 'Cleanup'
+}
+
+export const LIGHTHOUSE_CORE_METRIC_IDS = [
+  'first-contentful-paint',
+  'largest-contentful-paint',
+  'total-blocking-time',
+  'cumulative-layout-shift',
+  'speed-index'
+] as const
+
+export type LighthouseCoreMetricId = (typeof LIGHTHOUSE_CORE_METRIC_IDS)[number]
+
 export interface LighthouseProgress {
   runId: number
+  profile: LighthouseProfile
   phase: LighthouseProgressPhase
   label: string
 }
@@ -28,6 +73,11 @@ export interface LighthouseAuditDetail {
   groupId: string | null
 }
 
+export interface LighthouseAuditGroupMeta {
+  title: string
+  description: string
+}
+
 export interface LighthouseAssessmentResult {
   id: string
   paneId: PaneId
@@ -49,33 +99,50 @@ export interface LighthouseAssessmentResult {
   /** @deprecated Page SEO compatibility; prefer categories. */
   scores: Record<string, number | null>
   audits: Record<string, LighthouseAuditDetail>
+  auditGroups: Record<string, LighthouseAuditGroupMeta>
   opportunityIds: string[]
   diagnosticIds: string[]
   retainedAuditCount: number
   totalAuditCount: number
   truncatedAuditCount: number
+  labSpec: LighthouseLabSpecSnapshot
+}
+
+export type LighthouseResultsByProfile = Record<
+  LighthouseProfile,
+  LighthouseAssessmentResult | null
+>
+
+export const EMPTY_LIGHTHOUSE_RESULTS: LighthouseResultsByProfile = {
+  mobile: null,
+  desktop: null
 }
 
 export type LighthouseAssessmentState =
-  | { phase: 'idle'; result: LighthouseAssessmentResult | null; error: null; progress: null }
+  | {
+      phase: 'idle'
+      results: LighthouseResultsByProfile
+      error: null
+      progress: null
+    }
   | {
       phase: 'running'
-      result: LighthouseAssessmentResult | null
+      results: LighthouseResultsByProfile
       error: null
-      profile: LighthouseProfile
+      activeProfile: LighthouseProfile
       paneId: PaneId
       targetUrl: string
       progress: LighthouseProgress
     }
   | {
       phase: 'completed' | 'cancelled'
-      result: LighthouseAssessmentResult | null
+      results: LighthouseResultsByProfile
       error: null
       progress: null
     }
   | {
       phase: 'failed'
-      result: LighthouseAssessmentResult | null
+      results: LighthouseResultsByProfile
       error: string
       progress: null
     }
@@ -96,10 +163,32 @@ export function sanitizeLighthouseError(error: unknown): string {
   return text(error instanceof Error ? error.message : error) || 'Lighthouse failed'
 }
 
+export function markLighthouseResultsStale(
+  results: LighthouseResultsByProfile,
+  paneId?: PaneId
+): LighthouseResultsByProfile {
+  const next = { ...results }
+  for (const profile of LIGHTHOUSE_PROFILES) {
+    const result = next[profile]
+    if (!result) continue
+    if (paneId != null && result.paneId !== paneId) continue
+    next[profile] = { ...result, stale: true }
+  }
+  return next
+}
+
+export function hasAnyLighthouseResult(results: LighthouseResultsByProfile): boolean {
+  return LIGHTHOUSE_PROFILES.some((profile) => results[profile] != null)
+}
+
 interface LhrLike {
   lighthouseVersion?: string
   finalDisplayedUrl?: string
-  categories?: Record<string, { title?: string; score?: number | null; auditRefs?: Array<{ id: string; group?: string }> }>
+  categoryGroups?: Record<string, { title?: string; description?: string }>
+  categories?: Record<
+    string,
+    { title?: string; score?: number | null; auditRefs?: Array<{ id: string; group?: string }> }
+  >
   audits?: Record<string, Record<string, unknown>>
 }
 
@@ -113,6 +202,7 @@ export function projectLighthouseResult(
     shareSession: boolean
     startedAt: number
     completedAt: number
+    labSpec: LighthouseLabSpecSnapshot
   }
 ): LighthouseAssessmentResult {
   const lhr = rawLhr as LhrLike
@@ -147,6 +237,13 @@ export function projectLighthouseResult(
       groupId: groups.get(id) ?? null
     }
   }
+  const auditGroups: Record<string, LighthouseAuditGroupMeta> = {}
+  for (const [id, group] of Object.entries(lhr.categoryGroups ?? {})) {
+    auditGroups[id] = {
+      title: text(group.title || id),
+      description: text(group.description)
+    }
+  }
   return {
     id: input.id,
     paneId: input.paneId,
@@ -175,10 +272,16 @@ export function projectLighthouseResult(
       ])
     ),
     audits,
+    auditGroups,
     opportunityIds: opportunityIds.filter((id) => retainedSet.has(id)),
     diagnosticIds: diagnosticIds.filter((id) => retainedSet.has(id)),
     retainedAuditCount: retained.length,
     totalAuditCount: priority.length,
-    truncatedAuditCount: Math.max(0, priority.length - retained.length)
+    truncatedAuditCount: Math.max(0, priority.length - retained.length),
+    labSpec: {
+      ...input.labSpec,
+      lighthouseVersion: text(lhr.lighthouseVersion || input.labSpec.lighthouseVersion),
+      completedAt: input.completedAt
+    }
   }
 }

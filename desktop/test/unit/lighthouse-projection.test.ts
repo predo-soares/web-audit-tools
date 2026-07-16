@@ -29,7 +29,25 @@ describe('Lighthouse result projection', () => {
         requestedUrl: 'https://site.test/',
         shareSession: false,
         startedAt: 1,
-        completedAt: 2
+        completedAt: 2,
+        labSpec: {
+          deviceId: 'moto-g-power',
+          deviceLabel: 'Moto G Power',
+          networkId: 'slow-4g',
+          networkLabel: 'Slow 4G throttling',
+          cpuLabel: '4× CPU slowdown',
+          formFactor: 'mobile',
+          screen: {
+            mobile: true,
+            width: 412,
+            height: 823,
+            deviceScaleFactor: 1.75,
+            disabled: false
+          },
+          browserLabel: 'Headless Chromium',
+          lighthouseVersion: '13.4.0',
+          completedAt: 2
+        }
       }
     )
 
@@ -37,6 +55,7 @@ describe('Lighthouse result projection', () => {
     expect(result.opportunityIds).toEqual(['unused-css'])
     expect(result.diagnosticIds).toEqual(['main-thread'])
     expect(result.finalUrl).toBe('https://site.test/final')
+    expect(result.labSpec.deviceLabel).toBe('Moto G Power')
   })
 
   it('sanitizes sensitive failure text', () => {
