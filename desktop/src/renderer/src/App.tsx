@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import type { DeviceProfile, PaneId, PaneLoadError } from '../../shared/types'
 import { PANE_IDS } from '../../shared/device-presets'
-import { CATALOG_BY_PRESET, DEFAULT_PRESET_IDS, type CatalogEntry } from '../../shared/device-catalog'
+import {
+  CATALOG_BY_PRESET,
+  DEFAULT_PRESET_IDS,
+  type CatalogEntry
+} from '../../shared/device-catalog'
 import { isCommittedPageUrl } from '../../shared/project'
 import { PreviewCanvas } from '@renderer/components/preview-canvas'
-import { SeoView } from '@renderer/components/seo-view'
+import { SeoView } from '@renderer/components/seo'
 import { DevicesView } from '@renderer/components/devices-view'
 import { LighthouseView } from '@renderer/components/lighthouse'
 import { ToolbarProvider } from '@renderer/context/toolbar-context'
@@ -46,7 +50,9 @@ export default function App(): React.JSX.Element {
   const [activePane, setActivePane] = useState<PaneId | null>(null)
   const [committedUrl, setCommittedUrl] = useState('')
   const [safariChromeEnabled, setSafariChromeEnabled] = useState(false)
-  const [workspace, setWorkspace] = useState<'browser' | 'seo' | 'lighthouse' | 'devices'>('browser')
+  const [workspace, setWorkspace] = useState<'browser' | 'seo' | 'lighthouse' | 'devices'>(
+    'browser'
+  )
   const [selectedPresets, setSelectedPresets] = useState<SelectedPresets>(DEFAULT_SELECTED)
   // Tracks the last committed URL so we only react to genuine navigations, not
   // repeated nav-state updates (title changes, etc.) that carry the same URL.
@@ -187,35 +193,37 @@ export default function App(): React.JSX.Element {
   return (
     <SidebarProvider>
       <DiagnosticsProvider>
-          <ToolbarProvider>
-            {workspace === 'seo' ? (
-              <SeoView onClose={() => {
+        <ToolbarProvider>
+          {workspace === 'seo' ? (
+            <SeoView
+              onClose={() => {
                 setWorkspace('browser')
                 void window.api.setPanesVisible(true)
-              }} />
-            ) : workspace === 'lighthouse' ? (
-              <LighthouseView />
-            ) : workspace === 'devices' ? (
-              <DevicesView
-                selectedPresets={selectedPresets}
-                onTogglePreset={(id) => void handleTogglePreset(id)}
-                onClose={() => {
-                  setWorkspace('browser')
-                  void window.api.setPanesVisible(true)
-                }}
-              />
-            ) : (
-              <PreviewCanvas
-                loadingStates={loadingStates}
-                errorStates={errorStates}
-                committedUrl={committedUrl}
-                activePane={activePane}
-                safariChromeEnabled={safariChromeEnabled}
-                visiblePanes={visiblePanes}
-                paneProfiles={paneProfiles}
-              />
-            )}
-          </ToolbarProvider>
+              }}
+            />
+          ) : workspace === 'lighthouse' ? (
+            <LighthouseView />
+          ) : workspace === 'devices' ? (
+            <DevicesView
+              selectedPresets={selectedPresets}
+              onTogglePreset={(id) => void handleTogglePreset(id)}
+              onClose={() => {
+                setWorkspace('browser')
+                void window.api.setPanesVisible(true)
+              }}
+            />
+          ) : (
+            <PreviewCanvas
+              loadingStates={loadingStates}
+              errorStates={errorStates}
+              committedUrl={committedUrl}
+              activePane={activePane}
+              safariChromeEnabled={safariChromeEnabled}
+              visiblePanes={visiblePanes}
+              paneProfiles={paneProfiles}
+            />
+          )}
+        </ToolbarProvider>
       </DiagnosticsProvider>
     </SidebarProvider>
   )
