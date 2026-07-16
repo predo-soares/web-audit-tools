@@ -634,9 +634,18 @@ export class PaneManager {
     await Promise.all(
       PANE_IDS.map(async (targetId) => {
         if (targetId === sourcePaneId) return
+        const engine = this.getEngine(targetId)
+        const epochBefore = this.getPaneInteractionEpoch(targetId)
         syncTrace('value:applying', { sourcePane: sourcePaneId, targetPane: targetId, generation })
-        this.echoLedger.expect(targetId, 'value')
-        await this.getEngine(targetId).applyValue(fingerprint, payload)
+        const expectation = this.echoLedger.expect(targetId, 'value')
+        await engine.applyValue(fingerprint, payload)
+        // If the target navigated or its engine was recreated mid-apply, drop the
+        // echo reservation so a real value event on the new document isn't
+        // mistaken for this apply's echo.
+        if (this.isInteractionStale(engine, targetId, epochBefore)) {
+          expectation.revoke()
+          syncTrace('value:skipped-stale', { targetPane: targetId })
+        }
       })
     )
   }
@@ -667,9 +676,15 @@ export class PaneManager {
     await Promise.all(
       PANE_IDS.map(async (targetId) => {
         if (targetId === sourcePaneId) return
+        const engine = this.getEngine(targetId)
+        const epochBefore = this.getPaneInteractionEpoch(targetId)
         syncTrace('select:applying', { sourcePane: sourcePaneId, targetPane: targetId, generation })
-        this.echoLedger.expect(targetId, 'value')
-        await this.getEngine(targetId).applyValue(fingerprint, payload)
+        const expectation = this.echoLedger.expect(targetId, 'value')
+        await engine.applyValue(fingerprint, payload)
+        if (this.isInteractionStale(engine, targetId, epochBefore)) {
+          expectation.revoke()
+          syncTrace('select:skipped-stale', { targetPane: targetId })
+        }
       })
     )
   }
@@ -689,14 +704,24 @@ export class PaneManager {
       PANE_IDS.map(async (targetId) => {
         if (targetId === sourcePaneId) return
 
-        this.echoLedger.expect(targetId, 'submit')
+        const engine = this.getEngine(targetId)
+        const expectation = this.echoLedger.expect(targetId, 'submit')
 
         // Mark as programmatic so the resulting navigation doesn't cascade
         // back to the source pane via handleNavigation.
         this.pendingProgrammaticNavigation.add(targetId)
 
         syncTrace('submit:applying', { sourcePane: sourcePaneId, targetPane: targetId })
-        await this.getEngine(targetId).submitForm(fingerprint)
+        await engine.submitForm(fingerprint)
+        // A successful submit navigates (bumps the epoch), so only engine
+        // recreation counts as stale here — not an epoch change. If the engine
+        // was swapped mid-submit, the submit never landed on the live pane, so
+        // drop both the echo reservation and the pending-navigation marker.
+        if (this.isEngineStale(engine, targetId)) {
+          expectation.revoke()
+          this.pendingProgrammaticNavigation.delete(targetId)
+          syncTrace('submit:skipped-stale-engine', { targetPane: targetId })
+        }
       })
     )
   }
@@ -893,6 +918,20 @@ export class PaneManager {
 
   private getPaneInteractionEpoch(paneId: PaneId): number {
     return this.paneInteractionEpoch.get(paneId) ?? 0
+  }
+
+  // A mirrored interaction is stale if the target's engine was recreated, or —
+  // for interactions that don't themselves navigate (value/select) — if the
+  // pane's document changed mid-flight (a load bumped the interaction epoch).
+  // syncClick uses the same rule; this shares it with value/select/submit.
+  private isEngineStale(engine: EngineView, paneId: PaneId): boolean {
+    return engine !== this.engines.get(paneId)
+  }
+
+  private isInteractionStale(engine: EngineView, paneId: PaneId, epochBefore: number): boolean {
+    return (
+      this.isEngineStale(engine, paneId) || epochBefore !== this.getPaneInteractionEpoch(paneId)
+    )
   }
 
   private async createEngine(

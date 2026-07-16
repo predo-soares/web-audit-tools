@@ -368,6 +368,102 @@ describe('PaneManager value sync', () => {
   })
 })
 
+describe('PaneManager value/select/submit stale guards', () => {
+  const otherFingerprint: ElementFingerprint = { layers: [{ type: 'id', id: 'other-field' }] }
+
+  it('drops the value echo reservation when the target engine is recreated mid-apply', async () => {
+    const { paneManager, ipad, desktop } = createPaneManagerWithFakeEngines()
+    const fingerprint = createFingerprint()
+    ipad.onApplyValue = async () => {
+      ;(paneManager as any).engines.set('ipad', new FakeEngine('ipad'))
+    }
+
+    await paneManager.syncValue('iphone', fingerprint, 'hello')
+
+    // ipad now reports a genuine user edit; with the reservation dropped it must
+    // mirror to the other panes rather than be swallowed as an echo.
+    await paneManager.syncValue('ipad', otherFingerprint, 'real')
+    expect(desktop.calls.applyValue.some((c) => c.payload.value === 'real')).toBe(true)
+  })
+
+  it('drops the value echo reservation when the target document changes mid-apply', async () => {
+    const { paneManager, ipad, desktop } = createPaneManagerWithFakeEngines()
+    const fingerprint = createFingerprint()
+    ipad.onApplyValue = async () => {
+      ;(paneManager as any).bumpPaneInteractionEpoch('ipad')
+    }
+
+    await paneManager.syncValue('iphone', fingerprint, 'hello')
+
+    await paneManager.syncValue('ipad', otherFingerprint, 'real')
+    expect(desktop.calls.applyValue.some((c) => c.payload.value === 'real')).toBe(true)
+  })
+
+  it('drops the select echo reservation when the target document changes mid-apply', async () => {
+    const { paneManager, ipad, desktop } = createPaneManagerWithFakeEngines()
+    const fingerprint = createFingerprint()
+    ipad.onApplyValue = async () => {
+      ;(paneManager as any).bumpPaneInteractionEpoch('ipad')
+    }
+
+    await paneManager.syncSelectValue('iphone', fingerprint, 'us', 1)
+
+    await paneManager.syncSelectValue('ipad', otherFingerprint, 'jp', 2)
+    expect(desktop.calls.applyValue.some((c) => c.payload.value === 'jp')).toBe(true)
+  })
+
+  it('does not falsely drop a value reservation when engine and document stay stable', async () => {
+    const { paneManager, ipad, desktop } = createPaneManagerWithFakeEngines()
+    const fingerprint = createFingerprint()
+    // The stable apply's echo must still be suppressed.
+    ipad.onApplyValue = async () => {
+      await paneManager.syncValue('ipad', fingerprint, 'echo')
+    }
+
+    await paneManager.syncValue('iphone', fingerprint, 'hello')
+
+    // Only the original 'hello' reached desktop; the echo was swallowed.
+    expect(desktop.calls.applyValue).toHaveLength(1)
+    expect(desktop.calls.applyValue[0].payload.value).toBe('hello')
+  })
+
+  it('drops the submit reservation and pending navigation when the engine is recreated mid-submit', async () => {
+    const { paneManager, ipad, desktop } = createPaneManagerWithFakeEngines()
+    const fingerprint = createFingerprint()
+    ipad.onSubmitForm = async () => {
+      ;(paneManager as any).engines.set('ipad', new FakeEngine('ipad'))
+    }
+
+    await paneManager.syncSubmit('iphone', fingerprint)
+
+    expect((paneManager as any).pendingProgrammaticNavigation.has('ipad')).toBe(false)
+
+    // ipad reports a real submit → must mirror to desktop, not be suppressed.
+    await paneManager.syncSubmit('ipad', fingerprint)
+    expect(desktop.calls.submitForm.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('keeps the submit reservation when the target only navigates (epoch bump is not staleness)', async () => {
+    const { paneManager, ipad, desktop } = createPaneManagerWithFakeEngines()
+    const fingerprint = createFingerprint()
+    // A successful submit navigates: simulate the epoch bump a real load causes.
+    ipad.onSubmitForm = async () => {
+      ;(paneManager as any).bumpPaneInteractionEpoch('ipad')
+    }
+
+    await paneManager.syncSubmit('iphone', fingerprint)
+
+    // The pending-navigation marker must survive so the resulting navigation is
+    // not cascaded back as a user action, and the echo reservation must remain.
+    expect((paneManager as any).pendingProgrammaticNavigation.has('ipad')).toBe(true)
+
+    ipad.onSubmitForm = null
+    await paneManager.syncSubmit('ipad', fingerprint)
+    // ipad's re-reported submit is suppressed as an echo → desktop saw only one.
+    expect(desktop.calls.submitForm).toHaveLength(1)
+  })
+})
+
 // Navigation history routed through the EngineView seam: assertions read
 // FakeEngine-observable history state instead of Electron webContents spies.
 describe('PaneManager navigation history through the seam', () => {
