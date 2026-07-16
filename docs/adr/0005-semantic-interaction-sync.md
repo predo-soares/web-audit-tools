@@ -1,7 +1,7 @@
 # 0005 — Semantic interaction sync (strict, no coordinate fallback)
 
 Date: 2026-07-08
-Status: accepted (amended 2026-07-16 — see "Amendment: clickable ancestor")
+Status: accepted (amended 2026-07-16 — see "Amendment: clickable ancestor" and "Amendment: command-shortcut sync")
 
 ## Context
 
@@ -33,6 +33,32 @@ The definition is widened from "interactive ancestor" to **clickable ancestor**:
 Everything else is unchanged: the same stability-layered fingerprint identifies the element (backdrops usually resolve via the structural-path tiebreaker), and resolution stays **strict** — no unique match is still an honest no-op, never a coordinate fallback. The one mechanism difference is dispatch: a widened, non-semantic clickable (a `<div>`) is activated with a suppressed synthetic `element.click()` rather than trusted native input at its center. Its center is typically occluded (a modal covers its backdrop's midpoint) so coordinate dispatch + hit-test would reject it, and a trusted event sequence buys nothing for a div with a JS handler. Trusted native input is retained for genuine semantic controls, where focus/pointer/touch semantics matter.
 
 Detecting handlers attached via `addEventListener` on an element with no `onclick` attribute, no pointer cursor, and no dialog affordance remains out of scope — undetectable from the DOM, so those stay honest no-ops.
+
+## Amendment: command-shortcut sync (2026-07-16)
+
+The original scope excluded "keyboard navigation" wholesale. That exclusion still
+holds for **focus-relative** keys (Tab, arrows, Enter-in-a-widget): they depend
+on which element is focused, focus is not synced, and focusable order diverges
+across breakpoints — so mirroring them desyncs panes. Text entry likewise stays
+with value sync (resulting field state, not keystrokes).
+
+But **command-style shortcuts** — a key pressed with a non-shift modifier
+(⌘K, Ctrl+B, ⌥↑) — are a tractable subset. They carry a *key identity*, not a
+coordinate and not a focused element, so replaying the same combination in each
+pane fits the strict model directly (there is nothing to "fall back" to). The
+source preload forwards a keydown only when `meta`/`ctrl`/`alt` is held (Shift
+alone is capitalisation, i.e. text); each target replays it as trusted native
+input via `sendInputEvent` (keyDown + keyUp, no `char` — text is value sync's
+job), so a document-level handler like a command palette fires. Echo suppression
+uses the echo ledger's new `key` kind — no in-page suppress flag, so no
+main-world/isolated-world coupling. App-level shortcuts (⌘J) are unaffected:
+they are `preventDefault`'d at `before-input` upstream, so they never reach the
+page's keydown listener and are never mirrored.
+
+Still out of scope, and unchanged: focus-relative navigation keys (would require
+syncing focus first), plain typing (value sync), and any coordinate fallback.
+Fidelity of the key→`sendInputEvent` keyCode mapping for non-letter keys is
+best-effort and validated end-to-end, not by unit tests.
 
 ## Alternatives considered
 

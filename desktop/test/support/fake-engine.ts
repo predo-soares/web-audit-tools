@@ -10,6 +10,7 @@ import type { ElementFingerprint, MirrorFailureLog } from '../../src/shared/elem
 import type {
   EngineView,
   EngineViewEventMap,
+  MirroredKey,
   ValueSyncPayload
 } from '../../src/main/engine/engine-view'
 import type { ConsoleEvidenceEntry, NetworkEvidenceEntry } from '../../src/shared/runtime-evidence'
@@ -53,6 +54,7 @@ export class FakeEngine implements EngineView {
     applyValue: [] as Array<{ fingerprint: ElementFingerprint; payload: ValueSyncPayload }>,
     submitForm: [] as ElementFingerprint[],
     dispatchClick: [] as Array<{ x: number; y: number }>,
+    dispatchKey: [] as MirroredKey[],
     evaluate: [] as string[],
     captureScreenshot: 0,
     goBack: 0,
@@ -170,6 +172,10 @@ export class FakeEngine implements EngineView {
 
   dispatchClick(x: number, y: number): void {
     this.calls.dispatchClick.push({ x, y })
+  }
+
+  dispatchKey(key: MirroredKey): void {
+    this.calls.dispatchKey.push(key)
   }
 
   getCurrentUrl(): string {

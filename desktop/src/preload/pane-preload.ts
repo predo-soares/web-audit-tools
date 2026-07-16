@@ -128,6 +128,30 @@ window.addEventListener(
   true
 )
 
+// Mirror command-style keyboard shortcuts (⌘K, Ctrl+B, ⌥↑) across panes so a
+// global page handler fires everywhere. Only key events with a non-shift
+// modifier are forwarded: plain typing and Shift+letter (capitals) are text
+// entry, already handled by value sync, and must not be mirrored here. App-level
+// shortcuts (e.g. ⌘J) are preventDefault'd upstream via before-input, so they
+// never reach this listener. Echo suppression is done in the main process by the
+// echo ledger, so no in-page suppress flag is needed.
+window.addEventListener(
+  'keydown',
+  (e: KeyboardEvent) => {
+    if (!(e.metaKey || e.ctrlKey || e.altKey)) return
+    if (e.key === 'Meta' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Shift') return
+    ipcRenderer.send('pane:key', paneId, {
+      key: e.key,
+      code: e.code,
+      ctrlKey: e.ctrlKey,
+      metaKey: e.metaKey,
+      shiftKey: e.shiftKey,
+      altKey: e.altKey
+    })
+  },
+  true
+)
+
 const inputTimers = new WeakMap<Element, ReturnType<typeof setTimeout>>()
 
 window.addEventListener(

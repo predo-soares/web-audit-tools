@@ -15,6 +15,21 @@ export interface ValueSyncPayload {
 }
 
 /**
+ * A command-style keyboard shortcut mirrored across panes. Carries the key
+ * identity and modifier state (not coordinates, not a focused element), so a
+ * global page shortcut like ⌘K replays the same combination in each target
+ * pane. Plain text entry is handled by value sync, not this.
+ */
+export interface MirroredKey {
+  key: string
+  code: string
+  ctrlKey: boolean
+  metaKey: boolean
+  shiftKey: boolean
+  altKey: boolean
+}
+
+/**
  * The pane-engine events an {@link EngineView} exposes to its consumers. These
  * are the Electron `webContents` events PaneManager used to attach raw
  * listeners for — moved behind the seam so the Electron wiring lives inside the
@@ -65,6 +80,12 @@ export interface EngineView {
   submitForm(fingerprint: ElementFingerprint): Promise<void>
   getMirrorFailureLogs(): MirrorFailureLog[]
   dispatchClick(x: number, y: number): void
+  /**
+   * Replay a mirrored command-style keyboard shortcut as trusted native input.
+   * The key goes to the pane's focused element (or bubbles to the document for
+   * global handlers). Fire-and-forget, like {@link dispatchClick}.
+   */
+  dispatchKey(key: MirroredKey): void
   /** Show or hide the pane's view without detaching it from the window. */
   setVisible(visible: boolean): void
   /** Add the pane's view to the window's content view. */

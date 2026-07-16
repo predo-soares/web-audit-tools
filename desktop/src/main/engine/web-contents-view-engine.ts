@@ -21,7 +21,7 @@ import { normalizeUrl } from '../../shared/url'
 import type { ConsoleEvidenceEntry, NetworkEvidenceEntry } from '../../shared/runtime-evidence'
 import { enableConsoleEvidenceCapture } from '../evidence/console-evidence-capture'
 import { enableNetworkEvidenceCapture } from '../evidence/network-evidence-capture'
-import type { EngineView, EngineViewEventMap, ValueSyncPayload } from './engine-view'
+import type { EngineView, EngineViewEventMap, MirroredKey, ValueSyncPayload } from './engine-view'
 import { syncTrace } from '../services/sync-trace'
 
 interface RuntimeEvaluateResponse {
@@ -39,6 +39,33 @@ function isNavigationAborted(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
   const record = error as { code?: string | number; errno?: number }
   return record.code === 'ERR_ABORTED' || record.errno === -3 || record.code === -3
+}
+
+// Map a DOM KeyboardEvent.key to the keyCode string Electron's sendInputEvent
+// expects. Single printable characters pass through (letters uppercased so
+// Electron resolves them); named keys use Electron's DOM-key vocabulary.
+const ELECTRON_NAMED_KEYS: Record<string, string> = {
+  Escape: 'Escape',
+  Enter: 'Return',
+  Tab: 'Tab',
+  Backspace: 'Backspace',
+  Delete: 'Delete',
+  ' ': 'Space',
+  ArrowUp: 'Up',
+  ArrowDown: 'Down',
+  ArrowLeft: 'Left',
+  ArrowRight: 'Right',
+  Home: 'Home',
+  End: 'End',
+  PageUp: 'PageUp',
+  PageDown: 'PageDown'
+}
+
+function toElectronKeyCode(key: MirroredKey): string | null {
+  const named = ELECTRON_NAMED_KEYS[key.key]
+  if (named) return named
+  if (key.key.length === 1) return key.key.toUpperCase()
+  return null
 }
 
 interface ResolvedClickPoint {
@@ -467,6 +494,21 @@ export class WebContentsViewEngine implements EngineView {
       button: 'left',
       clickCount: 1
     })
+  }
+
+  dispatchKey(key: MirroredKey): void {
+    // Native input injection, same rationale as dispatchClick (not deferred
+    // during load, produces trusted events). A shortcut is keyDown + keyUp; text
+    // entry is handled by value sync, so no `char` event is sent here.
+    const modifiers: Array<'control' | 'meta' | 'shift' | 'alt'> = []
+    if (key.ctrlKey) modifiers.push('control')
+    if (key.metaKey) modifiers.push('meta')
+    if (key.shiftKey) modifiers.push('shift')
+    if (key.altKey) modifiers.push('alt')
+    const keyCode = toElectronKeyCode(key)
+    if (!keyCode) return
+    this.webContents.sendInputEvent({ type: 'keyDown', keyCode, modifiers })
+    this.webContents.sendInputEvent({ type: 'keyUp', keyCode, modifiers })
   }
 
   async evaluate<T = unknown>(expression: string): Promise<T> {

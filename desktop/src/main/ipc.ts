@@ -4,6 +4,7 @@ import type { ElementFingerprint } from '../shared/element-mirror'
 import type { NewProjectInput } from '../shared/project'
 import type { PanelAction, PanelId, PanelOpenOptions } from '../shared/panel-types'
 import type { MediaFeatureState, PaneMount, PaneId, Size, ThemePreference } from '../shared/types'
+import type { MirroredKey } from './engine/engine-view'
 import type { PaneManager } from './panes/pane-manager'
 import type { PanelManager } from './panels/panel-manager'
 import type { SafariChromeManager } from './chrome/safari-chrome-manager'
@@ -352,6 +353,10 @@ export function registerIpcHandlers(
 
   ipcMain.on('pane:submit', (_event, paneId: PaneId, fingerprint: ElementFingerprint) => {
     void paneManager.syncSubmit(paneId, fingerprint)
+  })
+
+  ipcMain.on('pane:key', (_event, paneId: PaneId, key: MirroredKey) => {
+    paneManager.syncKey(paneId, key)
   })
 
   ipcMain.handle('pane:loading-states', () => {

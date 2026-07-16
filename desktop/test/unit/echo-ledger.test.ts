@@ -120,4 +120,20 @@ describe('echo ledger', () => {
     expect(ledger.isEcho('ipad', 'value')).toBe(true)
     expect(ledger.isEcho('ipad', 'value')).toBe(false)
   })
+  it('recognizes an expected key echo exactly once', () => {
+    const ledger = createEchoLedger(createFakeClock().now)
+
+    ledger.expect('ipad', 'key')
+    expect(ledger.isEcho('ipad', 'key')).toBe(true)
+    expect(ledger.isEcho('ipad', 'key')).toBe(false)
+  })
+
+  it('drops an expired key expectation so it cannot swallow a later real shortcut', () => {
+    const clock = createFakeClock()
+    const ledger = createEchoLedger(clock.now)
+
+    ledger.expect('ipad', 'key')
+    clock.advance(1001)
+    expect(ledger.isEcho('ipad', 'key')).toBe(false)
+  })
 })

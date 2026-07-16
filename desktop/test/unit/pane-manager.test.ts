@@ -25,6 +25,7 @@ function createMockEngine() {
         >
       >(),
     dispatchClick: vi.fn<(x: number, y: number) => void>(),
+    dispatchKey: vi.fn(),
     applyValue: vi.fn(),
     applyChecked: vi.fn(),
     submitForm: vi.fn(),
@@ -365,6 +366,52 @@ describe('PaneManager value sync', () => {
       payload: { value: 'ab', generation: 2 }
     })
     expect(iphone.calls.applyValue).toHaveLength(0)
+  })
+})
+
+describe('PaneManager key sync', () => {
+  const shortcut = {
+    key: 'k',
+    code: 'KeyK',
+    ctrlKey: false,
+    metaKey: true,
+    shiftKey: false,
+    altKey: false
+  }
+
+  it('mirrors a shortcut to the other panes but not the source', () => {
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithFakeEngines()
+
+    paneManager.syncKey('iphone', shortcut)
+
+    expect(iphone.calls.dispatchKey).toHaveLength(0)
+    expect(ipad.calls.dispatchKey).toEqual([shortcut])
+    expect(desktop.calls.dispatchKey).toEqual([shortcut])
+  })
+
+  it('suppresses the echo report from a mirrored shortcut', () => {
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithFakeEngines()
+
+    // iphone's ⌘K mirrors to ipad + desktop; each pane re-reports the injected
+    // keydown, which must be swallowed rather than re-broadcast.
+    paneManager.syncKey('iphone', shortcut)
+    paneManager.syncKey('ipad', shortcut)
+    paneManager.syncKey('desktop', shortcut)
+
+    // Only the original fan-out reached each target once; no ping-pong.
+    expect(ipad.calls.dispatchKey).toHaveLength(1)
+    expect(desktop.calls.dispatchKey).toHaveLength(1)
+    expect(iphone.calls.dispatchKey).toHaveLength(0)
+  })
+
+  it('does nothing when sync is disabled', () => {
+    const { paneManager, ipad, desktop } = createPaneManagerWithFakeEngines()
+    paneManager.setSyncEnabled(false)
+
+    paneManager.syncKey('iphone', shortcut)
+
+    expect(ipad.calls.dispatchKey).toHaveLength(0)
+    expect(desktop.calls.dispatchKey).toHaveLength(0)
   })
 })
 

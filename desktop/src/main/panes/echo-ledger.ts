@@ -1,6 +1,6 @@
 import type { PaneId } from '../../shared/types'
 
-export type EchoKind = 'click' | 'submit' | 'scroll' | 'value'
+export type EchoKind = 'click' | 'submit' | 'scroll' | 'value' | 'key'
 
 export interface EchoExpectation {
   revoke(): void
@@ -37,7 +37,8 @@ const KIND_TTL_MS: Record<EchoKind, number> = {
   click: 1000,
   submit: 1000,
   scroll: 1000,
-  value: 1000
+  value: 1000,
+  key: 1000
 }
 
 interface Entry {

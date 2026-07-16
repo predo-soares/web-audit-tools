@@ -23,7 +23,12 @@ import { isLocalhostUrl } from '../../shared/dev-context'
 import { resolveDevContext } from '../services/dev-context'
 import { createActivePaneTracker } from './active-pane-tracker'
 import { createEchoLedger } from './echo-ledger'
-import type { EngineView, EngineViewEventMap, ValueSyncPayload } from '../engine/engine-view'
+import type {
+  EngineView,
+  EngineViewEventMap,
+  MirroredKey,
+  ValueSyncPayload
+} from '../engine/engine-view'
 import {
   createRuntimeEvidenceBuffer,
   type RuntimeEvidenceBuffer
@@ -724,6 +729,29 @@ export class PaneManager {
         }
       })
     )
+  }
+
+  // Mirror a command-style keyboard shortcut (⌘K, Ctrl+B, …) to the other
+  // panes so a global page handler fires everywhere. The preload only forwards
+  // shortcuts (a non-shift modifier is held), so text entry never reaches here —
+  // that stays with value sync. Dispatch is synchronous native input, so unlike
+  // click/value there is no async gap and no staleness guard is needed; echo
+  // suppression is handled entirely by the ledger (no in-page flag, so no
+  // cross-world concern).
+  syncKey(sourcePaneId: PaneId, key: MirroredKey): void {
+    syncTrace('key:received', { sourcePane: sourcePaneId, key: key.key })
+    if (this.echoLedger.isEcho(sourcePaneId, 'key')) {
+      syncTrace('key:echo-suppressed', { sourcePane: sourcePaneId })
+      return
+    }
+    if (!this.syncEnabled) return
+
+    for (const targetId of PANE_IDS) {
+      if (targetId === sourcePaneId) continue
+      this.echoLedger.expect(targetId, 'key')
+      syncTrace('key:dispatching', { sourcePane: sourcePaneId, targetPane: targetId, key: key.key })
+      this.getEngine(targetId).dispatchKey(key)
+    }
   }
 
   getMirrorFailureLogs(): Record<PaneId, ReturnType<EngineView['getMirrorFailureLogs']>> {
