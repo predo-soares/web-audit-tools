@@ -1009,3 +1009,53 @@ test('missing select or form targets no-op and emit structured mirror-failure lo
     await close()
   }
 })
+
+test('clicking a modal backdrop dismisses the modal in every pane (clickable ancestor)', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/modal-overlay'))
+    await waitForAllPanes(window)
+
+    // The backdrop is a non-semantic <div role="dialog"> — under the original
+    // rules its click never mirrored, so the modal stayed open in the panes the
+    // user didn't click. Click it in one pane; it must close in all of them.
+    await evaluateInPane(window, 'iphone', `document.querySelector('[role="dialog"]').click()`)
+
+    for (const paneId of ['ipad', 'desktop'] as const) {
+      await expect
+        .poll(() =>
+          evaluateInPane<string>(
+            window,
+            paneId,
+            `document.getElementById('modal-result')?.dataset.open ?? ''`
+          )
+        )
+        .toBe('false')
+    }
+
+    // No ping-pong: exactly one close per pane, and the inside button was never
+    // activated by the backdrop mirror.
+    await window.waitForTimeout(500)
+    for (const paneId of ['iphone', 'ipad', 'desktop'] as const) {
+      const state = await evaluateInPane<Record<string, string>>(
+        window,
+        paneId,
+        `(() => {
+          const r = document.getElementById('modal-result');
+          return {
+            open: r?.dataset.open ?? '',
+            closed: r?.dataset.closedCount ?? '',
+            inside: r?.dataset.insideCount ?? ''
+          };
+        })()`
+      )
+      expect(state.open).toBe('false')
+      expect(state.closed).toBe('1')
+      expect(state.inside).toBe('0')
+    }
+  } finally {
+    await close()
+  }
+})

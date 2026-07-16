@@ -72,7 +72,25 @@ export interface BuildFingerprintOptions {
 
 export interface ElementMirror {
   interactiveSelector: string
+  /**
+   * Widened "clickable" selector (ADR 0005 amendment): the semantic
+   * {@link interactiveSelector} plus non-semantic elements that still present
+   * as clickable — inline `onclick`, dialog/backdrop affordances
+   * (`[role="dialog"]`, `[aria-modal="true"]`). The `cursor: pointer` case
+   * needs a computed-style read and lives in {@link isClickable}, not here.
+   */
+  clickableSelector: string
   valueSyncSelector: string
+  /** Whether an element is a clickable ancestor candidate (selector or pointer cursor). */
+  isClickable(element: Element): boolean
+  /** Nearest self-or-ancestor clickable element, or null. Replaces the raw `closest(interactiveSelector)`. */
+  findClickableAncestor(target: EventTarget | Element | null): Element | null
+  /**
+   * Every clickable element in the tree, in document order, disabled controls
+   * excluded. Capture and resolution MUST use this same set so
+   * index-among-matches stays aligned across panes.
+   */
+  collectClickableCandidates(root?: ParentNode): Element[]
   normalizeVisibleText(text: string | null | undefined): string
   isMachineGeneratedId(id: string): boolean
   buildElementFingerprint(descriptor: ElementDescriptor): ElementFingerprint | null
@@ -82,7 +100,10 @@ export interface ElementMirror {
     candidateIndex?: number
   ): ElementFingerprint | null
   matchesLayer(layer: ElementFingerprintLayer, candidate: ElementDescriptor): boolean
-  getLayerMatches(layer: ElementFingerprintLayer, candidates: readonly ElementDescriptor[]): number[]
+  getLayerMatches(
+    layer: ElementFingerprintLayer,
+    candidates: readonly ElementDescriptor[]
+  ): number[]
   resolveElementFingerprint(
     fingerprint: ElementFingerprint,
     candidates: readonly ElementDescriptor[]
@@ -140,7 +161,78 @@ export function createElementMirror(): ElementMirror {
     '[tabindex]:not([tabindex="-1"])'
   ].join(',')
 
+  // ADR 0005 amendment: a "clickable ancestor" widens "interactive ancestor" to
+  // the non-semantic elements that still respond to a click — modal backdrops,
+  // clickable cards, custom controls built from divs. The selector-expressible
+  // affordances live here; the `cursor: pointer` case needs computed style and
+  // is handled in isClickable/isPointerCursorOrigin.
+  const clickableSelector = [
+    interactiveSelector,
+    '[onclick]',
+    '[role="dialog"]',
+    '[aria-modal="true"]'
+  ].join(',')
+
   const valueSyncSelector = 'input:not([type="hidden"]),textarea,select'
+
+  function isDisabled(element: Element): boolean {
+    return Boolean((element as Partial<HTMLInputElement>).disabled)
+  }
+
+  function computedCursor(element: Element): string | null {
+    const view = element.ownerDocument?.defaultView
+    if (!view || typeof view.getComputedStyle !== 'function') return null
+    try {
+      return view.getComputedStyle(element).cursor || null
+    } catch {
+      return null
+    }
+  }
+
+  // `cursor` inherits, so a child of a clickable element also computes to
+  // `pointer`. Only the element that ORIGINATES the pointer cursor (its parent
+  // is not also pointer) counts as clickable — otherwise every descendant of a
+  // button would become its own candidate and resolution would go ambiguous.
+  function isPointerCursorOrigin(element: Element): boolean {
+    if (computedCursor(element) !== 'pointer') return false
+    const parent = element.parentElement
+    return !parent || computedCursor(parent) !== 'pointer'
+  }
+
+  function isClickable(element: Element): boolean {
+    if (isDisabled(element)) return false
+    if (element.matches(clickableSelector)) return true
+    return isPointerCursorOrigin(element)
+  }
+
+  function findClickableAncestor(target: EventTarget | Element | null): Element | null {
+    if (!(target instanceof Element)) return null
+    let current: Element | null = target
+    while (current) {
+      if (isClickable(current)) return current
+      current = current.parentElement
+    }
+    return null
+  }
+
+  function collectClickableCandidates(root: ParentNode = document): Element[] {
+    const result: Element[] = []
+    const seen = new Set<Element>()
+    for (const element of Array.from(root.querySelectorAll(clickableSelector))) {
+      if (isDisabled(element) || seen.has(element)) continue
+      seen.add(element)
+      result.push(element)
+    }
+    // Second pass picks up pointer-cursor origins the selector can't express.
+    for (const element of Array.from(root.querySelectorAll('*'))) {
+      if (seen.has(element) || isDisabled(element)) continue
+      if (isPointerCursorOrigin(element)) {
+        seen.add(element)
+        result.push(element)
+      }
+    }
+    return result
+  }
 
   function normalizeVisibleText(text: string | null | undefined): string {
     return (text ?? '').replace(/\s+/g, ' ').trim()
@@ -422,7 +514,11 @@ export function createElementMirror(): ElementMirror {
     const descriptorForContext =
       targetIndex !== -1 ? descriptors[targetIndex] : describeElement(target)
 
-    const fingerprint = buildElementFingerprintInContext(descriptorForContext, descriptors, targetIndex)
+    const fingerprint = buildElementFingerprintInContext(
+      descriptorForContext,
+      descriptors,
+      targetIndex
+    )
     if (!fingerprint) return null
 
     if (
@@ -473,7 +569,11 @@ export function createElementMirror(): ElementMirror {
 
   return {
     interactiveSelector,
+    clickableSelector,
     valueSyncSelector,
+    isClickable,
+    findClickableAncestor,
+    collectClickableCandidates,
     normalizeVisibleText,
     isMachineGeneratedId,
     buildElementFingerprint,

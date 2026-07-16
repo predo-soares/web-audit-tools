@@ -587,7 +587,11 @@ export class WebContentsViewEngine implements EngineView {
           isMainFrame: boolean
         ): void => {
           if (wc.isDestroyed()) return
-          ;(handler as EngineViewEventMap['did-fail-load'])(errorCode, errorDescription, isMainFrame)
+          ;(handler as EngineViewEventMap['did-fail-load'])(
+            errorCode,
+            errorDescription,
+            isMainFrame
+          )
         }
         wc.on('did-fail-load', listener)
         dispose = () => wc.removeListener('did-fail-load', listener)
@@ -801,8 +805,7 @@ export class WebContentsViewEngine implements EngineView {
         const fingerprint = ${JSON.stringify(fingerprint)};
         ${this.getElementMirrorBootstrapExpression()}
 
-        const elements = Array.from(document.querySelectorAll(mirror.interactiveSelector))
-          .filter((element) => element instanceof HTMLElement && !element.disabled);
+        const elements = mirror.collectClickableCandidates(document);
         const match = mirror.resolveFingerprint(fingerprint, elements);
 
         if (!match.element) {
@@ -810,6 +813,21 @@ export class WebContentsViewEngine implements EngineView {
         }
 
         const element = match.element;
+
+        // Non-semantic clickables (modal backdrops, clickable cards) don't have
+        // a meaningful hit-testable center — the modal usually covers the
+        // backdrop's midpoint — and native coordinate dispatch would be rejected
+        // as occluded. A trusted native click also isn't required for a div with
+        // a JS handler. Fire a synthetic click and suppress its re-report so it
+        // doesn't ping-pong back through interaction sync. (ADR 0005 amendment.)
+        if (!element.matches(mirror.interactiveSelector)) {
+          window.__suppressClickReport = true;
+          element.click();
+          requestAnimationFrame(function () {
+            window.__suppressClickReport = false;
+          });
+          return { matched: true, handled: true };
+        }
 
         const rectBefore = element.getBoundingClientRect();
         const wasOffscreen =

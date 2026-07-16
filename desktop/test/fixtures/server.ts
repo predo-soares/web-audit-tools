@@ -612,6 +612,54 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     return
   }
 
+  if (pathname === '/modal-overlay') {
+    const mobile = isMobileUa(ua)
+    // The backdrop is a non-semantic element (a div) whose only affordance is
+    // role="dialog"/aria-modal — no interactive ancestor under the original
+    // rules, so clicking it never mirrored. Structure differs per breakpoint so
+    // identity (not coordinates) must drive the cross-pane match.
+    sendHtml(
+      res,
+      `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1" />
+      <style>
+        body { margin: 0; font: 16px system-ui; }
+        .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); }
+        .panel { position: absolute; background: #fff; padding: 1rem; ${
+          mobile ? 'top: 45%; left: 16px; right: 16px;' : 'top: 20%; left: 45%; right: 8%;'
+        } }
+      </style></head><body>
+        <h1>Modal fixture</h1>
+        ${
+          mobile
+            ? `<div class="backdrop" role="dialog" aria-modal="true">
+                 <div class="panel"><p>Modal body</p><button id="inside-btn" type="button">Inside action</button></div>
+               </div>`
+            : `<div class="shell"><div class="backdrop" role="dialog" aria-modal="true">
+                 <div class="frame"><div class="panel"><p>Modal body</p><button id="inside-btn" type="button">Inside action</button></div></div>
+               </div></div>`
+        }
+        <div id="modal-result" data-open="true" data-closed-count="0" data-inside-count="0"></div>
+        <script>
+          (function () {
+            var backdrop = document.querySelector('.backdrop');
+            var result = document.getElementById('modal-result');
+            backdrop.addEventListener('click', function (e) {
+              if (e.target === backdrop) {
+                backdrop.style.display = 'none';
+                result.dataset.open = 'false';
+                result.dataset.closedCount = String(Number(result.dataset.closedCount || '0') + 1);
+              }
+            });
+            document.getElementById('inside-btn').addEventListener('click', function () {
+              result.dataset.insideCount = String(Number(result.dataset.insideCount || '0') + 1);
+            });
+          })();
+        </script>
+      </body></html>`
+    )
+    return
+  }
+
   if (pathname === '/form-sync') {
     const mobile = isMobileUa(ua)
     sendHtml(

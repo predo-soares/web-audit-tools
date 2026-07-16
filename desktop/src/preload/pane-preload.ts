@@ -11,13 +11,11 @@ function getPaneId(): PaneId {
 const paneId = getPaneId()
 const mirror = createElementMirror()
 
-function findInteractiveAncestor(target: EventTarget | null): Element | null {
-  if (!(target instanceof Element)) return null
-  return target.closest(mirror.interactiveSelector)
-}
-
-function isValueSyncControl(target: EventTarget | null): target is HTMLInputElement | HTMLTextAreaElement {
-  if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLTextAreaElement)) return false
+function isValueSyncControl(
+  target: EventTarget | null
+): target is HTMLInputElement | HTMLTextAreaElement {
+  if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLTextAreaElement))
+    return false
   if (target instanceof HTMLInputElement) {
     const t = target.type
     if (
@@ -35,11 +33,11 @@ function isValueSyncControl(target: EventTarget | null): target is HTMLInputElem
   return true
 }
 
-function getValueSyncCandidates(): Array<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> {
+function getValueSyncCandidates(): Array<
+  HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+> {
   return Array.from(document.querySelectorAll(mirror.valueSyncSelector)).filter(
-    (
-      el
-    ): el is HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement => {
+    (el): el is HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement => {
       if (
         !(el instanceof HTMLInputElement) &&
         !(el instanceof HTMLTextAreaElement) &&
@@ -95,12 +93,10 @@ window.addEventListener(
   (e: MouseEvent) => {
     if ((window as Window & { __suppressClickReport?: boolean }).__suppressClickReport) return
     const rawTarget = e.target
-    const interactive = findInteractiveAncestor(e.target)
+    const interactive = mirror.findClickableAncestor(e.target)
     if (!interactive) return
 
-    const allInteractive = Array.from(document.querySelectorAll(mirror.interactiveSelector)).filter(
-      (el) => el instanceof HTMLElement && !(el as HTMLInputElement).disabled
-    )
+    const allInteractive = mirror.collectClickableCandidates()
 
     const fingerprint = mirror.buildFingerprint(interactive, allInteractive, {
       disambiguateAcrossLayers: true

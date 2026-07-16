@@ -1,7 +1,7 @@
 # 0005 — Semantic interaction sync (strict, no coordinate fallback)
 
 Date: 2026-07-08
-Status: accepted
+Status: accepted (amended 2026-07-16 — see "Amendment: clickable ancestor")
 
 ## Context
 
@@ -23,6 +23,16 @@ Replace coordinate mapping with **semantic interaction sync**:
 Hover (incoherent across touch/non-touch panes), drag/swipe, keyboard navigation, context menus, file inputs (unsettable for security reasons), and iframes (preload is top-frame only) are all out. The strict no-op rule makes unsupported interactions degrade gracefully.
 
 Match failures are recorded in a structured debug log (fingerprint, pane, reason: not-found / ambiguous / occluded) — no UI in v1. A per-pane indicator would require the native-popover overlay machinery (ADR 0003); the log is also raw material for future agent-facing audit findings. Interaction sync stays under the single existing sync toggle.
+
+## Amendment: clickable ancestor (2026-07-16)
+
+The original "interactive ancestor" was limited to semantic elements (`a`/`button`/form control/interactive ARIA role/tabbable). This silently dropped a whole class of real interactions: clicking a modal's **backdrop** to dismiss it, or a "clickable card" / custom control built from a plain `<div>`. The clicked element had no interactive ancestor, so it produced no fingerprint and mirrored nothing — the panes visibly disagreed (modal open in one, closed in another).
+
+The definition is widened from "interactive ancestor" to **clickable ancestor**: in addition to the semantic set, an element counts as clickable when it carries an inline `onclick`, a dialog/backdrop affordance (`[role="dialog"]`, `[aria-modal="true"]`), or a computed `cursor: pointer`. Because `cursor` inherits, only the element that *originates* the pointer cursor (its parent is not also `pointer`) is treated as clickable — otherwise every descendant of a button would become its own candidate. The clickable predicate is one shared definition in the element mirror (`isClickable` / `findClickableAncestor` / `collectClickableCandidates`), used identically by capture and resolution so index-among-matches stays aligned.
+
+Everything else is unchanged: the same stability-layered fingerprint identifies the element (backdrops usually resolve via the structural-path tiebreaker), and resolution stays **strict** — no unique match is still an honest no-op, never a coordinate fallback. The one mechanism difference is dispatch: a widened, non-semantic clickable (a `<div>`) is activated with a suppressed synthetic `element.click()` rather than trusted native input at its center. Its center is typically occluded (a modal covers its backdrop's midpoint) so coordinate dispatch + hit-test would reject it, and a trusted event sequence buys nothing for a div with a JS handler. Trusted native input is retained for genuine semantic controls, where focus/pointer/touch semantics matter.
+
+Detecting handlers attached via `addEventListener` on an element with no `onclick` attribute, no pointer cursor, and no dialog affordance remains out of scope — undetectable from the DOM, so those stay honest no-ops.
 
 ## Alternatives considered
 
