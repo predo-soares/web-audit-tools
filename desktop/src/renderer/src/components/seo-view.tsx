@@ -81,7 +81,8 @@ export function SeoView({ onClose }: { onClose: () => void }): React.JSX.Element
         <h1 className="text-sm font-semibold">SEO</h1>
         {url ? (
           <p className="truncate text-xs text-muted-foreground" title={url}>
-            {pageTitle ? `${pageTitle} — ` : ''}{url}
+            {pageTitle ? `${pageTitle} — ` : ''}
+            <span data-testid="seo-target-url">{url}</span>
           </p>
         ) : null}
       </header>
@@ -97,7 +98,10 @@ export function SeoView({ onClose }: { onClose: () => void }): React.JSX.Element
       ) : (
         <div className="flex min-h-0 flex-1">
           {/* Left column — controls */}
-          <aside className="flex w-72 shrink-0 flex-col gap-4 overflow-y-auto border-r border-white/10 p-4">
+          <aside
+            data-testid="seo-overview"
+            className="flex w-72 shrink-0 flex-col gap-4 overflow-y-auto border-r border-white/10 p-4"
+          >
             {/* Intent */}
             <div>
               <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">

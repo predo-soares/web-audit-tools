@@ -5,10 +5,10 @@ import { join } from 'path'
 import {
   evaluateInPane,
   fixtureUrl,
-  getSeoPanelPage,
-  getToolbarPage,
   launchApp,
   navigateTo,
+  openSeoView,
+  reopenSeoView,
   waitForAllPanes,
   waitForPaneElement
 } from './helpers'
@@ -20,10 +20,7 @@ test('runs a full audit and reports a passed title finding', async ({ fixturePor
     await navigateTo(window, fixtureUrl(fixturePort, '/seo/with-title'))
     await waitForPaneElement(window, 'desktop', 'seo-with-title')
 
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('seo-toggle').click()
-
-    const panel = await getSeoPanelPage(window)
+    const panel = await openSeoView(window)
     await expect(panel.getByTestId('seo-target-url')).toHaveText(
       fixtureUrl(fixturePort, '/seo/with-title')
     )
@@ -97,6 +94,8 @@ test('runs a full audit and reports a passed title finding', async ({ fixturePor
 
     await navigateTo(window, fixtureUrl(fixturePort, '/seo/no-title'))
     await waitForPaneElement(window, 'desktop', 'seo-no-title')
+    // A real navigation returns to the browser workspace; re-open SEO to inspect.
+    await openSeoView(window)
     await expect(panel.getByTestId('seo-stale-banner')).toBeVisible()
     await panel.getByTestId('seo-run-audit').click()
     await expect(titleFinding).toHaveAttribute('data-outcome', 'error')
@@ -142,9 +141,7 @@ test('keeps authenticated audit secrets out of copied and persisted evidence', a
     await navigateTo(window, fixtureUrl(fixturePort, `/auth-check?token=${secret}`))
     await waitForPaneElement(window, 'desktop', 'auth-status')
 
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('seo-toggle').click()
-    const panel = await getSeoPanelPage(window)
+    const panel = await openSeoView(window)
     await panel.evaluate(() => {
       Object.defineProperty(navigator, 'clipboard', {
         configurable: true,
@@ -188,9 +185,7 @@ test('verifies localized alternates with bounded reciprocal checks', async ({ fi
   try {
     await navigateTo(window, fixtureUrl(fixturePort, '/seo/i18n'))
     await waitForPaneElement(window, 'desktop', 'seo-i18n')
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('seo-toggle').click()
-    const panel = await getSeoPanelPage(window)
+    const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
     const section = panel.getByTestId('seo-internationalization')
     await expect(section.getByTestId('seo-hreflang-item')).toHaveCount(3)
@@ -218,10 +213,7 @@ test('reports an error finding when the page has no title', async ({ fixturePort
     await navigateTo(window, fixtureUrl(fixturePort, '/seo/no-title'))
     await waitForPaneElement(window, 'desktop', 'seo-no-title')
 
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('seo-toggle').click()
-
-    const panel = await getSeoPanelPage(window)
+    const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
 
     const titleFinding = panel.locator(
@@ -244,18 +236,12 @@ test('restores a completed result after the panel is closed and reopened', async
     await navigateTo(window, fixtureUrl(fixturePort, '/seo/with-title'))
     await waitForPaneElement(window, 'desktop', 'seo-with-title')
 
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('seo-toggle').click()
-
-    const panel = await getSeoPanelPage(window)
+    const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
     await expect(panel.getByTestId('seo-result')).toBeVisible()
 
-    // Close then reopen the panel; the main-process job outlives the panel.
-    await toolbar.getByTestId('seo-toggle').click()
-    await toolbar.getByTestId('seo-toggle').click()
-
-    const reopened = await getSeoPanelPage(window)
+    // Close then reopen the view; the main-process job outlives the panel.
+    const reopened = await reopenSeoView(window)
     await expect(reopened.getByTestId('seo-result')).toBeVisible()
     await expect(
       reopened.locator(
@@ -274,17 +260,15 @@ test('marks a completed result stale after the pane navigates', async ({ fixture
     await navigateTo(window, fixtureUrl(fixturePort, '/seo/with-title'))
     await waitForPaneElement(window, 'desktop', 'seo-with-title')
 
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('seo-toggle').click()
-
-    const panel = await getSeoPanelPage(window)
+    const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
     await expect(panel.getByTestId('seo-result')).toBeVisible()
     await expect(panel.getByTestId('seo-stale-banner')).toHaveCount(0)
 
     // Navigate the panes; the completed result should be flagged stale but stay
-    // inspectable.
+    // inspectable. A real navigation returns to the browser workspace first.
     await navigateTo(window, fixtureUrl(fixturePort, '/seo/no-title'))
+    await openSeoView(window)
     await expect(panel.getByTestId('seo-stale-banner')).toBeVisible()
     await expect(panel.getByTestId('seo-result')).toBeVisible()
   } finally {
@@ -301,10 +285,7 @@ test('captures delivered evidence and flags a delivered-vs-rendered title discre
     await navigateTo(window, fixtureUrl(fixturePort, '/seo/hydrated-title'))
     await waitForPaneElement(window, 'desktop', 'seo-hydrated-title')
 
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('seo-toggle').click()
-
-    const panel = await getSeoPanelPage(window)
+    const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
     await expect(panel.getByTestId('seo-result')).toBeVisible()
 
@@ -330,11 +311,8 @@ test('explains there is nothing to audit before a page is committed', async () =
 
   try {
     await waitForAllPanes(window)
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('seo-toggle').click()
-
-    const panel = await getSeoPanelPage(window)
-    await expect(panel.getByTestId('seo-empty')).toBeVisible()
+    const panel = await openSeoView(window)
+    await expect(panel.getByTestId('seo-view-empty')).toBeVisible()
     await expect(panel.getByTestId('seo-run-audit')).toHaveCount(0)
   } finally {
     await close()
@@ -349,9 +327,7 @@ test('renders a resolved search preview and preserves declared metadata', async 
   try {
     await navigateTo(window, fixtureUrl(fixturePort, '/seo/search-appearance'))
     await waitForPaneElement(window, 'desktop', 'seo-search-appearance')
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('seo-toggle').click()
-    const panel = await getSeoPanelPage(window)
+    const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
 
     await expect(panel.getByTestId('seo-preview-title')).toHaveText('Search Appearance Fixture')
@@ -359,7 +335,7 @@ test('renders a resolved search preview and preserves declared metadata', async 
       'precise fixture description'
     )
     await expect(panel.getByTestId('seo-preview-url')).toContainText('/seo/search-appearance')
-    await expect(panel.getByTestId('seo-preview-measurements')).toContainText('characters')
+    await expect(panel.getByTestId('seo-preview-measurements')).toContainText('chars')
 
     await panel.getByText('Declared and resolved metadata').click()
     await expect(panel.getByTestId('seo-declared-metadata')).toContainText('rendered · description')
@@ -379,9 +355,7 @@ test('reports duplicate and conflicting search metadata without hiding declarati
   try {
     await navigateTo(window, fixtureUrl(fixturePort, '/seo/conflicting-metadata'))
     await waitForPaneElement(window, 'desktop', 'seo-conflicting-metadata')
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('seo-toggle').click()
-    const panel = await getSeoPanelPage(window)
+    const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
 
     const finding = panel.locator(
@@ -407,9 +381,7 @@ test('audits indexability controls and verifies only declared discovery resource
   try {
     await navigateTo(window, fixtureUrl(fixturePort, '/seo/indexability-allowed'))
     await waitForPaneElement(window, 'desktop', 'seo-indexability-allowed')
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('seo-toggle').click()
-    const panel = await getSeoPanelPage(window)
+    const panel = await openSeoView(window)
     await panel.getByRole('radio', { name: 'Indexable', exact: true }).click()
     await panel.getByTestId('seo-run-audit').click()
 
@@ -435,9 +407,7 @@ test('reports contradictory noindex controls against indexable intent', async ({
   try {
     await navigateTo(window, fixtureUrl(fixturePort, '/seo/indexability-blocked'))
     await waitForPaneElement(window, 'desktop', 'seo-indexability-blocked')
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('seo-toggle').click()
-    const panel = await getSeoPanelPage(window)
+    const panel = await openSeoView(window)
     await panel.getByRole('radio', { name: 'Indexable', exact: true }).click()
     await panel.getByTestId('seo-run-audit').click()
 
@@ -463,9 +433,7 @@ test('resolves social fallbacks, verifies the image, and renders representative 
   try {
     await navigateTo(window, fixtureUrl(fixturePort, '/seo/social-sharing'))
     await waitForPaneElement(window, 'desktop', 'seo-social-sharing')
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('seo-toggle').click()
-    const panel = await getSeoPanelPage(window)
+    const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
 
     await expect(panel.getByTestId('seo-social-previews')).toContainText(
@@ -494,9 +462,7 @@ test('inspects JSON-LD, Microdata, RDFa, and attributed enhancement eligibility'
   try {
     await navigateTo(window, fixtureUrl(fixturePort, '/seo/structured-data'))
     await waitForPaneElement(window, 'desktop', 'seo-structured-data')
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('seo-toggle').click()
-    const panel = await getSeoPanelPage(window)
+    const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
 
     const inspector = panel.getByTestId('seo-structured-data')
@@ -521,9 +487,7 @@ test('reports malformed sources, missing requirements, and broken entity relatio
   try {
     await navigateTo(window, fixtureUrl(fixturePort, '/seo/structured-data-invalid'))
     await waitForPaneElement(window, 'desktop', 'seo-structured-data-invalid')
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('seo-toggle').click()
-    const panel = await getSeoPanelPage(window)
+    const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
 
     await expect(
@@ -551,9 +515,7 @@ test('inspects client-rendered headings, responsive visibility, and page landmar
   try {
     await navigateTo(window, fixtureUrl(fixturePort, '/seo/document-structure'))
     await waitForPaneElement(window, 'desktop', 'client-content')
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('seo-toggle').click()
-    const panel = await getSeoPanelPage(window)
+    const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
 
     const structure = panel.getByTestId('seo-document-structure')
@@ -581,9 +543,7 @@ test('reports missing language, heading defects, and an empty main landmark', as
   try {
     await navigateTo(window, fixtureUrl(fixturePort, '/seo/document-structure-invalid'))
     await waitForPaneElement(window, 'desktop', 'seo-document-structure-invalid')
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('seo-toggle').click()
-    const panel = await getSeoPanelPage(window)
+    const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
 
     await expect(
@@ -614,9 +574,7 @@ test('inventories and filters rendered links without crawling ordinary destinati
   try {
     await navigateTo(window, fixtureUrl(fixturePort, '/seo/links'))
     await waitForPaneElement(window, 'desktop', 'client-links')
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('seo-toggle').click()
-    const panel = await getSeoPanelPage(window)
+    const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
 
     const inventory = panel.getByTestId('seo-link-inventory')
@@ -648,9 +606,7 @@ test('inspects selected responsive images and client-inserted media evidence', a
   try {
     await navigateTo(window, fixtureUrl(fixturePort, '/seo/images-media'))
     await waitForPaneElement(window, 'desktop', 'client-media')
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('seo-toggle').click()
-    const panel = await getSeoPanelPage(window)
+    const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
 
     const inventory = panel.getByTestId('seo-images-media')
@@ -674,7 +630,11 @@ test('inspects selected responsive images and client-inserted media evidence', a
   }
 })
 
-test('runs real Lighthouse in an isolated desktop target without mutating pane evidence', async ({
+// Lighthouse moved out of the SEO panel into its own workspace (sidebar
+// "Lighthouse" → lighthouse-view). This coverage belongs in a dedicated
+// lighthouse spec against the new view once it is committed; skipped here so it
+// stops asserting against the removed in-SEO Lighthouse section.
+test.skip('runs real Lighthouse in an isolated desktop target without mutating pane evidence', async ({
   fixturePort
 }) => {
   test.setTimeout(180_000)
@@ -683,9 +643,7 @@ test('runs real Lighthouse in an isolated desktop target without mutating pane e
     await navigateTo(window, fixtureUrl(fixturePort, '/seo/with-title'))
     await waitForPaneElement(window, 'desktop', 'seo-with-title')
     const before = await window.evaluate(() => window.api.getRuntimeEvidence())
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('seo-toggle').click()
-    const panel = await getSeoPanelPage(window)
+    const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
     const section = panel.getByTestId('seo-lighthouse')
     await section.getByRole('button', { name: 'Desktop' }).click()

@@ -173,6 +173,31 @@ export async function getSeoPanelPage(window: Page): Promise<Page> {
   )
 }
 
+/**
+ * Open the SEO workspace and return the main window page (the SEO view renders
+ * in the main window, not an overlay). The sidebar is open by default, so this
+ * clicks its "SEO" nav entry, which toggles the workspace to `seo`.
+ */
+export async function openSeoView(window: Page): Promise<Page> {
+  const sidebar = await getSidebarPage(window)
+  await sidebar.getByTestId('sidebar-seo-view').click()
+  await expect(window.getByTestId('seo-view')).toBeVisible()
+  return window
+}
+
+/**
+ * Toggle the SEO workspace closed then open again (the main-process audit job
+ * outlives the view). Returns the main window page.
+ */
+export async function reopenSeoView(window: Page): Promise<Page> {
+  const sidebar = await getSidebarPage(window)
+  await sidebar.getByTestId('sidebar-seo-view').click() // back to browser
+  await expect(window.getByTestId('seo-view')).toHaveCount(0)
+  await sidebar.getByTestId('sidebar-seo-view').click() // re-enter SEO
+  await expect(window.getByTestId('seo-view')).toBeVisible()
+  return window
+}
+
 export async function getSidebarPage(window: Page): Promise<Page> {
   const context = window.context()
   const started = Date.now()
