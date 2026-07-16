@@ -80,15 +80,19 @@ test.describe('device emulation', () => {
       await navigateTo(window, fixtureUrl(fixturePort, '/viewport-meta'))
       await waitForAllPanes(window)
 
+      // Read the live emulated viewport width rather than the fixture's
+      // load-time `dataset.width` snapshot, which is recorded by an inline script
+      // before the CDP device-metrics override has applied (ADR 0004 emulation
+      // timing) and so captures the pre-emulation width.
       const iphoneWidth = await evaluateInPane<number>(
         window,
         'iphone',
-        `Number(document.getElementById('probe')?.dataset.width ?? 0)`
+        `document.documentElement.clientWidth`
       )
       const ipadWidth = await evaluateInPane<number>(
         window,
         'ipad',
-        `Number(document.getElementById('probe')?.dataset.width ?? 0)`
+        `document.documentElement.clientWidth`
       )
 
       expect(iphoneWidth).toBeGreaterThan(350)
