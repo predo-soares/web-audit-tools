@@ -44,7 +44,12 @@ function AccordionItem({ className, ...props }: AccordionPrimitive.Item.Props) {
   )
 }
 
-function AccordionTrigger({ className, children, ...props }: AccordionPrimitive.Trigger.Props) {
+function AccordionTrigger({
+  className,
+  children,
+  hideIcon = false,
+  ...props
+}: AccordionPrimitive.Trigger.Props & { hideIcon?: boolean }): React.JSX.Element {
   return (
     <AccordionPrimitive.Header className="flex">
       <AccordionPrimitive.Trigger
@@ -56,16 +61,20 @@ function AccordionTrigger({ className, children, ...props }: AccordionPrimitive.
         {...props}
       >
         {children}
-        <Icon
-          icon={ArrowDown01Icon}
-          data-slot="accordion-trigger-icon"
-          className="pointer-events-none shrink-0 group-aria-expanded/accordion-trigger:hidden"
-        />
-        <Icon
-          icon={ArrowUp01Icon}
-          data-slot="accordion-trigger-icon"
-          className="pointer-events-none hidden shrink-0 group-aria-expanded/accordion-trigger:inline"
-        />
+        {hideIcon ? null : (
+          <>
+            <Icon
+              icon={ArrowDown01Icon}
+              data-slot="accordion-trigger-icon"
+              className="pointer-events-none shrink-0 group-aria-expanded/accordion-trigger:hidden"
+            />
+            <Icon
+              icon={ArrowUp01Icon}
+              data-slot="accordion-trigger-icon"
+              className="pointer-events-none hidden shrink-0 group-aria-expanded/accordion-trigger:inline"
+            />
+          </>
+        )}
       </AccordionPrimitive.Trigger>
     </AccordionPrimitive.Header>
   )
