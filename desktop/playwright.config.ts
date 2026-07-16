@@ -2,7 +2,7 @@ import { defineConfig } from 'playwright/test'
 
 export default defineConfig({
   testDir: './test/e2e',
-  timeout: 60_000,
+  timeout: 20_000,
   workers: 1,
   fullyParallel: false,
   reporter: 'list',
