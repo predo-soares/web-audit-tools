@@ -68,12 +68,35 @@ describe('echo ledger', () => {
     expect(ledger.isEcho('ipad', 'scroll')).toBe(false)
   })
 
-  it('never expires a scroll expectation by time', () => {
+  it('still catches an in-flight scroll echo within the TTL', () => {
     const clock = createFakeClock()
     const ledger = createEchoLedger(clock.now)
 
     ledger.expect('ipad', 'scroll')
-    clock.advance(60_000)
+    clock.advance(200)
+    expect(ledger.isEcho('ipad', 'scroll')).toBe(true)
+  })
+
+  it('ages out a scroll expectation whose echo never arrives (stuck-scroll fix)', () => {
+    const clock = createFakeClock()
+    const ledger = createEchoLedger(clock.now)
+
+    // Mirrored scroll landed on a pane already at that position: no scroll event
+    // fires, so the expectation is never consumed. It must not swallow the
+    // user's next real scroll after the TTL.
+    ledger.expect('ipad', 'scroll')
+    clock.advance(1001)
+    expect(ledger.isEcho('ipad', 'scroll')).toBe(false)
+  })
+
+  it('refreshes the scroll deadline while broadcasting continues', () => {
+    const clock = createFakeClock()
+    const ledger = createEchoLedger(clock.now)
+
+    ledger.expect('ipad', 'scroll')
+    clock.advance(800)
+    ledger.expect('ipad', 'scroll') // continued broadcast refreshes the deadline
+    clock.advance(800) // 1600ms since first expect, but only 800ms since refresh
     expect(ledger.isEcho('ipad', 'scroll')).toBe(true)
   })
 

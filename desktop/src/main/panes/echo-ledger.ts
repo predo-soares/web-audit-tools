@@ -27,12 +27,16 @@ export interface EchoLedger {
 // preload re-reports them; if the mirrored action never produces an event
 // (e.g. mousedown/mouseup land on different elements) the expectation must
 // age out rather than swallow a later real click. Scroll expectations are
-// one-shot flags instead: a broadcast scroll produces exactly one echo report
-// per target, whenever the target pane gets around to emitting it.
+// one-shot flags — a broadcast scroll produces exactly one echo report per
+// target — but they still age out on a finite TTL: a broadcast scroll that
+// lands on a pane already at that position produces NO echo event, so an
+// immortal flag would silently swallow the user's next real scroll on that
+// pane. The TTL is refreshed on each re-expect so an in-flight echo is still
+// caught while active broadcasting continues.
 const KIND_TTL_MS: Record<EchoKind, number> = {
   click: 1000,
   submit: 1000,
-  scroll: Infinity,
+  scroll: 1000,
   value: 1000
 }
 
@@ -65,7 +69,10 @@ export function createEchoLedger(now: () => number = Date.now): EchoLedger {
       let entry: Entry
       if (kind === 'scroll' && queue.length > 0) {
         // One-shot flag: expecting a scroll echo twice is the same expectation.
+        // Refresh its deadline so continued broadcasting keeps it live, but a
+        // quiet flag (no echo ever arrives) still ages out via the TTL.
         entry = queue[0]
+        entry.expiresAt = now() + KIND_TTL_MS[kind]
       } else {
         entry = { expiresAt: now() + KIND_TTL_MS[kind] }
         queue.push(entry)
