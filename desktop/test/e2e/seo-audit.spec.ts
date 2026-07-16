@@ -78,8 +78,8 @@ test('runs a full audit and reports a passed title finding', async ({ fixturePor
         }
       })
     })
-    await overview.getByTestId('seo-copy-result').click()
-    await expect(overview.getByTestId('seo-copy-status')).toContainText('agent-ready Markdown')
+    await panel.getByTestId('seo-copy-result').click()
+    await expect(panel.getByTestId('seo-copy-status')).toContainText('agent-ready Markdown')
     expect(
       await panel.evaluate(
         () => (window as typeof window & { __copiedSeoMarkdown?: string }).__copiedSeoMarkdown
@@ -101,8 +101,8 @@ test('runs a full audit and reports a passed title finding', async ({ fixturePor
     await expect(titleFinding).toHaveAttribute('data-outcome', 'error')
     await expect(panel.getByTestId('seo-stale-banner')).toHaveCount(0)
 
-    await overview.getByTestId('seo-export-snapshot').click()
-    await expect(overview.getByTestId('seo-export-status')).toContainText('SEO Snapshot exported')
+    await panel.getByTestId('seo-export-snapshot').click()
+    await expect(panel.getByTestId('seo-export-status')).toContainText('SEO Snapshot exported')
     const captures = join(homedir(), '.audit-screens', 'captures')
     const latest = readdirSync(captures).sort().at(-1)
     expect(latest).toBeTruthy()
