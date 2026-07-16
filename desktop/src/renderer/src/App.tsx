@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { DeviceProfile, PaneId, PaneLoadError } from '../../shared/types'
 import { PANE_IDS } from '../../shared/device-presets'
 import { CATALOG_BY_PRESET, DEFAULT_PRESET_IDS, type CatalogEntry } from '../../shared/device-catalog'
@@ -48,6 +48,20 @@ export default function App(): React.JSX.Element {
   const [safariChromeEnabled, setSafariChromeEnabled] = useState(false)
   const [workspace, setWorkspace] = useState<'browser' | 'seo' | 'lighthouse' | 'devices'>('browser')
   const [selectedPresets, setSelectedPresets] = useState<SelectedPresets>(DEFAULT_SELECTED)
+  // Tracks the last committed URL so we only react to genuine navigations, not
+  // repeated nav-state updates (title changes, etc.) that carry the same URL.
+  const lastCommittedUrlRef = useRef('')
+
+  // A real URL change returns the user to the device canvas (browser workspace).
+  const returnToDeviceCanvasOnNavigate = (barUrl: string): void => {
+    if (!isCommittedPageUrl(barUrl) || barUrl === lastCommittedUrlRef.current) return
+    lastCommittedUrlRef.current = barUrl
+    setWorkspace((current) => {
+      if (current === 'browser') return current
+      void window.api.setPanesVisible(true)
+      return 'browser'
+    })
+  }
 
   const visiblePanes: PaneId[] = PANE_IDS.filter((id) => selectedPresets[id] !== undefined)
 
@@ -95,6 +109,7 @@ export default function App(): React.JSX.Element {
       setActivePane(state.activePane)
       if (isCommittedPageUrl(state.barUrl)) {
         setCommittedUrl(state.barUrl)
+        lastCommittedUrlRef.current = state.barUrl
       }
     })
 
@@ -106,6 +121,7 @@ export default function App(): React.JSX.Element {
     })
     const unsubscribeNavigation = window.api.onPaneNavigation((state) => {
       setActivePane(state.activePane)
+      returnToDeviceCanvasOnNavigate(state.barUrl)
       if (isCommittedPageUrl(state.barUrl)) {
         setCommittedUrl(state.barUrl)
       }
