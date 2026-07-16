@@ -40,6 +40,8 @@ export interface DiagnosticsPanelPayload {
 export interface UrlHistoryPanelPayload {
   items: HistoryEntry[]
   activeIndex: number
+  /** Width of the anchoring URL bar, so the panel matches it instead of overflowing. */
+  width?: number
 }
 
 export type PanelPayload =

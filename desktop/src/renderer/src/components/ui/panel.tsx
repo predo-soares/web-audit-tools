@@ -14,7 +14,7 @@ const PANEL_SIZE_CLASS: Record<PanelId, string> = {
   'sidebar-left': 'w-[280px]',
   'diagnostics-right': 'w-[320px]',
   'toolbar-top': 'w-full',
-  'url-history': 'w-[42rem] max-h-[320px]'
+  'url-history': 'max-h-[320px] border-none rounded-xl'
 }
 
 function prefersReducedMotion(): boolean {
@@ -26,6 +26,8 @@ interface PanelChromeProps {
   visible: boolean
   placement: PanelPlacement
   align: PanelAlign
+  /** Fixed border-box width for the chrome, e.g. to match an anchoring element. */
+  width?: number
   containerRef: React.RefObject<HTMLDivElement | null>
   onTransitionEnd: (event: React.TransitionEvent<HTMLDivElement>) => void
   children: React.ReactNode
@@ -36,6 +38,7 @@ export function PanelChrome({
   visible,
   placement,
   align,
+  width,
   containerRef,
   onTransitionEnd,
   children
@@ -57,6 +60,7 @@ export function PanelChrome({
         PANEL_SIZE_CLASS[panelId]
       )}
       style={{
+        width: width ? `${width}px` : undefined,
         transformOrigin,
         opacity: visible ? 1 : 0,
         transform: visible ? 'scale(1) translate(0, 0)' : enterTransform,

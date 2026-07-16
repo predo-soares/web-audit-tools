@@ -111,6 +111,7 @@ export function ToolbarPanel(): React.JSX.Element {
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [urlInputFocused, setUrlInputFocused] = useState(false)
   const [activeHistoryIndex, setActiveHistoryIndex] = useState(-1)
+  const [urlBarWidth, setUrlBarWidth] = useState(0)
   const urlBarRef = useRef<HTMLFormElement>(null)
   const [snapshotToast, setSnapshotToast] = useState<string | null>(null)
   const snapshotToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -147,24 +148,38 @@ export function ToolbarPanel(): React.JSX.Element {
     onOpenChange: setDiagnosticsOpen
   })
 
+  useEffect(() => {
+    const el = urlBarRef.current
+    if (!el) return
+    const measure = (): void => setUrlBarWidth(el.getBoundingClientRect().width)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
   const filteredHistory = useMemo(() => filterHistory(history, url), [history, url])
 
   const urlHistoryPayload = useMemo(
-    () => ({ items: filteredHistory, activeIndex: activeHistoryIndex }),
-    [filteredHistory, activeHistoryIndex]
+    () => ({ items: filteredHistory, activeIndex: activeHistoryIndex, width: urlBarWidth }),
+    [filteredHistory, activeHistoryIndex, urlBarWidth]
   )
 
   const urlHistoryOpen = urlInputFocused && filteredHistory.length > 0
 
-  useOverlayPanel('url-history', {
-    mode: 'anchored',
-    open: urlHistoryOpen,
-    anchorEl: urlBarRef,
-    placement: 'bottom',
-    align: 'start',
-    payload: urlHistoryPayload,
-    onOpenChange: (open) => { if (!open) setUrlInputFocused(false) }
-  })
+  useOverlayPanel(
+    'url-history',
+    {
+      mode: 'anchored',
+      open: urlHistoryOpen,
+      anchorEl: urlBarRef,
+      placement: 'bottom',
+      align: 'start',
+      payload: urlHistoryPayload,
+      onOpenChange: (open) => { if (!open) setUrlInputFocused(false) }
+    },
+    urlBarRef
+  )
 
 const showProblemBadge = !diagnosticsOpen && problemCount > 0
 
@@ -419,7 +434,7 @@ const showProblemBadge = !diagnosticsOpen && problemCount > 0
 
   return (
     <header
-      className="relative box-border flex h-full w-full items-center justify-between gap-3 bg-transparent px-4 pr-3 "
+      className="relative box-border flex h-full w-full items-center justify-between gap-3 bg-transparent px-3"
       style={{ height: TOOLBAR_HEIGHT_PX }}
       data-app-region="drag"
       data-testid="toolbar"
@@ -448,15 +463,9 @@ const showProblemBadge = !diagnosticsOpen && problemCount > 0
           <Icon icon={PanelLeftIcon} size={14} />
         </button>
       </div>
-      <div
-        className="pointer-events-none absolute inset-y-0 flex items-center px-4"
-        style={{
-          left: 0,
-          right: 0
-        }}
-      >
+      <div className="flex min-w-0 flex-1 items-center justify-center px-2">
         <div
-          className="pointer-events-auto mx-auto flex w-full min-w-0 max-w-[42rem] items-center gap-1"
+          className="pointer-events-auto flex w-full min-w-0 max-w-[42rem] items-center gap-1"
           data-app-region="no-drag"
         >
           <button

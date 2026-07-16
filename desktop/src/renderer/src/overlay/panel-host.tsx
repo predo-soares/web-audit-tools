@@ -93,10 +93,12 @@ export function PanelHost(): React.JSX.Element | null {
 
     const reportSize = (): void => {
       requestAnimationFrame(() => {
-        const rect = container.getBoundingClientRect()
+        // Use offset* (layout size) rather than getBoundingClientRect(), which
+        // includes the enter/exit scale transform and would size the native
+        // view to the shrunken box, clipping the right/bottom rounded corners.
         window.panelApi.reportSize({
-          width: Math.ceil(rect.width),
-          height: Math.ceil(rect.height)
+          width: container.offsetWidth,
+          height: container.offsetHeight
         })
       })
     }
@@ -139,6 +141,9 @@ export function PanelHost(): React.JSX.Element | null {
         visible={visible}
         placement={activePlacement}
         align={panel.align}
+        width={
+          panel.payload && 'width' in panel.payload ? panel.payload.width : undefined
+        }
         containerRef={containerRef}
         onTransitionEnd={handleTransitionEnd}
       >

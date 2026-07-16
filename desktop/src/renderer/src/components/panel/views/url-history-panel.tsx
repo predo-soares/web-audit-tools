@@ -15,7 +15,7 @@ export function UrlHistoryPanel({
   if (!payload || payload.items.length === 0) return <></>
 
   return (
-    <div className="flex w-full flex-col gap-0.5 py-0.5">
+    <div className="flex max-h-[288px] w-full flex-col gap-0.5 overflow-y-auto overscroll-contain p-0">
       {payload.items.map((entry, index) => (
         <HistoryItem
           key={entry.url}
@@ -51,7 +51,7 @@ function HistoryItem({
       type="button"
       onClick={onSelect}
       className={cn(
-        'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
+        'flex w-full min-w-0 items-center gap-2 rounded-lg pl-1.25 pr-3 py-1.5 text-left text-sm transition-colors',
         active ? 'bg-white/10 text-foreground' : 'text-foreground hover:bg-white/10'
       )}
     >
@@ -66,8 +66,8 @@ function HistoryItem({
       ) : (
         <Icon aria-hidden icon={Globe02Icon} className="size-4 shrink-0 text-muted-foreground" />
       )}
-      <span className="min-w-0 flex-1 truncate font-medium">{displayTitle}</span>
-      <span className="shrink-0 truncate text-xs text-muted-foreground max-w-[24ch]">{url}</span>
+      <span className="min-w-0 shrink-0 max-w-[50%] truncate font-medium">{displayTitle}</span>
+      <span className="min-w-0 flex-1 truncate text-right text-xs text-muted-foreground">{url}</span>
     </button>
   )
 }
