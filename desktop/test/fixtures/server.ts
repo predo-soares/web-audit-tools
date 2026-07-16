@@ -442,8 +442,12 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
         #semantic-link { left: 20px; top: 104px; }
         #coordinate-trap { left: 260px; top: 280px; }
         @media (min-width: 700px) {
-          #semantic-primary { left: 720px; top: 310px; }
-          #semantic-link { left: 920px; top: 170px; }
+          /* Keep the primary button fully inside the narrowest tablet pane
+             (iPad Pro 11" = 834px): 560 + 144px min-width = 704 < 834. It stays
+             far from the mobile position (20,24) and the trap, so coordinate
+             mapping would still resolve the wrong element. */
+          #semantic-primary { left: 560px; top: 310px; }
+          #semantic-link { left: 640px; top: 170px; }
           #coordinate-trap { left: 72px; top: 32px; }
         }
       </style></head><body>
