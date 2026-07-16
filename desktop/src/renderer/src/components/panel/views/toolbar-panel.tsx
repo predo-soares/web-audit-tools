@@ -1,12 +1,15 @@
-import { buttonVariants } from '@renderer/components/ui/button'
+import { Button } from '@renderer/components/ui/button'
 import { Badge } from '@renderer/components/ui/badge'
-import { cn } from '@renderer/lib/utils'
 import { UrlBar } from '@renderer/components/url-bar'
 import { useOverlayPanel } from '@renderer/hooks/use-overlay-panel'
 import { DIAGNOSTICS_DRAWER_WIDTH_PX } from '../../../../../shared/runtime-evidence'
 import type { MediaFeatureState, ThemePreference } from '../../../../../shared/types'
 import { normalizeMediaFeatures } from '../../../../../shared/media-features'
-import { TOOLBAR_HEIGHT_PX } from '../../../../../shared/sidebar'
+import {
+  SIDEBAR_TRANSITION_MS,
+  SIDEBAR_WIDTH_PX,
+  TOOLBAR_HEIGHT_PX
+} from '../../../../../shared/sidebar'
 import {
   hasProjectForUrl,
   isCommittedPageUrl,
@@ -176,12 +179,14 @@ export function ToolbarPanel(): React.JSX.Element {
       placement: 'bottom',
       align: 'start',
       payload: urlHistoryPayload,
-      onOpenChange: (open) => { if (!open) setUrlInputFocused(false) }
+      onOpenChange: (open) => {
+        if (!open) setUrlInputFocused(false)
+      }
     },
     urlBarRef
   )
 
-const showProblemBadge = !diagnosticsOpen && problemCount > 0
+  const showProblemBadge = !diagnosticsOpen && problemCount > 0
 
   const anyPaneLoading = Object.values(loadingStates).some(Boolean)
   const isLoading = navigating || anyPaneLoading
@@ -449,11 +454,13 @@ const showProblemBadge = !diagnosticsOpen && problemCount > 0
       )}
       <div className="relative z-10 flex shrink-0 items-center gap-2" data-app-region="no-drag">
         <WindowControls usePanelApi />
-        <button
+        <Button
           ref={toggleButtonRef}
           type="button"
+          variant="ghost"
+          size="icon-xs"
           data-testid="sidebar-toggle"
-          className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }), 'ml-1')}
+          className="ml-1"
           aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
           aria-expanded={sidebarOpen}
           aria-controls="sidebar"
@@ -461,41 +468,52 @@ const showProblemBadge = !diagnosticsOpen && problemCount > 0
           onClick={toggleSidebar}
         >
           <Icon icon={PanelLeftIcon} size={14} />
-        </button>
+        </Button>
       </div>
-      <div className="flex min-w-0 flex-1 items-center justify-center px-2">
+      <div
+        className="flex min-w-0 flex-1 items-center justify-center px-2 transition-[padding-left] ease-out"
+        style={{
+          paddingLeft: sidebarOpen ? SIDEBAR_WIDTH_PX : undefined,
+          transitionDuration: `${SIDEBAR_TRANSITION_MS}ms`
+        }}
+      >
         <div
           className="pointer-events-auto flex w-full min-w-0 max-w-[42rem] items-center gap-1"
           data-app-region="no-drag"
         >
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-xs"
             data-testid="toolbar-back"
-            className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }))}
             aria-label="Back"
             aria-keyshortcuts="Meta+["
             disabled={!canGoBack || navigating}
             onClick={() => void window.panelApi.goBack()}
           >
             <Icon icon={ArrowLeft01Icon} size={14} />
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-xs"
             data-testid="toolbar-forward"
-            className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }))}
             aria-label="Forward"
             aria-keyshortcuts="Meta+]"
             disabled={!canGoForward || navigating}
             onClick={() => void window.panelApi.goForward()}
           >
             <Icon icon={ArrowRight01Icon} size={14} />
-          </button>
+          </Button>
           <UrlBar
             containerRef={urlBarRef}
             value={url}
             pageTitle={pageTitle}
             faviconUrl={faviconUrl}
-            onChange={(next) => { setUrl(next); setActiveHistoryIndex(-1) }}
+            onChange={(next) => {
+              setUrl(next)
+              setActiveHistoryIndex(-1)
+            }}
             onNavigate={(nextUrl) => void handleNavigate(nextUrl)}
             onRefresh={() => void handleRefresh()}
             onStop={handleStop}
@@ -545,30 +563,34 @@ const showProblemBadge = !diagnosticsOpen && problemCount > 0
         className="relative z-10 flex shrink-0 items-center gap-1"
         data-app-region="no-drag"
       >
-        <button
+        <Button
           ref={zoomTriggerRef}
           type="button"
-          className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }))}
+          variant="ghost"
+          size="icon-xs"
           aria-label={`Zoom level ${zoomPercent}%`}
           data-testid="zoom-combobox-trigger"
           aria-expanded={isZoomOpen}
           onClick={toggleZoomPopover}
         >
           <Icon icon={ZoomInAreaIcon} size={14} />
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }))}
+          variant="ghost"
+          size="icon-xs"
           data-testid="theme-toggle"
           aria-label={THEME_LABEL[themePreference]}
           onClick={toggleThemePreference}
         >
           <Icon icon={THEME_ICON[themePreference]} size={14} />
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-xs"
           data-testid="diagnostics-toggle"
-          className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }), 'relative')}
+          className="relative"
           aria-label={
             diagnosticsOpen
               ? 'Close diagnostics drawer'
@@ -590,21 +612,23 @@ const showProblemBadge = !diagnosticsOpen && problemCount > 0
               {problemCount > 99 ? '99+' : problemCount}
             </Badge>
           ) : null}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-xs"
           data-testid="snapshot-button"
-          className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }))}
           aria-label="Snapshot for Agent"
           aria-keyshortcuts="Meta+Shift+S"
           onClick={() => void handleSnapshot()}
         >
           <Icon icon={Camera01Icon} size={14} />
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-xs"
           data-testid="sync-toggle"
-          className={buttonVariants({ variant: 'ghost', size: 'icon-xs' })}
           onClick={() => {
             void window.panelApi.setSyncEnabled(!syncEnabled).then(setSyncEnabled)
           }}
@@ -616,7 +640,7 @@ const showProblemBadge = !diagnosticsOpen && problemCount > 0
           ) : (
             <Icon icon={Unlink01Icon} size={14} />
           )}
-        </button>
+        </Button>
       </div>
     </header>
   )

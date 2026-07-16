@@ -1,5 +1,5 @@
 import { StarIcon } from '@hugeicons/core-free-icons'
-import { buttonVariants } from '@renderer/components/ui/button'
+import { Button } from '@renderer/components/ui/button'
 import { Icon } from '@renderer/components/ui/icon'
 import { cn } from '@renderer/lib/utils'
 
@@ -19,11 +19,12 @@ export function SaveProjectButton({
   className
 }: SaveProjectButtonProps): React.JSX.Element {
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="icon-xs"
       data-testid="save-project"
       className={cn(
-        buttonVariants({ variant: 'ghost', size: 'icon-xs' }),
         'hover:bg-transparent active:bg-transparent',
         isSaved ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
         className
@@ -38,6 +39,6 @@ export function SaveProjectButton({
         icon={StarIcon}
         className={cn('size-3.5 transition-colors', isSaved && '[&_svg]:fill-current')}
       />
-    </button>
+    </Button>
   )
 }

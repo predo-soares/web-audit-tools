@@ -117,6 +117,8 @@ export function SeoView({ onClose: _onClose }: { onClose: () => void }): React.J
                   ) : (
                     <Button
                       type="button"
+                      variant="solid"
+                      color="neutral"
                       data-testid="seo-run-audit"
                       className={PRESSABLE}
                       onClick={handleRun}
@@ -207,28 +209,28 @@ export function SeoView({ onClose: _onClose }: { onClose: () => void }): React.J
                         <span data-testid="seo-catalog-version">v{result.ruleCatalogVersion}</span>
                       </span>
                       <div className="flex gap-2">
-                        <button
+                        <Button
                           type="button"
+                          variant="outline"
+                          color="blue"
+                          size="tiny"
                           data-testid="seo-copy-result"
-                          className={cn(
-                            'rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-sky-400 transition-colors hover:bg-white/5 hover:text-sky-300',
-                            PRESSABLE
-                          )}
+                          className={PRESSABLE}
                           onClick={() => copyMarkdown(auditMarkdown(result), 'complete result')}
                         >
                           Copy result
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
+                          variant="outline"
+                          color="blue"
+                          size="tiny"
                           data-testid="seo-export-snapshot"
+                          className={PRESSABLE}
                           onClick={exportWithSnapshot}
-                          className={cn(
-                            'rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-sky-400 transition-colors hover:bg-white/5 hover:text-sky-300',
-                            PRESSABLE
-                          )}
                         >
                           Export snapshot
-                        </button>
+                        </Button>
                       </div>
                     </div>
                     {exportStatus ? (
