@@ -135,7 +135,14 @@ function SelectRow({
         <span className="text-xs font-medium leading-tight">{label}</span>
         <span className="text-[10px] leading-tight text-muted-foreground">{description}</span>
       </div>
-      <Select value={value} onValueChange={onChange}>
+      <Select
+        value={value}
+        onValueChange={(next) => {
+          // base-ui types the value as nullable (clearable selects); this one is
+          // always set, so ignore a null and forward the chosen string.
+          if (next !== null) onChange(next)
+        }}
+      >
         <SelectTrigger size="sm" className="w-full">
           <SelectValue />
         </SelectTrigger>
