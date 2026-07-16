@@ -355,7 +355,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
                   >
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent side='bottom'>
+                  <SelectContent side="bottom" alignItemWithTrigger={false}>
                     <SelectItem value="all">All levels</SelectItem>
                     <SelectItem value="errors">Errors</SelectItem>
                     <SelectItem value="warnings">Warnings</SelectItem>
@@ -375,7 +375,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
                   >
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent side="bottom">
+                  <SelectContent side="bottom" alignItemWithTrigger={false}>
                     <SelectItem value="all">All outcomes</SelectItem>
                     <SelectItem value="failed">Failed</SelectItem>
                     <SelectItem value="4xx">4xx</SelectItem>

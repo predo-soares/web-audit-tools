@@ -424,3 +424,25 @@ export async function waitForPaneElement(
   }
   throw new Error(`#${elementId} not found in pane ${paneId} after ${timeoutMs}ms`)
 }
+
+/**
+ * Select an option from a base-ui Select (combobox) by test id. Native
+ * `selectOption()` does not work — these render as a `role="combobox"` button
+ * with a portalled `role="listbox"`. In a WebContentsView the popup closes under
+ * Playwright's default actionability wait (and the option can render off-screen),
+ * so open the listbox and dispatch the click straight to the option node, which
+ * reliably fires base-ui's selection handler.
+ */
+export async function selectComboboxOption(
+  page: Page,
+  triggerTestId: string,
+  optionName: string
+): Promise<void> {
+  await page.getByTestId(triggerTestId).click()
+  const option = page.getByRole('option', { name: optionName, exact: true })
+  // Hover keeps the popup open (it closes under the default actionability wait),
+  // then a real pointer press commits the selection. Relies on the Select using
+  // alignItemWithTrigger={false} so every option renders below the trigger.
+  await option.hover()
+  await option.click({ force: true })
+}

@@ -9,6 +9,7 @@ import {
   getToolbarPage,
   launchApp,
   navigateTo,
+  selectComboboxOption,
   waitForPaneElement
 } from './helpers'
 
@@ -73,7 +74,7 @@ test('diagnostics console filter narrows visible output without changing the bad
     await expect(drawer.getByText('No console output matches this filter.')).toBeVisible()
 
     await filter.fill('')
-    await drawer.getByTestId('diagnostics-console-level-filter').selectOption('errors')
+    await selectComboboxOption(drawer, 'diagnostics-console-level-filter', 'Errors')
     await expect(drawer.getByText('fixture-filter-hide')).toBeVisible()
     await expect(drawer.getByText('fixture-filter-keep')).toHaveCount(0)
 
@@ -147,7 +148,7 @@ test('diagnostics network toolbar filters requests and contains the clear action
     await expect(drawer.getByText('No network requests match this filter.')).toBeVisible()
 
     await filter.fill('')
-    await drawer.getByTestId('diagnostics-network-outcome-filter').selectOption('4xx')
+    await selectComboboxOption(drawer, 'diagnostics-network-outcome-filter', '4xx')
     await expect(
       drawer.getByTestId('diagnostics-network-path').filter({ hasText: '/api/missing' })
     ).toBeVisible()
