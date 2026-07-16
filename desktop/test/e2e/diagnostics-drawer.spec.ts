@@ -360,7 +360,9 @@ test('diagnostics list smart-scrolls only when already at the bottom', async ({ 
     const scrollTopAfterTail = await list.evaluate(
       (element) => element.scrollHeight - element.scrollTop - element.clientHeight
     )
-    expect(scrollTopAfterTail).toBeLessThanOrEqual(48)
+    // Within ~one row of the bottom. Row heights can be fractional (observed
+    // 48.5px), so allow a small sub-pixel margin above one row.
+    expect(scrollTopAfterTail).toBeLessThanOrEqual(50)
   } finally {
     await close()
   }
