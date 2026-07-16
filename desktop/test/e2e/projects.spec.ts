@@ -85,7 +85,10 @@ test('save uses last committed page while navigation is loading', async ({ fixtu
 
     const toolbar = await getToolbarPage(window)
     await toolbar.getByTestId('url-input').fill(secondUrl)
-    void window.evaluate((url) => window.api.navigate(url), secondUrl)
+    // Fire the navigation without awaiting so the save happens mid-load. The
+    // in-flight navigation can tear down this evaluate's execution context
+    // ("target closed"); that rejection is expected and must not fail the test.
+    void window.evaluate((url) => window.api.navigate(url), secondUrl).catch(() => {})
     await toolbar.getByTestId('save-project').click()
 
     const sidebar = await getSidebarPage(window)
