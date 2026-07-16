@@ -23,7 +23,7 @@ export function ZoomPanel({
         className={cn(
           buttonVariants({
             variant: 'ghost',
-            size: 'xs'
+            size: 'micro'
           }),
           'w-full justify-start'
         )}
@@ -38,8 +38,8 @@ export function ZoomPanel({
           type="button"
           className={cn(
             buttonVariants({
-              variant: option === zoomValue ? 'secondary' : 'ghost',
-              size: 'xs'
+              variant: option === zoomValue ? 'soft' : 'ghost',
+              size: 'micro'
             }),
             'w-full justify-start'
           )}

@@ -386,7 +386,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
+                size="tiny"
                 data-testid={`diagnostics-clear-${activeTab}`}
                 className="h-7 shrink-0 px-2 text-xs font-medium text-muted-foreground"
                 onClick={() => handleClear(activeTab)}

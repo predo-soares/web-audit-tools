@@ -35,12 +35,13 @@ export function ClearHistoryDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel size="sm" data-testid="clear-history-cancel">
+          <AlertDialogCancel size="tiny" data-testid="clear-history-cancel">
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction
-            variant="destructive"
-            size="sm"
+            variant="soft"
+            color="red"
+            size="tiny"
             data-testid="clear-history-confirm"
             onClick={handleConfirm}
           >
