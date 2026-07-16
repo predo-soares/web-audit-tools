@@ -178,10 +178,7 @@ export default function App(): React.JSX.Element {
                 void window.api.setPanesVisible(true)
               }} />
             ) : workspace === 'lighthouse' ? (
-              <LighthouseView onClose={() => {
-                setWorkspace('browser')
-                void window.api.setPanesVisible(true)
-              }} />
+              <LighthouseView />
             ) : workspace === 'devices' ? (
               <DevicesView
                 selectedPresets={selectedPresets}
