@@ -61,6 +61,10 @@ export class WebContentsViewEngine implements EngineView {
   readonly webContents: WebContents
   private profile: DeviceProfile | null = null
   private debuggerAttached = false
+  // The element mirror is installed into the page once per debugger session via
+  // Page.addScriptToEvaluateOnNewDocument (survives navigations/reloads) instead
+  // of being re-serialized into every interaction's Runtime.evaluate expression.
+  private mirrorInstallRegistered = false
   // Match the renderer's initial zoom so setDevice() applies the right scale
   // before the first mountPane IPC arrives from the renderer.
   private zoom = DEFAULT_ZOOM
@@ -99,6 +103,7 @@ export class WebContentsViewEngine implements EngineView {
 
     this.webContents.debugger.on('detach', (_event, reason) => {
       this.debuggerAttached = false
+      this.mirrorInstallRegistered = false
       this.disposeConsoleCapture?.()
       this.disposeConsoleCapture = null
       this.disposeNetworkCapture?.()
@@ -276,7 +281,7 @@ export class WebContentsViewEngine implements EngineView {
     { dispatched: true } | { handled: true } | { skipDispatch: true; navigateTo: string } | null
   > {
     try {
-      await this.ensureDebugger()
+      await this.ensureMirrorInstalled()
       const response = (await this.webContents.debugger.sendCommand('Runtime.evaluate', {
         expression: this.getClickResolutionExpression(fingerprint),
         returnByValue: true
@@ -377,7 +382,7 @@ export class WebContentsViewEngine implements EngineView {
 
   async applyValue(fingerprint: ElementFingerprint, payload: ValueSyncPayload): Promise<void> {
     try {
-      await this.ensureDebugger()
+      await this.ensureMirrorInstalled()
       const response = (await this.webContents.debugger.sendCommand('Runtime.evaluate', {
         expression: this.getValueApplyExpression(fingerprint, payload),
         returnByValue: true
@@ -409,7 +414,7 @@ export class WebContentsViewEngine implements EngineView {
 
   async submitForm(fingerprint: ElementFingerprint): Promise<void> {
     try {
-      await this.ensureDebugger()
+      await this.ensureMirrorInstalled()
       const response = (await this.webContents.debugger.sendCommand('Runtime.evaluate', {
         expression: this.getSubmitExpression(fingerprint),
         returnByValue: true
@@ -707,6 +712,30 @@ export class WebContentsViewEngine implements EngineView {
     this.debuggerAttached = true
   }
 
+  // Install the element mirror once per debugger session. The factory's
+  // toString() is serialized a single time here — registered on every new
+  // document (so it survives navigations and reloads) and evaluated once for the
+  // already-loaded current document — instead of being re-serialized and
+  // re-parsed by V8 on every interaction's Runtime.evaluate. (ADR 0005: still
+  // one artifact, so the in-page copy can't drift from the compiled module.)
+  private async ensureMirrorInstalled(): Promise<void> {
+    await this.ensureDebugger()
+    if (this.mirrorInstallRegistered) return
+    const source = this.getMirrorInstallSource()
+    await this.webContents.debugger.sendCommand('Page.enable')
+    await this.webContents.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
+      source
+    })
+    // addScriptToEvaluateOnNewDocument only affects documents created after
+    // registration; seed the current document too.
+    await this.webContents.debugger.sendCommand('Runtime.evaluate', { expression: source })
+    this.mirrorInstallRegistered = true
+  }
+
+  private getMirrorInstallSource(): string {
+    return `window.__elementMirror = (${createElementMirror.toString()})();`
+  }
+
   private async applyEmulatedMedia(): Promise<void> {
     const mediaFeatures = normalizeMediaFeatures(this.mediaFeatures)
     this.mediaFeatures = mediaFeatures
@@ -792,11 +821,13 @@ export class WebContentsViewEngine implements EngineView {
     }
   }
 
-  // The element mirror is injected as one self-contained artifact — a single
-  // toString() of the factory the preload and unit tests also run — so the
-  // in-page copy can never drift from the compiled module (ADR 0005).
+  // Per-interaction expressions reference the mirror installed once per document
+  // by ensureMirrorInstalled() rather than re-serializing the factory each call.
+  // The guard returns a benign no-match if the install somehow hasn't run yet
+  // (it always has: addScriptToEvaluateOnNewDocument runs before page scripts).
   private getElementMirrorBootstrapExpression(): string {
-    return `const mirror = (${createElementMirror.toString()})();`
+    return `const mirror = window.__elementMirror;
+        if (!mirror) return { matched: false, failureReason: 'not-found' };`
   }
 
   private getClickResolutionExpression(fingerprint: ElementFingerprint): string {
