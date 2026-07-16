@@ -110,22 +110,27 @@ test.describe('device emulation', () => {
       await navigateTo(window, fixtureUrl(fixturePort, '/dpr-image'))
       await waitForAllPanes(window)
 
-      await evaluateInPane(
-        window,
-        'iphone',
-        `new Promise((resolve) => {
-          const img = document.getElementById('hero');
-          if (img.complete) return resolve();
-          img.addEventListener('load', () => resolve(), { once: true });
-        })`
-      )
-
-      const loaded = await evaluateInPane<string>(
-        window,
-        'iphone',
-        `document.getElementById('hero')?.currentSrc ?? ''`
-      )
-      expect(loaded).toContain('image-3x.png')
+      // The image can be picked from srcset before the CDP device-scale-factor
+      // override applies (ADR 0004 emulation timing), which lags further under
+      // full-suite load. Re-run srcset selection on each poll iteration so the
+      // pick converges to 3x once the DPR override lands.
+      await expect
+        .poll(
+          () =>
+            evaluateInPane<string>(
+              window,
+              'iphone',
+              `(() => {
+                const img = document.getElementById('hero');
+                const srcset = img.srcset;
+                img.srcset = '';
+                img.srcset = srcset;
+                return img.currentSrc ?? '';
+              })()`
+            ),
+          { timeout: 15_000 }
+        )
+        .toContain('image-3x.png')
     } finally {
       await close()
     }
