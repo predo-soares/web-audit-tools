@@ -21,15 +21,18 @@ const buttonVariants = cva(
           'text-[color:var(--btn-fg)] hover:bg-[var(--btn-ghost-hover)] aria-expanded:bg-[var(--btn-ghost-hover)]'
       },
       color: {
-        // Neutral maps to the theme tokens so it flips correctly in dark mode.
+        // Each color only sets `--btn-*` slots from the Radix scales in main.css
+        // (see devouringdetails.com/system/button). The scales redefine themselves
+        // under `.dark`, so no per-color dark: overrides are needed.
         neutral:
-          '[--btn-solid:var(--primary)] [--btn-solid-fg:var(--primary-foreground)] [--btn-soft:var(--secondary)] [--btn-soft-hover:color-mix(in_oklch,var(--secondary),var(--foreground)_7%)] [--btn-outline:var(--background)] [--btn-border:var(--border)] [--btn-fg:var(--foreground)] [--btn-ghost-hover:color-mix(in_oklch,transparent,var(--foreground)_8%)]',
+          '[--btn-solid:var(--primary)] [--btn-solid-fg:var(--primary-foreground)] [--btn-soft:var(--color-gray-a3)] [--btn-soft-hover:var(--color-gray-a4)] [--btn-outline:var(--background)] [--btn-border:var(--border)] [--btn-fg:var(--foreground)] [--btn-ghost-hover:var(--color-gray-a3)]',
         accent:
           '[--btn-solid:oklch(0.71_0.24_42.36)] [--btn-solid-fg:#fff] [--btn-soft:oklch(0.95_0.045_42.36)] [--btn-soft-hover:oklch(0.92_0.065_42.36)] [--btn-outline:oklch(0.985_0.016_42.36)] [--btn-border:oklch(0.87_0.09_42.36)] [--btn-fg:oklch(0.6_0.2_42.36)] [--btn-ghost-hover:oklch(0.95_0.045_42.36)] dark:[--btn-soft:oklch(0.32_0.09_42.36)] dark:[--btn-soft-hover:oklch(0.37_0.11_42.36)] dark:[--btn-outline:oklch(0.28_0.06_42.36)] dark:[--btn-border:oklch(0.45_0.12_42.36)] dark:[--btn-fg:oklch(0.82_0.15_42.36)] dark:[--btn-ghost-hover:oklch(0.32_0.09_42.36)]',
-        blue: '[--btn-solid:oklch(0.562_0.2419_260.9)] [--btn-solid-fg:#fff] [--btn-soft:oklch(0.95_0.04_260.9)] [--btn-soft-hover:oklch(0.92_0.06_260.9)] [--btn-outline:oklch(0.985_0.016_260.9)] [--btn-border:oklch(0.86_0.08_260.9)] [--btn-fg:oklch(0.55_0.22_260.9)] [--btn-ghost-hover:oklch(0.95_0.04_260.9)] dark:[--btn-soft:oklch(0.32_0.09_260.9)] dark:[--btn-soft-hover:oklch(0.37_0.11_260.9)] dark:[--btn-outline:oklch(0.28_0.06_260.9)] dark:[--btn-border:oklch(0.46_0.13_260.9)] dark:[--btn-fg:oklch(0.8_0.14_260.9)] dark:[--btn-ghost-hover:oklch(0.32_0.09_260.9)]',
-        red: '[--btn-solid:oklch(0.63_0.2555_29.02)] [--btn-solid-fg:#fff] [--btn-soft:oklch(0.95_0.04_29.02)] [--btn-soft-hover:oklch(0.92_0.06_29.02)] [--btn-outline:oklch(0.985_0.016_29.02)] [--btn-border:oklch(0.86_0.09_29.02)] [--btn-fg:oklch(0.58_0.22_29.02)] [--btn-ghost-hover:oklch(0.95_0.04_29.02)] dark:[--btn-soft:oklch(0.32_0.1_29.02)] dark:[--btn-soft-hover:oklch(0.37_0.12_29.02)] dark:[--btn-outline:oklch(0.28_0.07_29.02)] dark:[--btn-border:oklch(0.46_0.15_29.02)] dark:[--btn-fg:oklch(0.8_0.14_29.02)] dark:[--btn-ghost-hover:oklch(0.32_0.1_29.02)]',
+        blue: '[--btn-solid:var(--color-blue9)] [--btn-solid-fg:#fff] [--btn-soft:var(--color-blue3)] [--btn-soft-hover:var(--color-blue4)] [--btn-outline:var(--color-blue2)] [--btn-border:var(--color-blue7)] [--btn-fg:var(--color-blue11)] [--btn-ghost-hover:var(--color-blue3)]',
+        red: '[--btn-solid:var(--color-red9)] [--btn-solid-fg:#fff] [--btn-soft:var(--color-red3)] [--btn-soft-hover:var(--color-red4)] [--btn-outline:var(--color-red2)] [--btn-border:var(--color-red7)] [--btn-fg:var(--color-red11)] [--btn-ghost-hover:var(--color-red3)]',
+        // amber9 is a light swatch in both themes, so solid text stays dark.
         amber:
-          '[--btn-solid:oklch(0.82_0.18_72.6)] [--btn-solid-fg:oklch(0.32_0.07_72.6)] [--btn-soft:oklch(0.95_0.05_82)] [--btn-soft-hover:oklch(0.92_0.07_82)] [--btn-outline:oklch(0.985_0.02_82)] [--btn-border:oklch(0.87_0.1_82)] [--btn-fg:oklch(0.52_0.11_60)] [--btn-ghost-hover:oklch(0.95_0.05_82)] dark:[--btn-soft:oklch(0.33_0.07_72.6)] dark:[--btn-soft-hover:oklch(0.38_0.09_72.6)] dark:[--btn-outline:oklch(0.29_0.05_72.6)] dark:[--btn-border:oklch(0.47_0.1_72.6)] dark:[--btn-fg:oklch(0.83_0.14_82)] dark:[--btn-ghost-hover:oklch(0.33_0.07_72.6)]'
+          '[--btn-solid:var(--color-amber9)] [--btn-solid-fg:#4e2009] [--btn-soft:var(--color-amber3)] [--btn-soft-hover:var(--color-amber4)] [--btn-outline:var(--color-amber2)] [--btn-border:var(--color-amber7)] [--btn-fg:var(--color-amber11)] [--btn-ghost-hover:var(--color-amber3)]'
       },
       size: {
         micro: "h-[26px] gap-1 px-2 text-[13px] [&_svg:not([class*='size-'])]:size-3",

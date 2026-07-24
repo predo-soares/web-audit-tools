@@ -5,25 +5,93 @@
 @import '@fontsource-variable/geist-mono';
 
 :root {
-  --background: hsl(0 0% 100%);
-  --foreground: hsl(0 0% 3.9%);
-  --card: hsl(0 0% 100%);
-  --card-foreground: hsl(0 0% 3.9%);
-  --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(0 0% 3.9%);
-  --primary: hsl(0 0% 9%);
-  --primary-foreground: hsl(0 0% 98%);
-  --secondary: hsl(0 0% 96.1%);
-  --secondary-foreground: hsl(0 0% 9%);
-  --muted: hsl(0 0% 96.1%);
-  --muted-foreground: hsl(0 0% 45.1%);
-  --accent: hsl(0 0% 96.1%);
-  --accent-foreground: hsl(0 0% 9%);
-  --destructive: hsl(0 84.2% 60.2%);
-  --destructive-foreground: hsl(0 0% 98%);
-  --border: hsl(0 0% 89.8%);
-  --input: hsl(0 0% 89.8%);
-  --ring: hsl(0 0% 3.9%);
+  /* Radix-style color scales adopted from devouringdetails.com/system/button.
+     Each hue is a 12-step scale (1 = app background … 12 = high-contrast text).
+     Semantic tokens below reference these, so light/dark flips happen once. */
+  --color-gray1: #fcfcfc;
+  --color-gray2: #f8f8f8;
+  --color-gray3: #f3f3f3;
+  --color-gray4: #ededed;
+  --color-gray5: #e8e8e8;
+  --color-gray6: #e2e2e2;
+  --color-gray7: #dbdbdb;
+  --color-gray8: #c7c7c7;
+  --color-gray9: #8f8f8f;
+  --color-gray10: #858585;
+  --color-gray11: #6f6f6f;
+  --color-gray12: #171717;
+  --color-gray-a1: #00000003;
+  --color-gray-a2: #00000007;
+  --color-gray-a3: #0000000c;
+  --color-gray-a4: #00000012;
+  --color-gray-a5: #00000017;
+  --color-gray-a6: #0000001d;
+  --color-gray-a7: #00000024;
+  --color-gray-a8: #00000038;
+  --color-gray-a9: #00000070;
+  --color-gray-a10: #0000007a;
+  --color-gray-a11: #00000090;
+  --color-gray-a12: #000000e8;
+
+  --color-blue1: #fbfdff;
+  --color-blue2: #f5faff;
+  --color-blue3: #edf6ff;
+  --color-blue4: #e1f0ff;
+  --color-blue5: #cee7fe;
+  --color-blue6: #b7d9f8;
+  --color-blue7: #96c7f2;
+  --color-blue8: #5eb0ef;
+  --color-blue9: #0090ff;
+  --color-blue10: #0081f1;
+  --color-blue11: #006adc;
+  --color-blue12: #00254d;
+
+  --color-red1: #fffcfc;
+  --color-red2: #fff8f8;
+  --color-red3: #ffefef;
+  --color-red4: #ffe5e5;
+  --color-red5: #fdd8d8;
+  --color-red6: #f9c6c6;
+  --color-red7: #f3aeaf;
+  --color-red8: #eb9091;
+  --color-red9: #e5484d;
+  --color-red10: #dc3d43;
+  --color-red11: #cd2b31;
+  --color-red12: #381316;
+
+  --color-amber1: #fefdfb;
+  --color-amber2: #fff9ed;
+  --color-amber3: #fff4d5;
+  --color-amber4: #ffecbc;
+  --color-amber5: #ffe3a2;
+  --color-amber6: #ffd386;
+  --color-amber7: #f3ba63;
+  --color-amber8: #ee9d2b;
+  --color-amber9: #ffb224;
+  --color-amber10: #ffa01c;
+  --color-amber11: #ad5700;
+  --color-amber12: #4e2009;
+
+  /* Semantic tokens (shadcn roles) mapped onto the scales above. */
+  --background: #ffffff;
+  --foreground: var(--color-gray12);
+  --card: #ffffff;
+  --card-foreground: var(--color-gray12);
+  --popover: #ffffff;
+  --popover-foreground: var(--color-gray12);
+  --primary: var(--color-gray12);
+  --primary-foreground: var(--color-gray1);
+  --secondary: var(--color-gray3);
+  --secondary-foreground: var(--color-gray12);
+  --muted: var(--color-gray3);
+  --muted-foreground: var(--color-gray11);
+  --accent: var(--color-gray4);
+  --accent-foreground: var(--color-gray12);
+  --destructive: var(--color-red9);
+  --destructive-foreground: #ffffff;
+  --border: var(--color-gray6);
+  --input: var(--color-gray6);
+  --ring: var(--color-gray8);
   --radius: 0.625rem;
   --corner-shape-default: squircle;
   --font-family-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
@@ -38,25 +106,75 @@
 }
 
 .dark {
-  --background: hsl(0 0% 3.9%);
-  --foreground: hsl(0 0% 98%);
-  --card: hsl(0 0% 5.5%);
-  --card-foreground: hsl(0 0% 98%);
-  --popover: hsl(0 0% 5.5%);
-  --popover-foreground: hsl(0 0% 98%);
-  --primary: hsl(0 0% 98%);
-  --primary-foreground: hsl(0 0% 9%);
-  --secondary: hsl(0 0% 14.9%);
-  --secondary-foreground: hsl(0 0% 98%);
-  --muted: hsl(0 0% 14.9%);
-  --muted-foreground: hsl(0 0% 63.9%);
-  --accent: hsl(0 0% 14.9%);
-  --accent-foreground: hsl(0 0% 98%);
-  --destructive: hsl(0 62.8% 30.6%);
-  --destructive-foreground: hsl(0 0% 98%);
-  --border: hsl(0 0% 14.9%);
-  --input: hsl(0 0% 14.9%);
-  --ring: hsl(0 0% 83.1%);
+  --color-gray1: #161616;
+  --color-gray2: #1c1c1c;
+  --color-gray3: #232323;
+  --color-gray4: #282828;
+  --color-gray5: #2e2e2e;
+  --color-gray6: #343434;
+  --color-gray7: #3e3e3e;
+  --color-gray8: #505050;
+  --color-gray9: #707070;
+  --color-gray10: #7e7e7e;
+  --color-gray11: #a0a0a0;
+  --color-gray12: #ededed;
+  --color-gray-a1: #ffffff00;
+  --color-gray-a2: #ffffff07;
+  --color-gray-a3: #ffffff0e;
+  --color-gray-a4: #ffffff14;
+  --color-gray-a5: #ffffff1a;
+  --color-gray-a6: #ffffff21;
+  --color-gray-a7: #ffffff2c;
+  --color-gray-a8: #ffffff3f;
+  --color-gray-a9: #ffffff62;
+  --color-gray-a10: #ffffff72;
+  --color-gray-a11: #ffffff97;
+  --color-gray-a12: #ffffffeb;
+
+  --color-blue1: #0f1720;
+  --color-blue2: #0f1b2d;
+  --color-blue3: #10243e;
+  --color-blue4: #102a4c;
+  --color-blue5: #0f3058;
+  --color-blue6: #0d3868;
+  --color-blue7: #0a4481;
+  --color-blue8: #0954a5;
+  --color-blue9: #0090ff;
+  --color-blue10: #369eff;
+  --color-blue11: #52a9ff;
+  --color-blue12: #eaf6ff;
+
+  --color-red1: #1f1315;
+  --color-red2: #291415;
+  --color-red3: #3c181a;
+  --color-red4: #481a1d;
+  --color-red5: #541b1f;
+  --color-red6: #671e22;
+  --color-red7: #822025;
+  --color-red8: #aa2429;
+  --color-red9: #e5484d;
+  --color-red10: #f2555a;
+  --color-red11: #ff6369;
+  --color-red12: #feecee;
+
+  --color-amber1: #1f1300;
+  --color-amber2: #271700;
+  --color-amber3: #341c00;
+  --color-amber4: #3f2200;
+  --color-amber5: #4a2900;
+  --color-amber6: #573300;
+  --color-amber7: #693f05;
+  --color-amber8: #824e00;
+  --color-amber9: #ffb224;
+  --color-amber10: #ffcb47;
+  --color-amber11: #f1a10d;
+  --color-amber12: #fef3dd;
+
+  --background: #0a0a0a;
+  --card: var(--color-gray1);
+  --popover: var(--color-gray1);
+  --primary-foreground: var(--color-gray1);
+  --destructive-foreground: #ffffff;
 }
 
 @theme inline {
