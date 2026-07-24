@@ -13,3 +13,7 @@ desktop/out/
 desktop/.eslintcache
 desktop/test-results/
 desktop/playwright-report/
+
+# Build/cache artifacts
+.pnpm-store/
+desktop/*.tsbuildinfo
