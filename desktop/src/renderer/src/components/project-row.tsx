@@ -35,7 +35,7 @@ export function ProjectRow({
           src={project.faviconUrl}
           alt=""
           aria-hidden="true"
-          className=" size-3 shrink-0 rounded-sm"
+          className="mt-0.5 size-3 shrink-0 rounded-sm"
           onError={() => setFaviconFailed(true)}
         />
       ) : (
@@ -50,7 +50,7 @@ export function ProjectRow({
           <span className="truncate text-xs font-medium">{project.name}</span>
           {isDev && <DevBadge />}
         </span>
-        <span className="block truncate text-xs text-muted-foreground">{project.url}</span>
+        {/*<span className="block truncate text-xs text-muted-foreground">{project.url}</span>*/}
       </span>
     </button>
   )

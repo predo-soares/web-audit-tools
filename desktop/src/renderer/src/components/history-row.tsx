@@ -60,14 +60,14 @@ export function HistoryRow({
             src={entry.faviconUrl}
             alt=""
             aria-hidden="true"
-            className="mt-0.5 size-4 shrink-0 rounded-sm"
+            className="mt-0.5 size-3 shrink-0 rounded-sm"
             onError={() => setFaviconFailed(true)}
           />
         ) : (
           <Icon
             aria-hidden
             icon={Globe02Icon}
-            className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+            className="mt-0.5 size-3 shrink-0 text-muted-foreground"
           />
         )}
         <span className="min-w-0 flex-1">
@@ -75,9 +75,9 @@ export function HistoryRow({
             <span className="truncate text-xs font-medium max-w-[22ch]">{title}</span>
             {isDev && <DevBadge />}
           </span>
-          <span className="block truncate text-xs text-muted-foreground max-w-[24ch]">
+          {/*<span className="block truncate text-xs text-muted-foreground max-w-[24ch]">
             {entry.url}
-          </span>
+          </span>*/}
         </span>
       </button>
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
@@ -88,7 +88,7 @@ export function HistoryRow({
               data-testid={`${historyRowTestId(entry.url)}-menu`}
               aria-label={`History actions for ${title}`}
               className={cn(
-                'absolute inset-y-0 right-1 my-auto inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-background/60 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none',
+                'absolute inset-y-0 right-1 my-auto inline-flex size-4 shrink-0 items-center justify-center rounded-[3px] text-muted-foreground transition-opacity bg-background/60 backdrop-blur-2xl hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none',
                 menuOpen
                   ? 'opacity-100'
                   : 'opacity-0 group-hover/history-row:opacity-100 group-focus-within/history-row:opacity-100'
@@ -104,6 +104,7 @@ export function HistoryRow({
             variant="destructive"
             data-testid={`${historyRowTestId(entry.url)}-delete`}
             onClick={() => onDelete(entry)}
+
           >
             <Icon icon={Delete02Icon} />
             Delete
