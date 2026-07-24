@@ -2,6 +2,7 @@ import { CATEGORY_LABEL, OUTCOME_LABEL, type AuditResult } from '../../../../sha
 import { auditMarkdown } from '../../../../shared/seo-markdown'
 import { cn } from '@renderer/lib/utils'
 import type { SeoAuditPresentation } from '@renderer/hooks/use-seo-audit-presentation'
+import { CopyButton } from './copy-button'
 import { PRESSABLE, SUBLABEL, CARD } from './lib/styles'
 import { CATEGORIES, OUTCOME_CLASS, OUTCOMES } from './lib/finding-format'
 
@@ -39,7 +40,7 @@ export function FindingFilters({
                   PRESSABLE,
                   findingOutcome === outcome
                     ? cn('border-transparent', OUTCOME_CLASS[outcome])
-                    : 'border-white/10 bg-white/[0.03] text-white/45 hover:text-white/80'
+                    : 'border-white/10 bg-white/[0.03] text-white/55 hover:text-white/80'
                 )}
               >
                 {OUTCOME_LABEL[outcome]}{' '}
@@ -64,25 +65,21 @@ export function FindingFilters({
                   className={cn(
                     'min-w-0 flex-1 truncate rounded-md px-1.5 py-1 text-left text-[11px] transition-colors',
                     findingCategory === category
-                      ? 'bg-sky-400/10 text-sky-300'
-                      : 'text-white/45 hover:text-white/80'
+                      ? 'bg-sky-400/10 font-medium text-sky-300'
+                      : 'text-white/55 hover:text-white/80'
                   )}
                 >
                   {CATEGORY_LABEL[category]}{' '}
-                  <span className="text-white/30">
+                  <span className="text-white/55">
                     · {result.findings.filter((item) => item.category === category).length}
                   </span>
                 </button>
-                <button
-                  type="button"
-                  aria-label={`Copy ${CATEGORY_LABEL[category]} findings`}
-                  onClick={() =>
+                <CopyButton
+                  label={`Copy ${CATEGORY_LABEL[category]} findings`}
+                  onCopy={() =>
                     copyMarkdown(auditMarkdown(result, { category }), CATEGORY_LABEL[category])
                   }
-                  className="px-1 text-[10px] text-sky-400 transition-colors hover:text-sky-300"
-                >
-                  Copy
-                </button>
+                />
               </div>
             ))}
           </div>

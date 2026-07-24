@@ -1,7 +1,21 @@
 import { test, expect } from './fixtures'
+import type { Locator } from '@playwright/test'
 import { existsSync, readFileSync, readdirSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
+
+// The findings list leads with actionable outcomes and collapses passed /
+// unable-to-verify behind toggles. Tests that assert on those secondary
+// outcomes reveal them first.
+async function revealSecondaryOutcomes(panel: Locator): Promise<void> {
+  await expect(panel.getByTestId('seo-result')).toBeVisible()
+  for (const outcome of ['passed', 'unable-to-verify']) {
+    const toggle = panel.locator(`[data-testid="seo-outcome-toggle"][data-outcome="${outcome}"]`)
+    if ((await toggle.count()) && (await toggle.getAttribute('aria-pressed')) !== 'true') {
+      await toggle.click()
+    }
+  }
+}
 import {
   evaluateInPane,
   fixtureUrl,
@@ -32,6 +46,15 @@ test('runs a full audit and reports a passed title finding', async ({ fixturePor
 
     const result = panel.getByTestId('seo-result')
     await expect(result).toBeVisible()
+    await revealSecondaryOutcomes(panel)
+    await expect
+      .poll(() =>
+        panel
+          .getByTestId('seo-finding')
+          .first()
+          .evaluate((element) => getComputedStyle(element).opacity)
+      )
+      .toBe('1')
     await expect(panel.getByTestId('seo-catalog-version')).toBeVisible()
 
     const titleFinding = panel.locator(
@@ -187,6 +210,7 @@ test('verifies localized alternates with bounded reciprocal checks', async ({ fi
     await waitForPaneElement(window, 'desktop', 'seo-i18n')
     const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
+    await revealSecondaryOutcomes(panel)
     const section = panel.getByTestId('seo-internationalization')
     await expect(section.getByTestId('seo-hreflang-item')).toHaveCount(3)
     await expect(section).toContainText('x-default')
@@ -243,6 +267,7 @@ test('restores a completed result after the panel is closed and reopened', async
     // Close then reopen the view; the main-process job outlives the panel.
     const reopened = await reopenSeoView(window)
     await expect(reopened.getByTestId('seo-result')).toBeVisible()
+    await revealSecondaryOutcomes(reopened)
     await expect(
       reopened.locator(
         '[data-testid="seo-finding"][data-rule-id="search-appearance/title-present"]'
@@ -288,6 +313,7 @@ test('captures delivered evidence and flags a delivered-vs-rendered title discre
     const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
     await expect(panel.getByTestId('seo-result')).toBeVisible()
+    await revealSecondaryOutcomes(panel)
 
     // The rendered title is present and usable.
     await expect(
@@ -382,8 +408,10 @@ test('audits indexability controls and verifies only declared discovery resource
     await navigateTo(window, fixtureUrl(fixturePort, '/seo/indexability-allowed'))
     await waitForPaneElement(window, 'desktop', 'seo-indexability-allowed')
     const panel = await openSeoView(window)
-    await panel.getByRole('radio', { name: 'Indexable', exact: true }).click()
+    await panel.getByTestId('seo-intent-select').click()
+    await window.getByRole('option', { name: 'Indexable', exact: true }).click()
     await panel.getByTestId('seo-run-audit').click()
+    await revealSecondaryOutcomes(panel)
 
     await expect(
       panel.locator('[data-testid="seo-finding"][data-rule-id="indexability/final-status"]')
@@ -408,7 +436,8 @@ test('reports contradictory noindex controls against indexable intent', async ({
     await navigateTo(window, fixtureUrl(fixturePort, '/seo/indexability-blocked'))
     await waitForPaneElement(window, 'desktop', 'seo-indexability-blocked')
     const panel = await openSeoView(window)
-    await panel.getByRole('radio', { name: 'Indexable', exact: true }).click()
+    await panel.getByTestId('seo-intent-select').click()
+    await window.getByRole('option', { name: 'Indexable', exact: true }).click()
     await panel.getByTestId('seo-run-audit').click()
 
     const directives = panel.locator(
@@ -436,6 +465,7 @@ test('resolves social fallbacks, verifies the image, and renders representative 
     const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
 
+    await revealSecondaryOutcomes(panel)
     await expect(panel.getByTestId('seo-social-previews')).toContainText(
       'Representative approximation'
     )
@@ -465,6 +495,7 @@ test('inspects JSON-LD, Microdata, RDFa, and attributed enhancement eligibility'
     const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
 
+    await revealSecondaryOutcomes(panel)
     const inspector = panel.getByTestId('seo-structured-data')
     await expect(inspector).toContainText('does not guarantee a rich result')
     await expect(inspector.getByTestId('seo-structured-source')).toHaveCount(3)
@@ -518,6 +549,7 @@ test('inspects client-rendered headings, responsive visibility, and page landmar
     const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
 
+    await revealSecondaryOutcomes(panel)
     const structure = panel.getByTestId('seo-document-structure')
     await expect(structure).toContainText('Language: en')
     await structure.getByText('Rendered heading tree').click()

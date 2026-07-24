@@ -8,13 +8,13 @@ export function InternationalizationSection({
   return (
     <section
       data-testid="seo-internationalization"
-      className="rounded-xl border border-white/10 bg-black/40 p-5 backdrop-blur-md"
+      className="rounded-xl border border-white/10 bg-black/55 p-5 backdrop-blur-md"
     >
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-white/45">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-white/55">
           International targeting
         </h2>
-        <span className="text-xs text-white/45">
+        <span className="text-xs text-white/55">
           {result.internationalization.declarations.length} alternates
         </span>
       </div>
@@ -23,7 +23,7 @@ export function InternationalizationSection({
           <li key={`${item.sourceIndex}-${item.hreflang}`} data-testid="seo-hreflang-item">
             <span className="text-foreground">{item.hreflang}</span> · local source{' '}
             {item.sourceIndex} ·{' '}
-            <span className="break-all text-white/45">{item.resolvedHref ?? item.href}</span>
+            <span className="break-all text-white/55">{item.resolvedHref ?? item.href}</span>
           </li>
         ))}
       </ul>
@@ -37,7 +37,7 @@ export function InternationalizationSection({
           </li>
         ))}
       </ul>
-      <p className="mt-3 text-[10px] text-white/45">
+      <p className="mt-3 text-[10px] text-white/55">
         Only directly declared targets are checked; their alternates are not traversed.
       </p>
     </section>

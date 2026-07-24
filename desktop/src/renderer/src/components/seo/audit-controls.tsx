@@ -1,11 +1,19 @@
 import { InformationCircleIcon } from '@hugeicons/core-free-icons'
+import type { IndexingIntent } from '../../../../shared/seo-audit'
 import { auditMarkdown } from '../../../../shared/seo-markdown'
 import { Button } from '@renderer/components/ui/button'
 import { Icon } from '@renderer/components/ui/icon'
-import { SegmentedControl } from '@renderer/components/ui/segmented-control'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@renderer/components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip'
 import { cn } from '@renderer/lib/utils'
 import type { SeoAuditPresentation } from '@renderer/hooks/use-seo-audit-presentation'
+import { CopyButton } from './copy-button'
 import { CARD, PRESSABLE, SUBLABEL } from './lib/styles'
 import { INTENT_OPTIONS } from './lib/finding-format'
 
@@ -43,41 +51,17 @@ export function AuditControls({
 }: AuditControlsProps): React.JSX.Element {
   return (
     <div className={cn(CARD, 'px-5 py-4')}>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-lg font-semibold tracking-tight text-white">Page SEO audit</h1>
-          {url ? (
-            <p className="mt-1 truncate text-xs text-white/45" title={url}>
-              {pageTitle ? `${pageTitle} — ` : ''}
-              <span data-testid="seo-target-url">{url}</span>
-            </p>
-          ) : null}
-        </div>
-        {running ? (
-          <Button
-            type="button"
-            variant="outline"
-            data-testid="seo-cancel-audit"
-            className={PRESSABLE}
-            onClick={handleCancel}
-          >
-            Cancel audit
-          </Button>
-        ) : (
-          <Button
-            type="button"
-            variant="solid"
-            color="neutral"
-            data-testid="seo-run-audit"
-            className={PRESSABLE}
-            onClick={handleRun}
-          >
-            {result ? 'Run audit again' : 'Run audit'}
-          </Button>
-        )}
+      <div className="min-w-0">
+        <h1 className="text-lg font-semibold tracking-tight text-white">Page SEO audit</h1>
+        {url ? (
+          <p className="mt-1 truncate text-xs text-white/55" title={url}>
+            {pageTitle ? `${pageTitle} — ` : ''}
+            <span data-testid="seo-target-url">{url}</span>
+          </p>
+        ) : null}
       </div>
 
-      {/* Indexing intent */}
+      {/* Indexing intent + run action */}
       <div className="mt-4">
         <div className="mb-1.5 flex items-center gap-1.5">
           <p className={SUBLABEL}>Indexing intent</p>
@@ -85,7 +69,7 @@ export function AuditControls({
             <TooltipTrigger
               type="button"
               aria-label="What is indexing intent?"
-              className="flex text-white/30 outline-none transition-colors hover:text-white/70 focus-visible:text-white/70"
+              className="flex text-white/55 outline-none transition-colors hover:text-white/70 focus-visible:text-white/70"
             >
               <Icon icon={InformationCircleIcon} size={13} />
             </TooltipTrigger>
@@ -102,17 +86,54 @@ export function AuditControls({
             </TooltipContent>
           </Tooltip>
         </div>
-        <SegmentedControl
-          ariaLabel="Indexing intent"
-          options={INTENT_OPTIONS}
-          value={intent}
-          onChange={handleIntentChange}
-        />
+        <div className="flex items-center gap-2">
+          <Select
+            value={intent}
+            onValueChange={(value) => handleIntentChange(value as IndexingIntent)}
+          >
+            <SelectTrigger
+              data-testid="seo-intent-select"
+              aria-label="Indexing intent"
+              className="w-44"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {INTENT_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {running ? (
+            <Button
+              type="button"
+              variant="outline"
+              data-testid="seo-cancel-audit"
+              className={cn(PRESSABLE, 'ml-auto')}
+              onClick={handleCancel}
+            >
+              Cancel audit
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="solid"
+              color="neutral"
+              data-testid="seo-run-audit"
+              className={cn(PRESSABLE, 'ml-auto')}
+              onClick={handleRun}
+            >
+              {result ? 'Run audit again' : 'Run audit'}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Status + banners */}
       {running ? (
-        <p data-testid="seo-running" className="mt-3 text-xs text-white/45">
+        <p data-testid="seo-running" className="mt-3 text-xs text-white/55">
           Running audit…
         </p>
       ) : null}
@@ -151,26 +172,20 @@ export function AuditControls({
           ) : null}
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-            <span className="text-[11px] text-white/40">
+            <span className="text-[11px] text-white/55">
               {result.findings.length} finding{result.findings.length === 1 ? '' : 's'} ·{' '}
               <span data-testid="seo-catalog-version">v{result.ruleCatalogVersion}</span>
             </span>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              <CopyButton
+                testId="seo-copy-result"
+                label="Copy result"
+                onCopy={() => copyMarkdown(auditMarkdown(result), 'complete result')}
+              />
               <Button
                 type="button"
-                variant="outline"
-                color="blue"
-                size="tiny"
-                data-testid="seo-copy-result"
-                className={PRESSABLE}
-                onClick={() => copyMarkdown(auditMarkdown(result), 'complete result')}
-              >
-                Copy result
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                color="blue"
+                variant="soft"
+                color="neutral"
                 size="tiny"
                 data-testid="seo-export-snapshot"
                 className={PRESSABLE}
@@ -184,18 +199,9 @@ export function AuditControls({
             <p
               data-testid="seo-export-status"
               role="status"
-              className="mt-1.5 text-[10px] text-white/40"
+              className="mt-1.5 text-[10px] text-white/55"
             >
               {exportStatus}
-            </p>
-          ) : null}
-          {copied ? (
-            <p
-              data-testid="seo-copy-status"
-              role="status"
-              className="mt-1.5 text-[10px] text-emerald-400"
-            >
-              Copied {copied} as agent-ready Markdown.
             </p>
           ) : null}
         </>

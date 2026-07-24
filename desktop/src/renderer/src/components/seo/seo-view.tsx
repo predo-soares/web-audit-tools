@@ -42,7 +42,7 @@ export function SeoView({ onClose: _onClose }: { onClose: () => void }): React.J
           {!auditable ? (
             <p
               data-testid="seo-view-empty"
-              className="rounded-xl border border-white/10 bg-black/30 px-6 py-16 text-center text-sm text-white/40 backdrop-blur-md"
+              className="rounded-xl border border-white/10 bg-black/55 px-6 py-16 text-center text-sm text-white/55 backdrop-blur-md"
             >
               Nothing to audit yet — load a page in the browser view, then come back to run an
               audit.
@@ -66,7 +66,7 @@ export function SeoView({ onClose: _onClose }: { onClose: () => void }): React.J
               />
 
               {!result ? (
-                <p className="rounded-xl border border-white/10 bg-black/30 px-6 py-16 text-center text-sm text-white/40 backdrop-blur-md">
+                <p className="rounded-xl border border-white/10 bg-black/55 px-6 py-16 text-center text-sm text-white/55 backdrop-blur-md">
                   Run an audit to see results.
                 </p>
               ) : (

@@ -4,17 +4,17 @@ export function StructuredDataSection({ result }: { result: AuditResult }): Reac
   return (
     <section
       data-testid="seo-structured-data"
-      className="rounded-xl border border-white/10 bg-black/40 p-5 backdrop-blur-md"
+      className="rounded-xl border border-white/10 bg-black/55 p-5 backdrop-blur-md"
     >
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-white/45">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-white/55">
           Structured data
         </h2>
-        <span className="text-xs text-white/45">
+        <span className="text-xs text-white/55">
           {result.structuredData.entities.length} entities
         </span>
       </div>
-      <p className="mb-3 text-xs text-white/45">
+      <p className="mb-3 text-xs text-white/55">
         Search enhancement eligibility uses a versioned profile and does not guarantee a rich
         result.
       </p>
@@ -28,7 +28,7 @@ export function StructuredDataSection({ result }: { result: AuditResult }): Reac
             <summary className="cursor-pointer text-xs">
               {source.format.toUpperCase()} source {source.sourceIndex + 1}
             </summary>
-            <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all text-[10px] text-white/45">
+            <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all text-[10px] text-white/55">
               {source.raw}
             </pre>
           </details>
@@ -42,11 +42,11 @@ export function StructuredDataSection({ result }: { result: AuditResult }): Reac
             <summary className="cursor-pointer text-xs">
               {entity.types.join(', ') || 'Untyped entity'}
             </summary>
-            <p className="mt-1 text-[10px] text-white/45">
+            <p className="mt-1 text-[10px] text-white/55">
               {entity.format} source {entity.sourceIndex + 1} · {entity.path}
               {entity.id ? ` · ${entity.id}` : ''}
             </p>
-            <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all text-[10px] text-white/45">
+            <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all text-[10px] text-white/55">
               {JSON.stringify(entity.properties, null, 2)}
             </pre>
           </details>
@@ -57,7 +57,7 @@ export function StructuredDataSection({ result }: { result: AuditResult }): Reac
           <li
             key={`${assessment.entityPath}-${assessment.type}-${index}`}
             data-testid="seo-search-enhancement"
-            className="text-xs text-white/45"
+            className="text-xs text-white/55"
           >
             <span className="text-foreground">{assessment.type}</span> ·{' '}
             {assessment.status.replaceAll('-', ' ')} · {assessment.profileVersion}

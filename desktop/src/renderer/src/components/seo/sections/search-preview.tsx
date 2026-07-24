@@ -4,12 +4,12 @@ export function SearchPreview({ result }: { result: AuditResult }): React.JSX.El
   return (
     <section
       data-testid="seo-search-preview"
-      className="rounded-xl border border-white/10 bg-black/40 p-5 backdrop-blur-md"
+      className="rounded-xl border border-white/10 bg-black/55 p-5 backdrop-blur-md"
     >
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-white/45">
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-white/55">
         Representative search preview
       </h2>
-      <div className="flex items-center gap-2 text-xs text-white/45">
+      <div className="flex items-center gap-2 text-xs text-white/55">
         {result.searchAppearance.resolved.favicon.value ? (
           <img
             data-testid="seo-preview-favicon"
@@ -32,12 +32,12 @@ export function SearchPreview({ result }: { result: AuditResult }): React.JSX.El
       </p>
       <p
         data-testid="seo-preview-description"
-        className="mt-1 line-clamp-2 text-sm leading-5 text-white/45"
+        className="mt-1 line-clamp-2 text-sm leading-5 text-white/55"
       >
         {result.searchAppearance.resolved.description.value ??
           'No meta description is available for this preview.'}
       </p>
-      <p data-testid="seo-preview-measurements" className="mt-2 text-xs text-white/45">
+      <p data-testid="seo-preview-measurements" className="mt-2 text-xs text-white/55">
         Title {result.searchAppearance.measurements.titleCharacters} chars
         {result.searchAppearance.measurements.titleWidthPx === null
           ? ''
