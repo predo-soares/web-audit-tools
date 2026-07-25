@@ -175,6 +175,16 @@ export function registerIpcHandlers(
     })
   })
 
+  // Share with agent is per-device: activate the requested pane first, then run
+  // the existing active-pane capture so the bundle reflects that device.
+  ipcMain.handle('snapshot:share-pane', async (_event, paneId: PaneId, includeSeoAudit = false) => {
+    paneManager.focusPane(paneId)
+    return captureSnapshot(makeSnapshotPort(paneManager), undefined, {
+      includeSeoAudit,
+      seoAuditState: includeSeoAudit ? auditManager.getState() : undefined
+    })
+  })
+
   ipcMain.handle('seo-audit:run', async (_event, indexingIntent: IndexingIntent) => {
     return auditManager.run({ indexingIntent })
   })
@@ -285,13 +295,13 @@ export function registerIpcHandlers(
     await paneManager.recreateAll()
   })
 
-  ipcMain.handle('sync:set-enabled', (_event, enabled: boolean) => {
-    paneManager.setSyncEnabled(enabled)
-    return paneManager.isSyncEnabled()
+  ipcMain.handle('sync:set-pane-linked', (_event, paneId: PaneId, linked: boolean) => {
+    paneManager.setPaneLinked(paneId, linked)
+    return paneManager.getLinkedPanes()
   })
 
-  ipcMain.handle('sync:get-enabled', () => {
-    return paneManager.isSyncEnabled()
+  ipcMain.handle('sync:get-linked-panes', () => {
+    return paneManager.getLinkedPanes()
   })
 
   ipcMain.handle('safari-chrome:set-enabled', (_event, enabled: boolean) => {

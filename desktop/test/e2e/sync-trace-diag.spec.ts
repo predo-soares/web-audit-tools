@@ -5,13 +5,15 @@ import {
   formatSyncTraceForDiag,
   getMirrorFailureLogs,
   getSyncTraceLogs,
-  getToolbarPage,
   launchApp,
   navigateTo,
   waitForAllPanes
 } from './helpers'
 
-async function dumpDiagnostics(window: Awaited<ReturnType<typeof launchApp>>['window'], label: string) {
+async function dumpDiagnostics(
+  window: Awaited<ReturnType<typeof launchApp>>['window'],
+  label: string
+) {
   const trace = await getSyncTraceLogs(window)
   const mirror = await getMirrorFailureLogs(window)
   console.log(`\n========== SYNC TRACE: ${label} ==========\n`)
@@ -25,12 +27,7 @@ test('diag: link navigation sync', async ({ fixturePort }) => {
   try {
     await navigateTo(window, fixtureUrl(fixturePort, '/semantic-click'))
     await waitForAllPanes(window)
-    // sync starts enabled; ensure it is on (same as real test after second toggle)
-    const enabled = await window.evaluate(() => window.api.getSyncEnabled())
-    if (!enabled) {
-      const toolbar = await getToolbarPage(window)
-      await toolbar.getByTestId('sync-toggle').click()
-    }
+    // All panes start linked by default, so interaction sync is already on.
     await evaluateInPane(window, 'iphone', `document.getElementById('semantic-link')?.click()`)
     await window.waitForTimeout(800)
     await dumpDiagnostics(window, 'link navigation (sync on)')
@@ -57,11 +54,15 @@ test('diag: duplicate select sync', async ({ fixturePort }) => {
   try {
     await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
     await waitForAllPanes(window)
-    await evaluateInPane(window, 'iphone', `
+    await evaluateInPane(
+      window,
+      'iphone',
+      `
       var el = document.querySelectorAll('.dup-select')[1];
       el.selectedIndex = 2;
       el.dispatchEvent(new Event('change', { bubbles: true }));
-    `)
+    `
+    )
     await window.waitForTimeout(800)
     await dumpDiagnostics(window, 'duplicate select')
   } finally {
@@ -88,19 +89,31 @@ test('diag: missing select/form mirror-failure logs', async ({ fixturePort }) =>
   try {
     await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
     await waitForAllPanes(window)
-    await evaluateInPane(window, 'ipad', `
+    await evaluateInPane(
+      window,
+      'ipad',
+      `
       document.getElementById('test-form')?.replaceWith(document.createElement('div'));
-    `)
-    await evaluateInPane(window, 'desktop', `
+    `
+    )
+    await evaluateInPane(
+      window,
+      'desktop',
+      `
       document.getElementById('country-select')?.remove();
-    `)
-    await evaluateInPane(window, 'iphone', `
+    `
+    )
+    await evaluateInPane(
+      window,
+      'iphone',
+      `
       var select = document.getElementById('country-select');
       select.selectedIndex = 1;
       select.dispatchEvent(new Event('change', { bubbles: true }));
       var form = document.getElementById('text-field')?.form;
       if (form) form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    `)
+    `
+    )
     await window.waitForTimeout(800)
     await dumpDiagnostics(window, 'missing select/form')
   } finally {

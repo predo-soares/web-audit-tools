@@ -72,12 +72,17 @@ export class PaneManager {
   // Cleared on URL-bar navigation or any explicit user navigation in a pane.
   private historySourcePane: PaneId | null = null
   private readonly pendingHistoryNavigation = new Set<PaneId>()
-  private syncEnabled = true
+  private readonly linkedPanes = new Set<PaneId>(PANE_IDS)
   private readonly valueSyncGeneration = new Map<string, number>()
   private mainWindow: BrowserWindow | null = null
   private sharedSession: Electron.Session | null = null
   private deviceReady: Promise<void> = Promise.resolve()
   private readonly lastMount = new Map<PaneId, PaneMount>()
+  private panesVisible = true
+  // When set, only this pane's native view is shown; the others are hidden even
+  // while the workspace-level panes are visible. Kept in the main process so it
+  // survives events that re-show all panes (navigation, workspace switches).
+  private focusedPane: PaneId | null = null
   private themePreference: ThemePreference = 'system'
   private mediaFeatures: MediaFeatureState = DEFAULT_MEDIA_FEATURES
   private paneBeforeInputHooks: Array<EngineViewEventMap['before-input']> = []
@@ -506,7 +511,7 @@ export class PaneManager {
       syncTrace('click:echo-suppressed', { paneId })
       return
     }
-    if (!this.syncEnabled) {
+    if (!this.isLinked(paneId)) {
       syncTrace('click:sync-disabled', { sourcePane: paneId })
       return
     }
@@ -516,7 +521,7 @@ export class PaneManager {
     try {
       await Promise.all(
         PANE_IDS.map(async (targetId) => {
-          if (targetId === paneId) return
+          if (targetId === paneId || !this.isLinked(targetId)) return
 
           const engine = this.getEngine(targetId)
           const epochBeforeResolution = this.getPaneInteractionEpoch(targetId)
@@ -629,7 +634,7 @@ export class PaneManager {
       syncTrace('value:echo-suppressed', { sourcePane: sourcePaneId })
       return
     }
-    if (!this.syncEnabled) return
+    if (!this.isLinked(sourcePaneId)) return
 
     const fieldKey = JSON.stringify(fingerprint)
     const generation = (this.valueSyncGeneration.get(fieldKey) ?? 0) + 1
@@ -638,7 +643,7 @@ export class PaneManager {
 
     await Promise.all(
       PANE_IDS.map(async (targetId) => {
-        if (targetId === sourcePaneId) return
+        if (targetId === sourcePaneId || !this.isLinked(targetId)) return
         const engine = this.getEngine(targetId)
         const epochBefore = this.getPaneInteractionEpoch(targetId)
         syncTrace('value:applying', { sourcePane: sourcePaneId, targetPane: targetId, generation })
@@ -671,7 +676,7 @@ export class PaneManager {
       syncTrace('select:echo-suppressed', { sourcePane: sourcePaneId })
       return
     }
-    if (!this.syncEnabled) return
+    if (!this.isLinked(sourcePaneId)) return
 
     const fieldKey = JSON.stringify(fingerprint)
     const generation = (this.valueSyncGeneration.get(fieldKey) ?? 0) + 1
@@ -680,7 +685,7 @@ export class PaneManager {
 
     await Promise.all(
       PANE_IDS.map(async (targetId) => {
-        if (targetId === sourcePaneId) return
+        if (targetId === sourcePaneId || !this.isLinked(targetId)) return
         const engine = this.getEngine(targetId)
         const epochBefore = this.getPaneInteractionEpoch(targetId)
         syncTrace('select:applying', { sourcePane: sourcePaneId, targetPane: targetId, generation })
@@ -703,11 +708,11 @@ export class PaneManager {
       syncTrace('submit:echo-suppressed', { sourcePane: sourcePaneId })
       return
     }
-    if (!this.syncEnabled) return
+    if (!this.isLinked(sourcePaneId)) return
 
     await Promise.all(
       PANE_IDS.map(async (targetId) => {
-        if (targetId === sourcePaneId) return
+        if (targetId === sourcePaneId || !this.isLinked(targetId)) return
 
         const engine = this.getEngine(targetId)
         const expectation = this.echoLedger.expect(targetId, 'submit')
@@ -744,10 +749,10 @@ export class PaneManager {
       syncTrace('key:echo-suppressed', { sourcePane: sourcePaneId })
       return
     }
-    if (!this.syncEnabled) return
+    if (!this.isLinked(sourcePaneId)) return
 
     for (const targetId of PANE_IDS) {
-      if (targetId === sourcePaneId) continue
+      if (targetId === sourcePaneId || !this.isLinked(targetId)) continue
       this.echoLedger.expect(targetId, 'key')
       syncTrace('key:dispatching', { sourcePane: sourcePaneId, targetPane: targetId, key: key.key })
       this.getEngine(targetId).dispatchKey(key)
@@ -774,7 +779,7 @@ export class PaneManager {
   ): Promise<void> {
     this.safariChromeHooks?.onScroll(paneId, scrollY, programmatic)
 
-    if (!this.syncEnabled) return
+    if (!this.isLinked(paneId)) return
 
     // Always consume: a programmatic report from a pane also settles any
     // pending scroll-echo expectation for it.
@@ -785,7 +790,7 @@ export class PaneManager {
     // target panes before their replayed click lands.
     if (this.activeClickMirrors > 0 || Date.now() < this.clickMirrorCooldownUntil) return
 
-    const targets = PANE_IDS.filter((targetId) => targetId !== paneId)
+    const targets = PANE_IDS.filter((targetId) => targetId !== paneId && this.isLinked(targetId))
     for (const targetId of targets) {
       this.echoLedger.expect(targetId, 'scroll')
     }
@@ -793,15 +798,20 @@ export class PaneManager {
     await Promise.all(targets.map((targetId) => this.getEngine(targetId).syncScroll(ratio)))
   }
 
-  setSyncEnabled(enabled: boolean): void {
-    this.syncEnabled = enabled
-    // Pending scroll-echo expectations belong to the previous sync session;
-    // clear them so a stale flag can't swallow the first scroll after re-enable.
+  setPaneLinked(paneId: PaneId, linked: boolean): void {
+    if (linked) this.linkedPanes.add(paneId)
+    else this.linkedPanes.delete(paneId)
+    // Pending scroll-echo expectations belong to the previous link topology;
+    // clear them so a stale expectation can't swallow the first scroll after relink.
     this.echoLedger.clear('scroll')
   }
 
-  isSyncEnabled(): boolean {
-    return this.syncEnabled
+  getLinkedPanes(): PaneId[] {
+    return PANE_IDS.filter((paneId) => this.linkedPanes.has(paneId))
+  }
+
+  private isLinked(paneId: PaneId): boolean {
+    return this.linkedPanes.has(paneId)
   }
 
   async setDeviceProfile(paneId: PaneId, profile: DeviceProfile): Promise<void> {

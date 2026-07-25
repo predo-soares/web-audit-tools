@@ -239,20 +239,20 @@ describe('PaneManager scroll sync', () => {
     expect(desktop.syncScroll).not.toHaveBeenCalled()
   })
 
-  it('does nothing when sync is disabled and forgets stale expectations on toggle', async () => {
+  it('does nothing when the source pane is unlinked and forgets stale expectations on toggle', async () => {
     const { paneManager, iphone, ipad, desktop } = createPaneManagerWithEngines()
 
     await paneManager.syncScroll('iphone', 0.4, false)
     ipad.syncScroll.mockClear()
     desktop.syncScroll.mockClear()
 
-    paneManager.setSyncEnabled(false)
+    paneManager.setPaneLinked('iphone', false)
     await paneManager.syncScroll('iphone', 0.5, false)
     expect(ipad.syncScroll).not.toHaveBeenCalled()
     expect(desktop.syncScroll).not.toHaveBeenCalled()
 
-    // Re-enable: the pre-toggle expectation on ipad must not swallow its scroll
-    paneManager.setSyncEnabled(true)
+    // Re-link: the pre-toggle expectation on ipad must not swallow its scroll
+    paneManager.setPaneLinked('iphone', true)
     await paneManager.syncScroll('ipad', 0.6, false)
     expect(iphone.syncScroll).toHaveBeenCalledWith(0.6)
     expect(desktop.syncScroll).toHaveBeenCalledWith(0.6)
@@ -404,9 +404,9 @@ describe('PaneManager key sync', () => {
     expect(iphone.calls.dispatchKey).toHaveLength(0)
   })
 
-  it('does nothing when sync is disabled', () => {
+  it('does nothing when the source pane is unlinked', () => {
     const { paneManager, ipad, desktop } = createPaneManagerWithFakeEngines()
-    paneManager.setSyncEnabled(false)
+    paneManager.setPaneLinked('iphone', false)
 
     paneManager.syncKey('iphone', shortcut)
 
@@ -586,6 +586,39 @@ describe('PaneManager presentation through the seam', () => {
     expect(iphone.visible).toBe(false)
     expect(ipad.visible).toBe(false)
     expect(desktop.visible).toBe(false)
+  })
+
+  it('shows only the focused pane and restores all on clear', () => {
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithFakeEngines()
+
+    paneManager.setPanesVisible(true)
+    paneManager.setFocusedPane('iphone')
+
+    expect(iphone.visible).toBe(true)
+    expect(ipad.visible).toBe(false)
+    expect(desktop.visible).toBe(false)
+
+    paneManager.setFocusedPane(null)
+
+    expect(iphone.visible).toBe(true)
+    expect(ipad.visible).toBe(true)
+    expect(desktop.visible).toBe(true)
+  })
+
+  it('keeps focus while all panes are hidden and honours it when reshown', () => {
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithFakeEngines()
+
+    paneManager.setFocusedPane('desktop')
+    paneManager.setPanesVisible(false)
+
+    expect(desktop.visible).toBe(false)
+
+    // Navigation / workspace switches call setPanesVisible(true); focus must survive.
+    paneManager.setPanesVisible(true)
+
+    expect(iphone.visible).toBe(false)
+    expect(ipad.visible).toBe(false)
+    expect(desktop.visible).toBe(true)
   })
 
   it('detaches each pane through the seam on recreateAll', async () => {

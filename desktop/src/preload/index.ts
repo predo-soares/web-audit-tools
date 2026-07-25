@@ -38,8 +38,8 @@ export interface PreviewApi {
   goForward: () => Promise<void>
   getNavigationState: () => Promise<PaneNavigationState>
   recreatePanes: () => Promise<void>
-  setSyncEnabled: (enabled: boolean) => Promise<boolean>
-  getSyncEnabled: () => Promise<boolean>
+  setPaneLinked: (paneId: PaneId, linked: boolean) => Promise<PaneId[]>
+  getLinkedPanes: () => Promise<PaneId[]>
   setPaneThemePreference: (preference: ThemePreference) => Promise<ThemePreference>
   getMediaFeatures: () => Promise<MediaFeatureState>
   setMediaFeatures: (state: MediaFeatureState) => Promise<MediaFeatureState>
@@ -84,6 +84,7 @@ export interface PreviewApi {
   getDiagnosticsWidth: () => Promise<number>
   onDiagnosticsWidthChanged: (callback: (width: number) => void) => () => void
   takeSnapshot: (includeSeoAudit?: boolean) => Promise<SnapshotResult>
+  shareDeviceWithAgent: (paneId: PaneId, includeSeoAudit?: boolean) => Promise<SnapshotResult>
   getSafariChromeEnabled: () => Promise<boolean>
   onSafariChromeEnabledChanged: (callback: (enabled: boolean) => void) => () => void
   runSeoAudit: (indexingIntent: IndexingIntent) => Promise<AuditRunResult>
@@ -128,8 +129,8 @@ const api: PreviewApi = {
   goForward: () => ipcRenderer.invoke('preview:go-forward'),
   getNavigationState: () => ipcRenderer.invoke('preview:navigation-state'),
   recreatePanes: () => ipcRenderer.invoke('pane:recreate-all'),
-  setSyncEnabled: (enabled) => ipcRenderer.invoke('sync:set-enabled', enabled),
-  getSyncEnabled: () => ipcRenderer.invoke('sync:get-enabled'),
+  setPaneLinked: (paneId, linked) => ipcRenderer.invoke('sync:set-pane-linked', paneId, linked),
+  getLinkedPanes: () => ipcRenderer.invoke('sync:get-linked-panes'),
   setPaneThemePreference: (preference) =>
     ipcRenderer.invoke('pane-theme:set-preference', preference),
   getMediaFeatures: () => ipcRenderer.invoke('media-features:get'),
@@ -247,6 +248,8 @@ const api: PreviewApi = {
     return () => ipcRenderer.removeListener('panel:diagnostics-width', listener)
   },
   takeSnapshot: (includeSeoAudit = false) => ipcRenderer.invoke('snapshot:take', includeSeoAudit),
+  shareDeviceWithAgent: (paneId, includeSeoAudit = false) =>
+    ipcRenderer.invoke('snapshot:share-pane', paneId, includeSeoAudit),
   getSafariChromeEnabled: () => ipcRenderer.invoke('safari-chrome:get-enabled'),
   onSafariChromeEnabledChanged: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, enabled: boolean): void =>

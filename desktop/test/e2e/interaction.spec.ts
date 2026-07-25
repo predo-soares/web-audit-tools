@@ -20,7 +20,8 @@ test('clicking a link inside one pane navigates only that pane and updates the U
     await waitForAllPanes(window)
 
     const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('sync-toggle').click()
+    // Unlink the iphone so its navigation does not mirror to the other panes.
+    await window.evaluate(() => window.api.setPaneLinked('iphone', false))
 
     await evaluateInPane(window, 'iphone', `document.getElementById('flow-link').click()`)
     await waitForPaneElement(window, 'iphone', 'flow-b')
@@ -235,16 +236,14 @@ test('semantic click sync mirrors the same button with native input and no echo'
   }
 })
 
-test('semantic click sync mirrors link navigation across panes', async ({
-  fixturePort
-}) => {
+test('semantic click sync mirrors link navigation across panes', async ({ fixturePort }) => {
   const { window, close } = await launchApp()
   try {
     await navigateTo(window, fixtureUrl(fixturePort, '/semantic-click'))
     await waitForAllPanes(window)
 
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('sync-toggle').click()
+    // Unlink the iphone so its click does not mirror to the other panes.
+    await window.evaluate(() => window.api.setPaneLinked('iphone', false))
     await evaluateInPane(window, 'iphone', `document.getElementById('semantic-primary')?.click()`)
     await window.waitForTimeout(300)
 
@@ -257,7 +256,8 @@ test('semantic click sync mirrors link navigation across panes', async ({
       expect(count).toBe('0')
     }
 
-    await toolbar.getByTestId('sync-toggle').click()
+    // Re-link the iphone so its navigation mirrors again.
+    await window.evaluate(() => window.api.setPaneLinked('iphone', true))
     await evaluateInPane(window, 'iphone', `document.getElementById('semantic-link')?.click()`)
     await waitForPaneElement(window, 'iphone', 'semantic-destination')
 
@@ -320,11 +320,7 @@ test('clicking Nth duplicate button mirrors the same Nth instance in other panes
     await waitForAllPanes(window)
 
     // Click the 2nd "Add to cart" button (index 1) in iphone pane
-    await evaluateInPane(
-      window,
-      'iphone',
-      `document.querySelectorAll('.add-btn')[1].click()`
-    )
+    await evaluateInPane(window, 'iphone', `document.querySelectorAll('.add-btn')[1].click()`)
 
     // Verify iphone result shows index 1
     await expect
@@ -353,7 +349,6 @@ test('clicking Nth duplicate button mirrors the same Nth instance in other panes
     await close()
   }
 })
-
 
 test('mirrored click scrolls off-screen element into view and clicks it', async ({
   fixturePort
@@ -436,12 +431,16 @@ test('typing in a text field mirrors value to other panes', async ({ fixturePort
     await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
     await waitForAllPanes(window)
 
-    await evaluateInPane(window, 'iphone', `
+    await evaluateInPane(
+      window,
+      'iphone',
+      `
       var el = document.getElementById('text-field');
       el.focus();
       el.value = 'hello world';
       el.dispatchEvent(new Event('input', { bubbles: true }));
-    `)
+    `
+    )
 
     // Wait for debounce (100ms) + IPC round-trip
     await window.waitForTimeout(250)
@@ -465,12 +464,16 @@ test('value sync works for React-controlled inputs via native setter', async ({ 
     await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
     await waitForAllPanes(window)
 
-    await evaluateInPane(window, 'iphone', `
+    await evaluateInPane(
+      window,
+      'iphone',
+      `
       var el = document.getElementById('react-like-field');
       el.focus();
       el.value = 'react value';
       el.dispatchEvent(new Event('input', { bubbles: true }));
-    `)
+    `
+    )
 
     // Wait for debounce + IPC round-trip
     await window.waitForTimeout(250)
@@ -494,12 +497,16 @@ test('value sync does not echo back (no ping-pong)', async ({ fixturePort }) => 
     await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
     await waitForAllPanes(window)
 
-    await evaluateInPane(window, 'iphone', `
+    await evaluateInPane(
+      window,
+      'iphone',
+      `
       var el = document.getElementById('text-field');
       el.focus();
       el.value = 'no echo';
       el.dispatchEvent(new Event('input', { bubbles: true }));
-    `)
+    `
+    )
 
     // Wait for debounce + IPC + any potential echo
     await window.waitForTimeout(400)
@@ -532,16 +539,19 @@ test('sync toggle disables value sync', async ({ fixturePort }) => {
     await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
     await waitForAllPanes(window)
 
-    // Disable sync
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('sync-toggle').click()
+    // Unlink the iphone so its input does not mirror to the other panes.
+    await window.evaluate(() => window.api.setPaneLinked('iphone', false))
 
-    await evaluateInPane(window, 'iphone', `
+    await evaluateInPane(
+      window,
+      'iphone',
+      `
       var el = document.getElementById('text-field');
       el.focus();
       el.value = 'should not mirror';
       el.dispatchEvent(new Event('input', { bubbles: true }));
-    `)
+    `
+    )
 
     await window.waitForTimeout(250)
 
@@ -565,12 +575,16 @@ test('paste mirrors the same as typing', async ({ fixturePort }) => {
     await waitForAllPanes(window)
 
     // Simulate paste: set value + dispatch 'input' event (same as typing)
-    await evaluateInPane(window, 'iphone', `
+    await evaluateInPane(
+      window,
+      'iphone',
+      `
       var el = document.getElementById('text-field');
       el.focus();
       el.value = 'pasted text';
       el.dispatchEvent(new Event('input', { bubbles: true }));
-    `)
+    `
+    )
 
     await window.waitForTimeout(250)
 
@@ -595,14 +609,18 @@ test('select change mirrors by value with index fallback when option values diff
     await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
     await waitForAllPanes(window)
 
-    await evaluateInPane(window, 'iphone', `
+    await evaluateInPane(
+      window,
+      'iphone',
+      `
       var byValue = document.getElementById('country-select');
       byValue.selectedIndex = 2;
       byValue.dispatchEvent(new Event('change', { bubbles: true }));
       var byIndex = document.getElementById('index-fallback-select');
       byIndex.selectedIndex = 1;
       byIndex.dispatchEvent(new Event('change', { bubbles: true }));
-    `)
+    `
+    )
 
     await expect
       .poll(() =>
@@ -614,14 +632,18 @@ test('select change mirrors by value with index fallback when option values diff
       )
       .toBe('jp')
 
-    const desktopState = await evaluateInPane<Record<string, string>>(window, 'desktop', `(() => {
+    const desktopState = await evaluateInPane<Record<string, string>>(
+      window,
+      'desktop',
+      `(() => {
       const result = document.getElementById('form-result');
       return {
         country: result?.dataset.countryValue ?? '',
         city: result?.dataset.cityValue ?? '',
         selectedCityValue: document.getElementById('index-fallback-select')?.value ?? ''
       };
-    })()`)
+    })()`
+    )
 
     expect(desktopState.country).toBe('jp')
     expect(desktopState.city).toBe('ny-desktop')
@@ -631,20 +653,26 @@ test('select change mirrors by value with index fallback when option values diff
   }
 })
 
-test('pressing Enter in a form field submits matching forms in every pane', async ({ fixturePort }) => {
+test('pressing Enter in a form field submits matching forms in every pane', async ({
+  fixturePort
+}) => {
   const { window, close } = await launchApp()
   try {
     await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
     await waitForAllPanes(window)
 
-    await evaluateInPane(window, 'iphone', `
+    await evaluateInPane(
+      window,
+      'iphone',
+      `
       var el = document.getElementById('text-field');
       el.focus();
       el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
       if (el.form) {
         el.form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
       }
-    `)
+    `
+    )
 
     await expect
       .poll(() =>
@@ -677,14 +705,18 @@ test('pressing Enter in a cross-device search form POSTs with each pane emulated
     await navigateTo(window, fixtureUrl(fixturePort, '/enter-form-sync'))
     await waitForAllPanes(window)
 
-    await evaluateInPane(window, 'iphone', `
+    await evaluateInPane(
+      window,
+      'iphone',
+      `
       var input = document.getElementById('search-input');
       input.focus();
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
       if (input.form) {
         input.form.requestSubmit();
       }
-    `)
+    `
+    )
 
     const expectedUa = {
       iphone: /iPhone/,
@@ -714,16 +746,24 @@ test('missing cross-device search form targets no-op and emit structured mirror-
     await navigateTo(window, fixtureUrl(fixturePort, '/enter-form-sync'))
     await waitForAllPanes(window)
 
-    await evaluateInPane(window, 'ipad', `
+    await evaluateInPane(
+      window,
+      'ipad',
+      `
       document.querySelector('form[name="site-search"]')?.remove();
-    `)
+    `
+    )
 
-    await evaluateInPane(window, 'iphone', `
+    await evaluateInPane(
+      window,
+      'iphone',
+      `
       var input = document.getElementById('search-input');
       if (input?.form) {
         input.form.requestSubmit();
       }
-    `)
+    `
+    )
 
     await window.waitForTimeout(300)
 
@@ -744,12 +784,16 @@ test('typing into the second duplicate text input mirrors to the second match in
     await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
     await waitForAllPanes(window)
 
-    await evaluateInPane(window, 'iphone', `
+    await evaluateInPane(
+      window,
+      'iphone',
+      `
       var el = document.querySelectorAll('.dup-text-input')[1];
       el.focus();
       el.value = 'second duplicate';
       el.dispatchEvent(new Event('input', { bubbles: true }));
-    `)
+    `
+    )
 
     await expect
       .poll(() =>
@@ -762,7 +806,10 @@ test('typing into the second duplicate text input mirrors to the second match in
       .toBe('second duplicate')
 
     for (const paneId of ['iphone', 'ipad', 'desktop'] as const) {
-      const state = await evaluateInPane<Record<string, string>>(window, paneId, `(() => {
+      const state = await evaluateInPane<Record<string, string>>(
+        window,
+        paneId,
+        `(() => {
         const inputs = Array.from(document.querySelectorAll('.dup-text-input'));
         const result = document.getElementById('duplicate-result');
         return {
@@ -770,7 +817,8 @@ test('typing into the second duplicate text input mirrors to the second match in
           second: inputs[1]?.value ?? '',
           reflected: result?.dataset.secondText ?? ''
         };
-      })()`)
+      })()`
+      )
 
       expect(state.first).toBe('')
       expect(state.second).toBe('second duplicate')
@@ -789,11 +837,15 @@ test('changing the second duplicate select mirrors to the second match in every 
     await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
     await waitForAllPanes(window)
 
-    await evaluateInPane(window, 'iphone', `
+    await evaluateInPane(
+      window,
+      'iphone',
+      `
       var el = document.querySelectorAll('.dup-select')[1];
       el.selectedIndex = 2;
       el.dispatchEvent(new Event('change', { bubbles: true }));
-    `)
+    `
+    )
 
     await expect
       .poll(() =>
@@ -806,7 +858,10 @@ test('changing the second duplicate select mirrors to the second match in every 
       .toBe('jp')
 
     for (const paneId of ['iphone', 'ipad', 'desktop'] as const) {
-      const state = await evaluateInPane<Record<string, string>>(window, paneId, `(() => {
+      const state = await evaluateInPane<Record<string, string>>(
+        window,
+        paneId,
+        `(() => {
         const selects = Array.from(document.querySelectorAll('.dup-select'));
         const result = document.getElementById('duplicate-result');
         return {
@@ -814,7 +869,8 @@ test('changing the second duplicate select mirrors to the second match in every 
           second: selects[1]?.value ?? '',
           reflected: result?.dataset.secondSelect ?? ''
         };
-      })()`)
+      })()`
+      )
 
       expect(state.first).toBe('br')
       expect(state.second).toBe('jp')
@@ -833,14 +889,18 @@ test('pressing Enter in the second duplicate form submits the matching form in e
     await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
     await waitForAllPanes(window)
 
-    await evaluateInPane(window, 'iphone', `
+    await evaluateInPane(
+      window,
+      'iphone',
+      `
       var input = document.querySelectorAll('.dup-submit-input')[1];
       input.focus();
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
       if (input.form) {
         input.form.requestSubmit();
       }
-    `)
+    `
+    )
 
     await expect
       .poll(() =>
@@ -853,13 +913,17 @@ test('pressing Enter in the second duplicate form submits the matching form in e
       .toBe('1')
 
     for (const paneId of ['iphone', 'ipad', 'desktop'] as const) {
-      const state = await evaluateInPane<Record<string, string>>(window, paneId, `(() => {
+      const state = await evaluateInPane<Record<string, string>>(
+        window,
+        paneId,
+        `(() => {
         const result = document.getElementById('duplicate-result');
         return {
           submitIndex: result?.dataset.submitIndex ?? '-1',
           submitValues: result?.dataset.submitValues ?? ''
         };
-      })()`)
+      })()`
+      )
 
       expect(state.submitIndex).toBe('1')
       expect(state.submitValues).toBe('alpha|beta')
@@ -882,18 +946,25 @@ test('checkboxes and radios mirror exactly once through click sync without value
 
     await expect
       .poll(() =>
-        evaluateInPane<Record<string, string>>(window, 'ipad', `(() => {
+        evaluateInPane<Record<string, string>>(
+          window,
+          'ipad',
+          `(() => {
           const result = document.getElementById('form-result');
           return {
             checked: result?.dataset.checkboxChecked ?? '',
             radio: result?.dataset.radioValue ?? ''
           };
-        })()`)
+        })()`
+        )
       )
       .toEqual({ checked: 'true', radio: 'pro' })
 
     for (const paneId of ['iphone', 'ipad', 'desktop'] as const) {
-      const state = await evaluateInPane<Record<string, string>>(window, paneId, `(() => {
+      const state = await evaluateInPane<Record<string, string>>(
+        window,
+        paneId,
+        `(() => {
         const result = document.getElementById('form-result');
         return {
           checked: result?.dataset.checkboxChecked ?? '',
@@ -901,7 +972,8 @@ test('checkboxes and radios mirror exactly once through click sync without value
           checkboxDom: String(document.getElementById('newsletter-checkbox')?.checked ?? false),
           radioDom: String(document.getElementById('plan-pro')?.checked ?? false)
         };
-      })()`)
+      })()`
+      )
 
       expect(state.checked).toBe('true')
       expect(state.radio).toBe('pro')
@@ -921,25 +993,36 @@ test('duplicate checkboxes and radios mirror to the matching repeated control in
     await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
     await waitForAllPanes(window)
 
-    await evaluateInPane(window, 'iphone', `
+    await evaluateInPane(
+      window,
+      'iphone',
+      `
       document.querySelectorAll('.dup-toggle-checkbox')[1]?.click();
       document.querySelectorAll('.dup-toggle-radio')[1]?.click();
-    `)
+    `
+    )
 
     await expect
       .poll(() =>
-        evaluateInPane<Record<string, string>>(window, 'ipad', `(() => {
+        evaluateInPane<Record<string, string>>(
+          window,
+          'ipad',
+          `(() => {
           const result = document.getElementById('duplicate-result');
           return {
             checkbox: result?.dataset.secondCheckbox ?? '',
             radio: result?.dataset.secondRadio ?? ''
           };
-        })()`)
+        })()`
+        )
       )
       .toEqual({ checkbox: 'true', radio: 'beta' })
 
     for (const paneId of ['iphone', 'ipad', 'desktop'] as const) {
-      const state = await evaluateInPane<Record<string, string>>(window, paneId, `(() => {
+      const state = await evaluateInPane<Record<string, string>>(
+        window,
+        paneId,
+        `(() => {
         const result = document.getElementById('duplicate-result');
         const checkboxes = Array.from(document.querySelectorAll('.dup-toggle-checkbox'));
         const radios = Array.from(document.querySelectorAll('.dup-toggle-radio'));
@@ -951,7 +1034,8 @@ test('duplicate checkboxes and radios mirror to the matching repeated control in
           firstRadioDom: String(radios[0]?.checked ?? false),
           secondRadioDom: String(radios[1]?.checked ?? false)
         };
-      })()`)
+      })()`
+      )
 
       expect(state.checkbox).toBe('true')
       expect(state.radio).toBe('beta')
@@ -973,21 +1057,33 @@ test('missing select or form targets no-op and emit structured mirror-failure lo
     await navigateTo(window, fixtureUrl(fixturePort, '/form-sync'))
     await waitForAllPanes(window)
 
-    await evaluateInPane(window, 'ipad', `
+    await evaluateInPane(
+      window,
+      'ipad',
+      `
       document.getElementById('test-form')?.replaceWith(document.createElement('div'));
-    `)
+    `
+    )
 
-    await evaluateInPane(window, 'desktop', `
+    await evaluateInPane(
+      window,
+      'desktop',
+      `
       document.getElementById('country-select')?.remove();
-    `)
+    `
+    )
 
-    await evaluateInPane(window, 'iphone', `
+    await evaluateInPane(
+      window,
+      'iphone',
+      `
       var select = document.getElementById('country-select');
       select.selectedIndex = 1;
       select.dispatchEvent(new Event('change', { bubbles: true }));
       var form = document.getElementById('text-field')?.form;
       if (form) form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    `)
+    `
+    )
 
     await window.waitForTimeout(300)
 

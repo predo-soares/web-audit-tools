@@ -5,7 +5,15 @@ import { cn } from '@renderer/lib/utils'
 import { useSidebar } from '@renderer/context/sidebar-context'
 import { usePaneBounds } from '@renderer/hooks/use-pane-bounds'
 import { usePreviewCanvas } from '@renderer/context/preview-canvas-context'
-import { Loading03Icon, Camera01Icon, Alert01Icon } from '@hugeicons/core-free-icons'
+import {
+  Loading03Icon,
+  Camera01Icon,
+  Alert01Icon,
+  Maximize01Icon,
+  Minimize01Icon,
+  Link01Icon,
+  Unlink01Icon
+} from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
 import { Button } from '@renderer/components/ui/button'
 import { Badge } from '@renderer/components/ui/badge'
@@ -14,11 +22,17 @@ import { useCallback } from 'react'
 interface DevicePaneProps {
   paneId: PaneId
   active: boolean
-  isFocusedPane: boolean
+  isActivePane: boolean
   loading: boolean
   error: PaneLoadError | null
   safariChromeEnabled?: boolean
   profileOverride?: DeviceProfile
+  canFocus?: boolean
+  isSoloed?: boolean
+  onToggleFocus?: () => void
+  isLinked?: boolean
+  onToggleLink?: () => void
+  onShareWithAgent?: () => void
 }
 
 function friendlyErrorMessage(description: string): string {
@@ -33,7 +47,7 @@ function friendlyErrorMessage(description: string): string {
     ERR_TOO_MANY_REDIRECTS: 'Too many redirects',
     ERR_EMPTY_RESPONSE: 'Server returned no data',
     ERR_TUNNEL_CONNECTION_FAILED: 'Proxy tunnel failed',
-    ERR_ADDRESS_UNREACHABLE: 'Address unreachable',
+    ERR_ADDRESS_UNREACHABLE: 'Address unreachable'
   }
   return map[description] ?? description.replace(/^ERR_/, '').replace(/_/g, ' ').toLowerCase()
 }
@@ -47,11 +61,17 @@ const FRAME_STYLES: Record<PaneId, string> = {
 export function DevicePane({
   paneId,
   active,
-  isFocusedPane,
+  isActivePane,
   loading,
   error,
   safariChromeEnabled = false,
-  profileOverride
+  profileOverride,
+  canFocus = false,
+  isSoloed = false,
+  onToggleFocus,
+  isLinked = true,
+  onToggleLink,
+  onShareWithAgent
 }: DevicePaneProps): React.JSX.Element {
   const { zoom } = usePreviewCanvas()
   const { isTransitioning } = useSidebar()
@@ -67,28 +87,24 @@ export function DevicePane({
 
   return (
     <div
-      className="flex shrink-0 flex-col gap-2"
+      className="group/pane flex shrink-0 flex-col gap-2"
       style={{ width: dimensions.frameWidth }}
       data-testid={`device-pane-${paneId}`}
       data-pane-interactive
       data-pane-transitioning={isTransitioning ? 'true' : 'false'}
     >
       <div className="flex shrink-0 items-center justify-between gap-2 px-1">
-        <div className="min-w-0">
+        <div className="min-w-0 flex items-center gap-2">
+          <div
+            className={cn('size-3 bg-white rounded-full opacity-40', isActivePane && 'opacity-100')}
+          />
+
           <div className="flex min-w-0 items-center gap-2">
-            <p className="truncate text-sm font-medium">{profile.name}</p>
-            {isFocusedPane ? (
-              <Badge
-                data-testid={`pane-active-indicator-${paneId}`}
-                className="h-auto shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium tracking-wide text-primary uppercase"
-              >
-                Active
-              </Badge>
-            ) : null}
+            <p className="truncate text-sm font-medium text-muted-foreground">{profile.name}</p>
+            <p className="text-xs text-muted-foreground/60">
+              {profile.width}×{profile.height} @ {profile.deviceScaleFactor}x
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            {profile.width}×{profile.height} @ {profile.deviceScaleFactor}x
-          </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {loading ? (
@@ -98,19 +114,90 @@ export function DevicePane({
               data-testid={`pane-loading-${paneId}`}
             />
           ) : null}
-          {isFocusedPane && active ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              data-testid={`pane-screenshot-${paneId}`}
-              aria-label="Save screenshot"
-              disabled={loading}
-              onClick={handleScreenshot}
-            >
-              <Icon icon={Camera01Icon} />
-            </Button>
-          ) : null}
+          {(() => {
+            const focusVisible = isActivePane && Boolean(onToggleFocus)
+            return (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                data-testid={`pane-focus-${paneId}`}
+                aria-label={isSoloed ? 'Show all devices' : 'Focus this device'}
+                aria-pressed={isSoloed}
+                aria-hidden={!focusVisible}
+                tabIndex={focusVisible ? undefined : -1}
+                title={isSoloed ? 'Show all devices' : 'Focus this device'}
+                onClick={onToggleFocus}
+                className={cn(
+                  'shrink-0 transition-opacity duration-150 hover:[&_svg]:opacity-100',
+                  !focusVisible && 'pointer-events-none opacity-0'
+                )}
+              >
+                <Icon
+                  icon={isSoloed ? Minimize01Icon : Maximize01Icon}
+                  className={cn(
+                    'transition-opacity duration-150',
+                    isSoloed ? 'opacity-100' : 'opacity-50'
+                  )}
+                />
+              </Button>
+            )
+          })()}
+          {(() => {
+            const linkVisible = isActivePane && Boolean(onToggleLink)
+            return (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                data-testid={`pane-sync-${paneId}`}
+                aria-label={
+                  isLinked
+                    ? 'Unlink this device from interaction sync'
+                    : 'Link this device to interaction sync'
+                }
+                aria-pressed={isLinked}
+                aria-hidden={!linkVisible}
+                tabIndex={linkVisible ? undefined : -1}
+                title={isLinked ? 'Linked — interactions mirror here' : 'Unlinked — independent'}
+                onClick={onToggleLink}
+                className={cn(
+                  'shrink-0 transition-opacity duration-150 hover:[&_svg]:opacity-100',
+                  !linkVisible && 'pointer-events-none opacity-0'
+                )}
+              >
+                <Icon
+                  icon={isLinked ? Link01Icon : Unlink01Icon}
+                  className={cn(
+                    'transition-opacity duration-150',
+                    isLinked ? 'opacity-50' : 'opacity-100'
+                  )}
+                />
+              </Button>
+            )
+          })()}
+          {(() => {
+            const screenshotVisible = isActivePane && active
+            return (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                data-testid={`pane-screenshot-${paneId}`}
+                aria-label="Save screenshot"
+                aria-hidden={!screenshotVisible}
+                tabIndex={screenshotVisible ? undefined : -1}
+                disabled={loading}
+                onClick={handleScreenshot}
+                className={cn(
+                  'shrink-0 transition-opacity duration-150 hover:[&_svg]:opacity-100',
+                  !screenshotVisible && 'pointer-events-none opacity-0'
+                )}
+              >
+                <Icon icon={Camera01Icon} className="opacity-50 transition-opacity duration-150" />
+              </Button>
+            )
+          })()}
         </div>
       </div>
 
@@ -142,10 +229,7 @@ export function DevicePane({
 
         <div
           ref={setBoundsRef}
-          className={cn(
-            'relative shrink-0 overflow-hidden bg-black',
-            loading && 'opacity-90'
-          )}
+          className={cn('relative shrink-0 overflow-hidden bg-black', loading && 'opacity-90')}
           style={{
             width: dimensions.screenWidth,
             height: dimensions.screenHeight,
@@ -157,9 +241,7 @@ export function DevicePane({
             <div className="flex h-full items-center justify-center bg-zinc-950/90 px-6 text-center">
               <div className="space-y-2">
                 <p className="text-sm font-medium text-zinc-100">No screen loaded</p>
-                <p className="text-xs leading-5 text-zinc-400">
-                  Enter a URL to open this preview.
-                </p>
+                <p className="text-xs leading-5 text-zinc-400">Enter a URL to open this preview.</p>
               </div>
             </div>
           ) : null}
@@ -167,10 +249,7 @@ export function DevicePane({
           {error ? (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/95 px-6 text-center">
               <div className="space-y-3">
-                <Icon
-                  icon={Alert01Icon}
-                  className="mx-auto size-8 text-red-400"
-                />
+                <Icon icon={Alert01Icon} className="mx-auto size-8 text-red-400" />
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-zinc-100">
                     {friendlyErrorMessage(error.description)}
@@ -184,12 +263,35 @@ export function DevicePane({
           ) : null}
 
           {active && paneId === 'iphone' && !safariChromeEnabled ? (
-            <div
-              className="pointer-events-none absolute top-2 left-1/2 z-10 h-5 w-[72px] -translate-x-1/2 rounded-full bg-black"
-            />
+            <div className="pointer-events-none absolute top-2 left-1/2 z-10 h-5 w-[72px] -translate-x-1/2 rounded-full bg-black" />
           ) : null}
         </div>
       </div>
+
+      {(() => {
+        const shareVisible = isActivePane && active && Boolean(onShareWithAgent)
+        return (
+          <div className="flex shrink-0 justify-end px-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="tiny"
+              data-testid={`pane-share-agent-${paneId}`}
+              aria-label="Share this device with agent"
+              aria-hidden={!shareVisible}
+              tabIndex={shareVisible ? undefined : -1}
+              onClick={onShareWithAgent}
+              className={cn(
+                'text-muted-foreground transition-opacity duration-150',
+                !shareVisible && 'pointer-events-none opacity-0'
+              )}
+            >
+              <Icon icon={Camera01Icon} />
+              Share with agent
+            </Button>
+          </div>
+        )
+      })()}
     </div>
   )
 }

@@ -1,12 +1,5 @@
 import { test, expect } from './fixtures'
-import {
-  evaluateInPane,
-  fixtureUrl,
-  getToolbarPage,
-  launchApp,
-  navigateTo,
-  waitForAllPanes
-} from './helpers'
+import { evaluateInPane, fixtureUrl, launchApp, navigateTo, waitForAllPanes } from './helpers'
 
 test('scrolling one pane proportionally moves the others', async ({ fixturePort }) => {
   const { window, close } = await launchApp()
@@ -47,8 +40,8 @@ test('toggling scroll sync off and on changes scroll coupling', async ({ fixture
     await navigateTo(window, fixtureUrl(fixturePort, '/long-scroll'))
     await waitForAllPanes(window)
 
-    const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('sync-toggle').click()
+    // Unlink the iphone so its scroll no longer mirrors to the other panes.
+    await window.evaluate(() => window.api.setPaneLinked('iphone', false))
 
     await evaluateInPane(
       window,
@@ -63,7 +56,8 @@ test('toggling scroll sync off and on changes scroll coupling', async ({ fixture
     const ipadRatioOff = await evaluateInPane<number>(window, 'ipad', `window.reportScrollRatio()`)
     expect(ipadRatioOff).toBeLessThan(0.05)
 
-    await toolbar.getByTestId('sync-toggle').click()
+    // Re-link the iphone so scroll coupling is restored.
+    await window.evaluate(() => window.api.setPaneLinked('iphone', true))
 
     await evaluateInPane(
       window,

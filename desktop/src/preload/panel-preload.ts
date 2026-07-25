@@ -50,8 +50,6 @@ export interface PanelOverlayApi {
   clearHistory: () => Promise<void>
   toggleProject: (input: NewProjectInput & { pageTitle: string }) => Promise<Project[]>
   getLoadingStates: () => Promise<Record<PaneId, boolean>>
-  getSyncEnabled: () => Promise<boolean>
-  setSyncEnabled: (enabled: boolean) => Promise<boolean>
   getSafariChromeEnabled: () => Promise<boolean>
   setSafariChromeEnabled: (enabled: boolean) => Promise<boolean>
   setPaneThemePreference: (preference: ThemePreference) => Promise<ThemePreference>
@@ -145,8 +143,6 @@ const panelApi: PanelOverlayApi = {
   clearHistory: () => ipcRenderer.invoke('history:clear'),
   toggleProject: (input) => ipcRenderer.invoke('projects:toggle', input),
   getLoadingStates: () => ipcRenderer.invoke('pane:loading-states'),
-  getSyncEnabled: () => ipcRenderer.invoke('sync:get-enabled'),
-  setSyncEnabled: (enabled) => ipcRenderer.invoke('sync:set-enabled', enabled),
   getSafariChromeEnabled: () => ipcRenderer.invoke('safari-chrome:get-enabled'),
   setSafariChromeEnabled: (enabled) => ipcRenderer.invoke('safari-chrome:set-enabled', enabled),
   setPaneThemePreference: (preference) =>

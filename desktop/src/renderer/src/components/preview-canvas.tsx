@@ -19,6 +19,10 @@ interface PreviewCanvasProps {
   safariChromeEnabled: boolean
   visiblePanes?: PaneId[]
   paneProfiles?: Partial<Record<PaneId, DeviceProfile>>
+  canFocus?: boolean
+  focusedPane?: PaneId | null
+  onToggleFocus?: (paneId: PaneId) => void
+  chromeHidden?: boolean
 }
 
 export function PreviewCanvas({
@@ -28,17 +32,29 @@ export function PreviewCanvas({
   activePane,
   safariChromeEnabled,
   visiblePanes = PANE_IDS,
-  paneProfiles
+  paneProfiles,
+  canFocus = false,
+  focusedPane = null,
+  onToggleFocus,
+  chromeHidden = false
 }: PreviewCanvasProps): React.JSX.Element {
   const [zoom, setZoomState] = useState(DEFAULT_ZOOM)
+  // Interaction-sync link membership, per device. Defaults to all linked and is
+  // reconciled with the main process on mount.
+  const [linkedPanes, setLinkedPanes] = useState<PaneId[]>(PANE_IDS)
   const { isOpen: sidebarOpen, isTransitioning: sidebarTransitioning } = useSidebar()
   const {
     isOpen: diagnosticsOpen,
     isTransitioning: diagnosticsTransitioning,
     width: diagnosticsWidth
   } = useDiagnostics()
-  const sidebarOffset = sidebarOpen || sidebarTransitioning ? SIDEBAR_WIDTH_PX : 0
-  const rightOffset = diagnosticsOpen || diagnosticsTransitioning ? diagnosticsWidth : 0
+  // Immersive mode hides the chrome overlays, so the canvas reclaims the full
+  // window: no toolbar/sidebar/diagnostics gutters.
+  const sidebarOffset =
+    chromeHidden || !(sidebarOpen || sidebarTransitioning) ? 0 : SIDEBAR_WIDTH_PX
+  const rightOffset =
+    chromeHidden || !(diagnosticsOpen || diagnosticsTransitioning) ? 0 : diagnosticsWidth
+  const topOffset = chromeHidden ? 0 : TOOLBAR_HEIGHT_PX
   const hasPreview = isCommittedPageUrl(committedUrl) || Object.values(loadingStates).some(Boolean)
 
   useEffect(() => {
@@ -48,6 +64,22 @@ export function PreviewCanvas({
       }
     })
     return unsubscribeAction
+  }, [])
+
+  useEffect(() => {
+    void window.api.getLinkedPanes().then(setLinkedPanes)
+  }, [])
+
+  const toggleLink = useCallback(
+    (paneId: PaneId) => {
+      const nextLinked = !linkedPanes.includes(paneId)
+      void window.api.setPaneLinked(paneId, nextLinked).then(setLinkedPanes)
+    },
+    [linkedPanes]
+  )
+
+  const shareWithAgent = useCallback((paneId: PaneId) => {
+    void window.api.shareDeviceWithAgent(paneId)
   }, [])
 
   const setZoom = useCallback((nextZoom: number) => {
@@ -72,7 +104,7 @@ export function PreviewCanvas({
           data-canvas-viewport
           className={cn('box-border h-screen overflow-auto', CANVAS_GLASS_SURFACE_CLASS)}
           style={{
-            paddingTop: TOOLBAR_HEIGHT_PX,
+            paddingTop: topOffset,
             paddingLeft: sidebarOffset,
             paddingRight: rightOffset
           }}
@@ -86,11 +118,17 @@ export function PreviewCanvas({
                   key={paneId}
                   paneId={paneId}
                   active={hasPreview}
-                  isFocusedPane={activePane === paneId}
+                  isActivePane={activePane === paneId}
                   loading={loadingStates[paneId]}
                   error={errorStates[paneId]}
                   safariChromeEnabled={safariChromeEnabled}
                   profileOverride={paneProfiles?.[paneId]}
+                  canFocus={canFocus || focusedPane === paneId}
+                  isSoloed={focusedPane === paneId}
+                  onToggleFocus={onToggleFocus ? () => onToggleFocus(paneId) : undefined}
+                  isLinked={linkedPanes.includes(paneId)}
+                  onToggleLink={() => toggleLink(paneId)}
+                  onShareWithAgent={() => shareWithAgent(paneId)}
                 />
               ))}
             </div>
