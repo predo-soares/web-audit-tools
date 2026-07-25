@@ -98,8 +98,12 @@ export interface PreviewApi {
   onEnterSeoView: (callback: () => void) => () => void
   onEnterLighthouseView: (callback: () => void) => () => void
   onEnterDevicesView: (callback: () => void) => () => void
+  onToggleChrome: (callback: () => void) => () => void
+  onExitChrome: (callback: () => void) => () => void
   setDeviceProfile: (paneId: PaneId, profile: DeviceProfile) => Promise<void>
   setPanesVisible: (visible: boolean) => Promise<void>
+  setFocusedPane: (paneId: PaneId | null) => Promise<void>
+  setChromeHidden: (hidden: boolean) => Promise<void>
 }
 
 const api: PreviewApi = {
@@ -270,10 +274,8 @@ const api: PreviewApi = {
   runLighthouse: (labSelection) => ipcRenderer.invoke('seo-lighthouse:run', labSelection),
   cancelLighthouse: () => ipcRenderer.invoke('seo-lighthouse:cancel'),
   onLighthouseState: (callback) => {
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      state: LighthouseAssessmentState
-    ): void => callback(state)
+    const listener = (_event: Electron.IpcRendererEvent, state: LighthouseAssessmentState): void =>
+      callback(state)
     ipcRenderer.on('seo-lighthouse:state', listener)
     return () => ipcRenderer.removeListener('seo-lighthouse:state', listener)
   },
@@ -292,9 +294,21 @@ const api: PreviewApi = {
     ipcRenderer.on('app:devices-view', listener)
     return () => ipcRenderer.removeListener('app:devices-view', listener)
   },
+  onToggleChrome: (callback) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('app:toggle-chrome', listener)
+    return () => ipcRenderer.removeListener('app:toggle-chrome', listener)
+  },
+  onExitChrome: (callback) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('app:exit-chrome', listener)
+    return () => ipcRenderer.removeListener('app:exit-chrome', listener)
+  },
   setDeviceProfile: (paneId, profile) =>
     ipcRenderer.invoke('pane:set-device-profile', paneId, profile),
-  setPanesVisible: (visible) => ipcRenderer.invoke('pane:set-visible', visible)
+  setPanesVisible: (visible) => ipcRenderer.invoke('pane:set-visible', visible),
+  setFocusedPane: (paneId) => ipcRenderer.invoke('pane:set-focused', paneId),
+  setChromeHidden: (hidden) => ipcRenderer.invoke('chrome:set-hidden', hidden)
 }
 
 contextBridge.exposeInMainWorld('api', api)

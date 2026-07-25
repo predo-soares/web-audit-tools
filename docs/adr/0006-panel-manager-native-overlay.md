@@ -21,7 +21,13 @@ Replace `PopoverManager` with **`PanelManager`**:
 - **Tight bounds** per panel so device panes remain interactive outside panel regions.
 - **Same overlay bundle** (`overlay.html`) loaded in each view; panel content via registry keyed by `panelId`.
 - **Shell API:** unified `usePanel(panelId, { mode, open, ... })` replacing `useNativePopover`.
-- **Panel modes:** `anchored` (popover placement + dismiss) and `docked` (fixed edge, bounds animation in main — sidebar, Phase 2).
+- **Panel modes:** `anchored` (popover placement + dismiss), `docked` (fixed edge,
+  bounds animation in main — sidebar, Phase 2), and `modal` (full-window bounds
+  with a blocking backdrop).
+- **Modal bounds exception:** anchored and docked panels keep tight bounds so the
+  device canvas remains interactive around them. A modal intentionally covers the
+  full content bounds because blocking interaction with every underlying panel and
+  device pane is part of its contract.
 - **Default chrome:** translucent glass matching canvas (`glass-canvas-panel`).
 - **Phase 1 scope:** migrate toolbar zoom/theme; architecture supports docked sidebar in Phase 2.
 - **Data (Phase 2 sidebar):** panel overlay reads projects/history from main process directly, not shell payload snapshots.
@@ -39,6 +45,8 @@ Replace `PopoverManager` with **`PanelManager`**:
 
 - Memory scales with **open** panels (~30–60 MB each), not registered panel types. Typical peak: sidebar + one popover ≈ +60–100 MB vs one overlay today.
 - `PanelManager` complexity increases vs single-view `PopoverManager` (per-panel view map, z-order for multiple views).
+- Modal panels add one deliberate full-window input-interception case; opening one
+  dismisses anchored popovers while preserving docked-panel state underneath.
 - IPC surface grows (`panel:*` replaces `popover:*`); shell and overlay preloads rename accordingly.
 - Phase 2 sidebar migration removes `setPanesVisible` hack and sidebar DOM from shell renderer.
 - ADR 0003 remains historically accurate; this ADR supersedes it for overlay architecture going forward.

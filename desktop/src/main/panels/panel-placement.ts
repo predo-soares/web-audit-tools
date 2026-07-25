@@ -1,7 +1,7 @@
 import type { PanelAlign, PanelAnchor, PanelPlacement } from '../../shared/panel-types'
 import type { Bounds, Size } from '../../shared/types'
 
-const PANEL_GAP = 0
+const PANEL_GAP = 8
 
 const PLACEMENT_ORDER: Record<PanelPlacement, PanelPlacement[]> = {
   bottom: ['bottom', 'top'],

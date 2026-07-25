@@ -3,6 +3,7 @@ import { SidebarPanel } from '@renderer/components/panel/views/sidebar-panel'
 import { DiagnosticsPanel } from '@renderer/components/panel/views/diagnostics-panel'
 import { ToolbarPanel } from '@renderer/components/panel/views/toolbar-panel'
 import { UrlHistoryPanel } from '@renderer/components/panel/views/url-history-panel'
+import { ShortcutsPanel } from '@renderer/components/panel/views/shortcuts-panel'
 import type { PanelViewComponent, PanelViewRegistry } from '@renderer/components/panel/types'
 
 export const PANEL_VIEW_REGISTRY: PanelViewRegistry = {
@@ -10,5 +11,6 @@ export const PANEL_VIEW_REGISTRY: PanelViewRegistry = {
   'sidebar-left': SidebarPanel as PanelViewComponent,
   'diagnostics-right': DiagnosticsPanel as PanelViewComponent,
   'toolbar-top': ToolbarPanel as PanelViewComponent,
-  'url-history': UrlHistoryPanel as PanelViewComponent
+  'url-history': UrlHistoryPanel as PanelViewComponent,
+  shortcuts: ShortcutsPanel as PanelViewComponent
 }

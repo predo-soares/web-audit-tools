@@ -253,8 +253,19 @@ export function registerIpcHandlers(
     paneManager.setPanesVisible(visible)
   })
 
+  ipcMain.handle('pane:set-focused', (_event, paneId: PaneId | null) => {
+    paneManager.setFocusedPane(paneId)
+  })
+
+  ipcMain.handle('chrome:set-hidden', (_event, hidden: boolean) => {
+    panelManager.setChromeHidden(hidden)
+  })
+
   ipcMain.handle('pane:set-device-profile', async (_event, paneId: string, profile: unknown) => {
-    await paneManager.setDeviceProfile(paneId as import('../shared/types').PaneId, profile as import('../shared/types').DeviceProfile)
+    await paneManager.setDeviceProfile(
+      paneId as import('../shared/types').PaneId,
+      profile as import('../shared/types').DeviceProfile
+    )
   })
 
   ipcMain.handle('preview:navigate', async (_event, rawUrl: string) => {
@@ -473,6 +484,14 @@ export function registerIpcHandlers(
       return
     }
 
+    if (action.type === 'toggle-chrome') {
+      const mainWindow = BrowserWindow.getAllWindows()[0]
+      if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+        mainWindow.webContents.send('app:toggle-chrome')
+      }
+      return
+    }
+
     if (action.type === 'go-back') {
       void paneManager.goBack()
       return
@@ -490,11 +509,6 @@ export function registerIpcHandlers(
 
     if (action.type === 'stop-loading') {
       paneManager.stopLoadingAll()
-      return
-    }
-
-    if (action.type === 'set-sync-enabled') {
-      paneManager.setSyncEnabled(action.enabled)
       return
     }
 

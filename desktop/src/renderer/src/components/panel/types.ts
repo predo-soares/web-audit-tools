@@ -2,6 +2,7 @@ import type {
   PanelAction,
   PanelAlign,
   PanelId,
+  PanelMode,
   PanelPayload,
   PanelPlacement
 } from '../../../../shared/panel-types'
@@ -20,7 +21,7 @@ export type PanelViewRegistry = Partial<Record<PanelId, PanelViewComponent>>
 
 export interface PanelShowState {
   panelId: PanelId
-  mode: 'anchored' | 'docked'
+  mode: PanelMode
   payload?: PanelPayload
   placement: PanelPlacement
   align: PanelAlign

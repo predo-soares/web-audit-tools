@@ -15,7 +15,12 @@ import {
   AccordionTrigger
 } from '@renderer/components/ui/accordion'
 import { cn } from '@renderer/lib/utils'
-import { GaugeIcon, LaptopPhoneSyncIcon, SearchVisualIcon } from '@hugeicons/core-free-icons'
+import {
+  GaugeIcon,
+  InformationCircleIcon,
+  LaptopPhoneSyncIcon,
+  SearchVisualIcon
+} from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
 
 const sidebarSectionTriggerClassName = cn(
@@ -45,6 +50,7 @@ export function SidebarPanel({
   onAction: (action: PanelAction) => void
 }): React.JSX.Element {
   const rootRef = useRef<HTMLElement>(null)
+  const shortcutsTriggerRef = useRef<HTMLButtonElement>(null)
   const [projects, setProjects] = useState<Project[]>([])
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [committedUrl, setCommittedUrl] = useState('')
@@ -76,12 +82,18 @@ export function SidebarPanel({
         window.panelApi.reportFocusOnClose()
       }
     })
+    const unsubscribeClosed = window.panelApi.onPanelClosed((panelId) => {
+      if (panelId === 'shortcuts') {
+        shortcutsTriggerRef.current?.focus()
+      }
+    })
 
     return () => {
       unsubscribeProjects()
       unsubscribeHistory()
       unsubscribeNavigation()
       unsubscribeHide()
+      unsubscribeClosed()
     }
   }, [])
 
@@ -310,6 +322,23 @@ export function SidebarPanel({
             </Accordion>
         </nav>
       </div>
+      <footer className="shrink-0 border-t border-white/10 p-2">
+        <button
+          ref={shortcutsTriggerRef}
+          type="button"
+          data-testid="shortcuts-trigger"
+          className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-foreground/70 transition-colors hover:bg-white/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          onClick={() => {
+            void window.panelApi.openPanel({
+              panelId: 'shortcuts',
+              mode: 'modal'
+            })
+          }}
+        >
+          <Icon icon={InformationCircleIcon} size={16} />
+          <span>Keyboard shortcuts</span>
+        </button>
+      </footer>
       <ClearHistoryDialog
         open={clearDialogOpen}
         onOpenChange={setClearDialogOpen}

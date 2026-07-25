@@ -1,5 +1,6 @@
 import { app, shell, BrowserWindow, Menu } from 'electron'
 import localShortcut from 'electron-localshortcut'
+import { electronAccelerator } from '../shared/shortcuts'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -188,7 +189,7 @@ app.whenReady().then(() => {
 
   const mainWindow = createWindow()
 
-  localShortcut.register(mainWindow, 'CommandOrControl+Shift+S', () => {
+  localShortcut.register(mainWindow, electronAccelerator('share'), () => {
     void captureSnapshot(makeSnapshotPort(paneManager)).then((result) => {
       panelManager.notifyToolbarPanel('snapshot:taken', result)
     })

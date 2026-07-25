@@ -24,6 +24,7 @@ import {
   clampDiagnosticsDrawerWidth
 } from '../../shared/runtime-evidence'
 import { computeFitZoom } from '../../shared/mockup-layout'
+import { matchesAppShortcut } from '../../shared/shortcuts'
 import type { Bounds, Size } from '../../shared/types'
 import type { PaneManager } from '../panes/pane-manager'
 import { computePanelBounds } from './panel-placement'
@@ -91,7 +92,8 @@ const ALL_PANEL_IDS: PanelId[] = [
   'diagnostics-right',
   'toolbar-top',
   'zoom',
-  'url-history'
+  'url-history',
+  'shortcuts'
 ]
 
 const PANEL_Z_ORDER: PanelId[] = ALL_PANEL_IDS
@@ -99,23 +101,45 @@ const PANEL_Z_ORDER: PanelId[] = ALL_PANEL_IDS
 function isDiagnosticsToggleInput(input: Electron.Input): boolean {
   return (
     input.type === 'keyDown' &&
-    input.key.toLowerCase() === 'j' &&
-    (input.meta || input.control) &&
-    !input.alt &&
-    !input.shift
+    matchesAppShortcut('diagnostics', {
+      key: input.key,
+      mod: input.meta || input.control,
+      shift: input.shift,
+      alt: input.alt
+    })
   )
 }
+
+function isChromeToggleInput(input: Electron.Input): boolean {
+  return (
+    input.type === 'keyDown' &&
+    matchesAppShortcut('immersive', {
+      key: input.key,
+      mod: input.meta || input.control,
+      shift: input.shift,
+      alt: input.alt
+    })
+  )
+}
+
+// Panels that make up the app chrome and are soft-hidden by the immersive mode.
+const CHROME_PANEL_IDS: PanelId[] = ['toolbar-top', 'sidebar-left', 'diagnostics-right']
 
 export class PanelManager {
   private entries = new Map<PanelId, PanelEntry>()
   private mainWindow: BrowserWindow | null = null
   private chromeZOrderHook: (() => void) | null = null
+  private chromeHidden = false
+  // Chrome panels that were visible when immersive mode was entered, so exiting
+  // restores exactly what was on screen before.
+  private chromeRestorePanels: PanelId[] = []
 
   constructor(private readonly paneManager: PaneManager) {}
 
   initialize(mainWindow: BrowserWindow): void {
     this.mainWindow = mainWindow
     this.registerDiagnosticsToggleShortcut(mainWindow.webContents)
+    this.registerChromeShortcut(mainWindow.webContents)
     this.registerEscapeDismiss(mainWindow.webContents)
     this.paneManager.onChildViewStackChanged(() => {
       this.chromeZOrderHook?.()
@@ -123,6 +147,7 @@ export class PanelManager {
     })
     mainWindow.on('resize', () => {
       this.applyDockedBoundsForOpenPanels()
+      this.applyModalBoundsForOpenPanels()
     })
     void this.prewarmAllPanels()
   }
@@ -135,6 +160,14 @@ export class PanelManager {
     for (const [panelId, entry] of this.entries) {
       if (entry.isOpen && entry.options.mode === 'docked') {
         this.applyDockedBounds(panelId, entry.dockedWidth)
+      }
+    }
+  }
+
+  private applyModalBoundsForOpenPanels(): void {
+    for (const [panelId, entry] of this.entries) {
+      if (entry.isOpen && entry.options.mode === 'modal') {
+        this.applyModalBounds(panelId)
       }
     }
   }
@@ -249,7 +282,7 @@ export class PanelManager {
     const mainWindow = this.mainWindow
     if (!mainWindow || mainWindow.isDestroyed()) return
 
-    if (options.mode === 'anchored') {
+    if (options.mode === 'anchored' || options.mode === 'modal') {
       for (const [panelId, entry] of this.entries) {
         if (panelId !== options.panelId && entry.isOpen && entry.options.mode === 'anchored') {
           this.close(panelId)
@@ -279,10 +312,17 @@ export class PanelManager {
     entry.size = null
     entry.isOpen = true
     entry.isClosing = false
-    if (options.mode === 'docked' || options.mode === 'anchored') {
-      entry.view.setVisible(true)
-    }
+    entry.view.setVisible(true)
     this.bringToFront(panelId)
+
+    if (options.mode === 'modal') {
+      this.applyModalBounds(panelId)
+      this.deliverShow(panelId, {
+        panelId,
+        mode: 'modal'
+      })
+      return
+    }
 
     if (options.mode === 'docked') {
       const message: PanelShowMessage = {
@@ -385,7 +425,7 @@ export class PanelManager {
     const entry = this.entries.get(panelId)
     if (!entry?.isOpen) return
 
-    if (getPanelFixedSize(panelId)) return
+    if (getPanelFixedSize(panelId) || entry.options.mode === 'modal') return
 
     if (entry.options.mode === 'docked') {
       this.applyDockedBounds(panelId, entry.dockedWidth)
@@ -529,6 +569,16 @@ export class PanelManager {
     this.bringToFront(panelId)
   }
 
+  private applyModalBounds(panelId: PanelId): void {
+    const mainWindow = this.mainWindow
+    const entry = this.entries.get(panelId)
+    if (!mainWindow || mainWindow.isDestroyed() || !entry) return
+
+    const { width, height } = mainWindow.getContentBounds()
+    entry.view.setBounds({ x: 0, y: 0, width, height })
+    this.bringToFront(panelId)
+  }
+
   private finalizeAnchoredClose(panelId: PanelId): void {
     const entry = this.entries.get(panelId)
     if (!entry) return
@@ -541,6 +591,7 @@ export class PanelManager {
     if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
       mainWindow.webContents.send('panel:closed', panelId)
       this.notifyToolbar('panel:closed', panelId)
+      this.notifyPanel('sidebar-left', 'panel:closed', panelId)
     }
   }
 
@@ -579,6 +630,7 @@ export class PanelManager {
     view.setBounds({ x: 0, y: 0, width: 0, height: 0 })
     view.setVisible(false)
     this.registerDiagnosticsToggleShortcut(view.webContents)
+    this.registerChromeShortcut(view.webContents)
     this.registerEscapeDismiss(view.webContents)
     return view
   }
@@ -588,7 +640,7 @@ export class PanelManager {
       if (input.type !== 'keyDown' || input.key !== 'Escape') return
       for (const panelId of [...PANEL_Z_ORDER].reverse()) {
         const entry = this.entries.get(panelId)
-        if (!entry?.isOpen || entry.options.mode !== 'anchored') continue
+        if (!entry?.isOpen || entry.options.mode === 'docked') continue
         event.preventDefault()
         this.close(panelId)
         return
@@ -727,8 +779,68 @@ export class PanelManager {
     })
   }
 
+  private registerChromeShortcut(webContents: WebContents): void {
+    webContents.on('before-input-event', (event, input) => {
+      if (this.handleChromeInput(input, () => event.preventDefault())) return
+    })
+  }
+
+  // Shared by the window, panel views, and pane views: Cmd/Ctrl+Shift+H toggles
+  // immersive mode, and Escape leaves it while it is active. The main window owns
+  // the decision (workspace gating), so we only forward the intent.
+  private handleChromeInput(input: Electron.Input, preventDefault: () => void): boolean {
+    if (isChromeToggleInput(input)) {
+      preventDefault()
+      this.notifyMainWindow('app:toggle-chrome')
+      return true
+    }
+    if (this.chromeHidden && input.type === 'keyDown' && input.key === 'Escape') {
+      preventDefault()
+      this.notifyMainWindow('app:exit-chrome')
+      return true
+    }
+    return false
+  }
+
+  private notifyMainWindow(channel: string, ...args: unknown[]): void {
+    const mainWindow = this.mainWindow
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
+    mainWindow.webContents.send(channel, ...args)
+  }
+
+  isChromeHidden(): boolean {
+    return this.chromeHidden
+  }
+
+  // Soft-hides the chrome overlays (toolbar, sidebar, diagnostics) without
+  // touching their open state, so exiting restores the previous layout exactly.
+  // The main window handles the canvas offsets separately.
+  setChromeHidden(hidden: boolean): void {
+    if (this.chromeHidden === hidden) return
+    this.chromeHidden = hidden
+
+    if (hidden) {
+      this.chromeRestorePanels = CHROME_PANEL_IDS.filter((panelId) => this.isPanelOpen(panelId))
+      for (const panelId of this.chromeRestorePanels) {
+        this.entries.get(panelId)?.view.setVisible(false)
+      }
+      return
+    }
+
+    for (const panelId of this.chromeRestorePanels) {
+      const entry = this.entries.get(panelId)
+      if (!entry?.isOpen) continue
+      entry.view.setVisible(true)
+      if (entry.options.mode === 'docked') {
+        this.applyDockedBounds(panelId, entry.dockedWidth)
+      }
+    }
+    this.chromeRestorePanels = []
+  }
+
   /** Handle a pane before-input event through the EngineView seam. */
   handlePaneBeforeInput(input: Electron.Input, preventDefault: () => void): void {
+    if (this.handleChromeInput(input, preventDefault)) return
     if (!isDiagnosticsToggleInput(input)) return
     preventDefault()
     this.notifyToolbarPanel('panel:toggle-diagnostics')

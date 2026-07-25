@@ -88,7 +88,7 @@ export function PanelHost(): React.JSX.Element | null {
 
   useEffect(() => {
     const container = containerRef.current
-    if (!panel || !container) return
+    if (!panel || !container || panel.mode === 'modal') return
     if (getPanelFixedSize(panel.panelId)) return
 
     const reportSize = (): void => {
@@ -132,6 +132,28 @@ export function PanelHost(): React.JSX.Element | null {
     )
   }
 
+  if (panel.mode === 'modal') {
+    return (
+      <div
+        ref={containerRef}
+        data-testid="shortcuts-modal-backdrop"
+        data-visible={visible ? 'true' : 'false'}
+        className="flex h-screen w-screen items-center justify-center bg-black/55 p-4 transition-opacity"
+        style={{
+          opacity: visible ? 1 : 0,
+          transitionDuration: `${visible ? 160 : 120}ms`
+        }}
+        onMouseDown={(event) => {
+          if (event.target !== event.currentTarget) return
+          void window.panelApi.closePanel(panel.panelId)
+        }}
+        onTransitionEnd={handleTransitionEnd}
+      >
+        <PanelView onAction={(action) => window.panelApi.sendAction(action)} />
+      </div>
+    )
+  }
+
   if (!panel.payload) return null
 
   return (
@@ -141,9 +163,7 @@ export function PanelHost(): React.JSX.Element | null {
         visible={visible}
         placement={activePlacement}
         align={panel.align}
-        width={
-          panel.payload && 'width' in panel.payload ? panel.payload.width : undefined
-        }
+        width={panel.payload && 'width' in panel.payload ? panel.payload.width : undefined}
         containerRef={containerRef}
         onTransitionEnd={handleTransitionEnd}
       >

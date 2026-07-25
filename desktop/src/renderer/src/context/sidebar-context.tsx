@@ -7,6 +7,7 @@ import {
   type ReactNode
 } from 'react'
 import { SIDEBAR_STORAGE_KEY, SIDEBAR_WIDTH_PX } from '../../../shared/sidebar'
+import { matchesAppShortcut } from '../../../shared/shortcuts'
 import { usePanel } from '@renderer/hooks/use-panel'
 
 export const LAYOUT_SETTLED_EVENT = 'audit-screens:layout-settled'
@@ -103,7 +104,16 @@ export function SidebarProvider({ children }: { children: ReactNode }): React.JS
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
-      if (event.key !== 'b' || (!event.metaKey && !event.ctrlKey)) return
+      if (
+        !matchesAppShortcut('sidebar', {
+          key: event.key,
+          mod: event.metaKey || event.ctrlKey,
+          shift: event.shiftKey,
+          alt: event.altKey
+        })
+      ) {
+        return
+      }
       event.preventDefault()
       toggle()
     }

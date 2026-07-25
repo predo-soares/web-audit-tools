@@ -10,8 +10,9 @@ export type PanelId =
   | 'diagnostics-right'
   | 'toolbar-top'
   | 'url-history'
+  | 'shortcuts'
 
-export type PanelMode = 'anchored' | 'docked'
+export type PanelMode = 'anchored' | 'docked' | 'modal'
 
 export type PanelEdge = 'left' | 'right' | 'top' | 'bottom'
 
@@ -45,10 +46,7 @@ export interface UrlHistoryPanelPayload {
 }
 
 export type PanelPayload =
-  | ZoomPanelPayload
-  | ThemePanelPayload
-  | DiagnosticsPanelPayload
-  | UrlHistoryPanelPayload
+  ZoomPanelPayload | ThemePanelPayload | DiagnosticsPanelPayload | UrlHistoryPanelPayload
 
 export interface PanelOpenOptions {
   panelId: PanelId
@@ -91,10 +89,11 @@ export type PanelAction =
   | { type: 'go-forward' }
   | { type: 'reload' }
   | { type: 'stop-loading' }
-  | { type: 'set-sync-enabled'; enabled: boolean }
   | { type: 'enter-seo-view' }
   | { type: 'enter-lighthouse-view' }
   | { type: 'enter-devices-view' }
+  | { type: 'close-panel' }
+  | { type: 'toggle-chrome' }
 
 export const PANEL_MIN_SIZE: Record<PanelId, Size> = {
   zoom: { width: 144, height: 224 },
@@ -102,7 +101,8 @@ export const PANEL_MIN_SIZE: Record<PanelId, Size> = {
   'sidebar-left': { width: 280, height: 400 },
   'diagnostics-right': { width: DIAGNOSTICS_DRAWER_WIDTH_PX, height: 400 },
   'toolbar-top': { width: 400, height: 52 },
-  'url-history': { width: 400, height: 48 }
+  'url-history': { width: 400, height: 48 },
+  shortcuts: { width: 480, height: 480 }
 }
 
 export const PANEL_FIXED_SIZE: Partial<Record<PanelId, Size>> = {

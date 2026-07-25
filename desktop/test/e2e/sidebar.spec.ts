@@ -6,6 +6,7 @@ import {
   expectSidebarOpen,
   fixtureUrl,
   getSidebarPage,
+  getShortcutsPage,
   getToolbarPage,
   historyRowTestId,
   launchApp,
@@ -15,6 +16,53 @@ import {
   waitForAllPanes,
   waitForSidebarSettled
 } from './helpers'
+
+test('shortcuts footer opens an app-wide modal and restores focus without changing docked panels', async () => {
+  const { window, close } = await launchApp()
+
+  try {
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('diagnostics-toggle').click()
+    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute('aria-expanded', 'true')
+
+    const sidebar = await getSidebarPage(window)
+    const trigger = sidebar.getByTestId('shortcuts-trigger')
+    await trigger.click()
+
+    const modal = await getShortcutsPage(window)
+    await expect(modal.getByTestId('shortcuts-dialog')).toBeVisible()
+    await expect(modal.getByTestId('shortcuts-close')).toBeFocused()
+    await expect(modal.locator('[data-testid^="shortcut-row-"]')).toHaveCount(7)
+
+    const backdrop = modal.getByTestId('shortcuts-modal-backdrop')
+    const modalViewport = await modal.evaluate(() => ({
+      width: window.innerWidth,
+      height: window.innerHeight
+    }))
+    await expect(backdrop).toHaveCSS('width', `${modalViewport.width}px`)
+    await expect(backdrop).toHaveCSS('height', `${modalViewport.height}px`)
+
+    await modal.keyboard.press('Escape')
+    await expect(modal.getByTestId('shortcuts-modal-backdrop')).toHaveAttribute(
+      'data-visible',
+      'false'
+    )
+    await expect(trigger).toBeFocused()
+    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute('aria-expanded', 'true')
+
+    await trigger.click()
+    const reopenedModal = await getShortcutsPage(window)
+    await expect(reopenedModal.getByTestId('shortcuts-close')).toBeFocused()
+    await reopenedModal.getByTestId('shortcuts-modal-backdrop').click({ position: { x: 2, y: 2 } })
+    await expect(reopenedModal.getByTestId('shortcuts-modal-backdrop')).toHaveAttribute(
+      'data-visible',
+      'false'
+    )
+    await expect(trigger).toBeFocused()
+  } finally {
+    await close()
+  }
+})
 
 test('first launch opens the sidebar by default', async () => {
   const { window, close } = await launchApp()

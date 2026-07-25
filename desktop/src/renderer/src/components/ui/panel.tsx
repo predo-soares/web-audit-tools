@@ -14,7 +14,8 @@ const PANEL_SIZE_CLASS: Record<PanelId, string> = {
   'sidebar-left': 'w-[280px]',
   'diagnostics-right': 'w-[320px]',
   'toolbar-top': 'w-full',
-  'url-history': 'max-h-[320px] border-none rounded-xl'
+  'url-history': 'max-h-[320px] border-none rounded-xl',
+  shortcuts: 'w-[480px]'
 }
 
 function prefersReducedMotion(): boolean {

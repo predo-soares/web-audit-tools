@@ -877,18 +877,31 @@ export class PaneManager {
   }
 
   setPanesVisible(visible: boolean): void {
+    this.panesVisible = visible
+    this.safariChromeHooks?.setPanesVisible(visible)
+    this.applyPaneVisibility()
+  }
+
+  setFocusedPane(paneId: PaneId | null): void {
+    if (this.focusedPane === paneId) return
+    this.focusedPane = paneId
+    this.applyPaneVisibility()
+  }
+
+  private isPaneVisible(paneId: PaneId): boolean {
+    return this.panesVisible && (this.focusedPane === null || this.focusedPane === paneId)
+  }
+
+  private applyPaneVisibility(): void {
     for (const paneId of PANE_IDS) {
-      this.getEngine(paneId).setVisible(visible)
+      this.getEngine(paneId).setVisible(this.isPaneVisible(paneId))
     }
 
-    this.safariChromeHooks?.setPanesVisible(visible)
-
-    if (visible) {
-      for (const paneId of PANE_IDS) {
-        const mount = this.lastMount.get(paneId)
-        if (mount) {
-          this.getEngine(paneId).mount(mount)
-        }
+    for (const paneId of PANE_IDS) {
+      if (!this.isPaneVisible(paneId)) continue
+      const mount = this.lastMount.get(paneId)
+      if (mount) {
+        this.getEngine(paneId).mount(mount)
       }
     }
   }

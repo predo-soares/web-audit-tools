@@ -19,15 +19,11 @@ import type { Project } from '../../../../../shared/project'
 import type { PaneId } from '../../../../../shared/types'
 import { WindowControls } from '@renderer/components/window-controls'
 import {
-  ArrowLeft01Icon,
-  ArrowRight01Icon,
-  Camera01Icon,
-  Link01Icon,
+  FullScreenIcon,
   Monitor,
   Moon01Icon,
   PanelLeftIcon,
   Sun01Icon,
-  Unlink01Icon,
   SourceCodeIcon,
   ZoomInAreaIcon
 } from '@hugeicons/core-free-icons'
@@ -36,6 +32,7 @@ import { Icon } from '@renderer/components/ui/icon'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SnapshotResult } from '../../../../../shared/snapshot'
 import type { HistoryEntry } from '../../../../../shared/history'
+import { matchesAppShortcut } from '../../../../../shared/shortcuts'
 
 const THEME_STORAGE_KEY = 'audit-screens-theme-preference'
 const MEDIA_FEATURES_STORAGE_KEY = 'audit-screens-media-features'
@@ -102,7 +99,6 @@ export function ToolbarPanel(): React.JSX.Element {
     ipad: false,
     desktop: false
   })
-  const [syncEnabled, setSyncEnabled] = useState(true)
   const [projects, setProjects] = useState<Project[]>([])
   const [committedUrl, setCommittedUrl] = useState('')
   const [zoom, setZoom] = useState(1)
@@ -219,7 +215,6 @@ export function ToolbarPanel(): React.JSX.Element {
       }
     })
     void window.panelApi.getLoadingStates().then(setLoadingStates)
-    void window.panelApi.getSyncEnabled().then(setSyncEnabled)
     void window.panelApi.listProjects().then(setProjects)
     void window.panelApi.listHistory().then(setHistory)
     void window.panelApi.getOpenPanels().then((openPanels) => {
@@ -378,18 +373,23 @@ export function ToolbarPanel(): React.JSX.Element {
         return
       }
 
-      if (!event.metaKey && !event.ctrlKey) return
+      const input = {
+        key: event.key,
+        mod: event.metaKey || event.ctrlKey,
+        shift: event.shiftKey,
+        alt: event.altKey
+      }
 
-      if (event.key === '[') {
+      if (matchesAppShortcut('back', input)) {
         event.preventDefault()
         void window.panelApi.goBack()
-      } else if (event.key === ']') {
+      } else if (matchesAppShortcut('forward', input)) {
         event.preventDefault()
         void window.panelApi.goForward()
-      } else if (event.key === 'b') {
+      } else if (matchesAppShortcut('sidebar', input)) {
         event.preventDefault()
         toggleSidebar()
-      } else if (event.key === 'j') {
+      } else if (matchesAppShortcut('diagnostics', input)) {
         event.preventDefault()
         toggleDiagnostics()
       }
@@ -415,13 +415,10 @@ export function ToolbarPanel(): React.JSX.Element {
     )
   }, [])
 
+  // The global Cmd+Shift+S shortcut (registered in the main process) captures the
+  // active pane and notifies us to surface the toast.
   useEffect(() => {
     return window.panelApi.onSnapshotTaken(showSnapshotToast)
-  }, [showSnapshotToast])
-
-  const handleSnapshot = useCallback(async (): Promise<void> => {
-    const result = await window.panelApi.takeSnapshot()
-    showSnapshotToast(result)
   }, [showSnapshotToast])
 
   const toggleZoomPopover = (): void => {
@@ -597,29 +594,12 @@ export function ToolbarPanel(): React.JSX.Element {
           type="button"
           variant="ghost"
           size="icon-xs"
-          data-testid="snapshot-button"
-          aria-label="Snapshot for Agent"
-          aria-keyshortcuts="Meta+Shift+S"
-          onClick={() => void handleSnapshot()}
+          data-testid="hide-chrome-toggle"
+          aria-label="Hide interface, show only devices"
+          aria-keyshortcuts="Meta+Shift+H"
+          onClick={() => window.panelApi.sendAction({ type: 'toggle-chrome' })}
         >
-          <Icon icon={Camera01Icon} size={14} />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          data-testid="sync-toggle"
-          onClick={() => {
-            void window.panelApi.setSyncEnabled(!syncEnabled).then(setSyncEnabled)
-          }}
-          aria-label={syncEnabled ? 'Disable interaction sync' : 'Enable interaction sync'}
-          aria-pressed={syncEnabled}
-        >
-          {syncEnabled ? (
-            <Icon icon={Link01Icon} size={14} />
-          ) : (
-            <Icon icon={Unlink01Icon} size={14} />
-          )}
+          <Icon icon={FullScreenIcon} size={14} />
         </Button>
       </div>
     </header>

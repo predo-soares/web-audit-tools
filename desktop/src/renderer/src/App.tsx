@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DeviceProfile, PaneId, PaneLoadError } from '../../shared/types'
 import { PANE_IDS } from '../../shared/device-presets'
 import {
@@ -14,6 +14,7 @@ import { LighthouseView } from '@renderer/components/lighthouse'
 import { ToolbarProvider } from '@renderer/context/toolbar-context'
 import { DiagnosticsProvider } from '@renderer/context/diagnostics-context'
 import { SidebarProvider } from '@renderer/context/sidebar-context'
+import { matchesAppShortcut } from '../../shared/shortcuts'
 
 function catalogEntryToProfile(entry: CatalogEntry): DeviceProfile {
   return {
@@ -54,9 +55,27 @@ export default function App(): React.JSX.Element {
     'browser'
   )
   const [selectedPresets, setSelectedPresets] = useState<SelectedPresets>(DEFAULT_SELECTED)
+  // When set, the canvas shows only this pane; other devices are hidden. This is a
+  // transient view concern layered on top of selectedPresets, not a selection change.
+  const [focusedPane, setFocusedPane] = useState<PaneId | null>(null)
+  // Immersive mode: hides the toolbar/sidebar/diagnostics chrome so only the
+  // device canvas is visible. Only meaningful in the browser workspace.
+  const [chromeHidden, setChromeHidden] = useState(false)
   // Tracks the last committed URL so we only react to genuine navigations, not
   // repeated nav-state updates (title changes, etc.) that carry the same URL.
   const lastCommittedUrlRef = useRef('')
+  // Read by IPC callbacks whose effect runs once; keeps them off stale closures.
+  const workspaceRef = useRef(workspace)
+  const chromeHiddenRef = useRef(chromeHidden)
+  useEffect(() => {
+    workspaceRef.current = workspace
+    chromeHiddenRef.current = chromeHidden
+  }, [workspace, chromeHidden])
+
+  const applyChromeHidden = useCallback((hidden: boolean): void => {
+    setChromeHidden(hidden)
+    void window.api.setChromeHidden(hidden)
+  }, [])
 
   // A real URL change returns the user to the device canvas (browser workspace).
   const returnToDeviceCanvasOnNavigate = (barUrl: string): void => {
@@ -70,6 +89,19 @@ export default function App(): React.JSX.Element {
   }
 
   const visiblePanes: PaneId[] = PANE_IDS.filter((id) => selectedPresets[id] !== undefined)
+  // A valid focus narrows the canvas to a single pane; otherwise show every
+  // selected pane. Focusing is only meaningful when more than one pane is visible.
+  const canFocusPanes = visiblePanes.length > 1
+  const activeFocusPane = focusedPane && visiblePanes.includes(focusedPane) ? focusedPane : null
+  const effectiveVisiblePanes: PaneId[] = activeFocusPane ? [activeFocusPane] : visiblePanes
+
+  const handleToggleFocus = (paneId: PaneId): void => {
+    const next = activeFocusPane === paneId ? null : paneId
+    setFocusedPane(next)
+    // The main process hides the other panes' native views; the renderer only
+    // controls which placeholders lay out.
+    void window.api.setFocusedPane(next)
+  }
 
   const paneProfiles: Partial<Record<PaneId, DeviceProfile>> = Object.fromEntries(
     (Object.entries(selectedPresets) as [PaneId, string][])
@@ -98,6 +130,11 @@ export default function App(): React.JSX.Element {
       // deselect this pane entirely
       next = { ...selectedPresets }
       delete next[paneId]
+      // A deselected pane can't stay focused, or the canvas would show nothing.
+      if (focusedPane === paneId) {
+        setFocusedPane(null)
+        void window.api.setFocusedPane(null)
+      }
     } else {
       // enable pane with this preset (or switch to different preset in same pane)
       const profile = catalogEntryToProfile(entry)
@@ -172,15 +209,20 @@ export default function App(): React.JSX.Element {
         void window.api.closePanel('zoom')
       }
 
-      if (!event.metaKey && !event.ctrlKey) return
+      const input = {
+        key: event.key,
+        mod: event.metaKey || event.ctrlKey,
+        shift: event.shiftKey,
+        alt: event.altKey
+      }
 
-      if (event.key === '[') {
+      if (matchesAppShortcut('back', input)) {
         event.preventDefault()
         void window.api.goBack()
-      } else if (event.key === ']') {
+      } else if (matchesAppShortcut('forward', input)) {
         event.preventDefault()
         void window.api.goForward()
-      } else if (event.key === 'j') {
+      } else if (matchesAppShortcut('diagnostics', input)) {
         event.preventDefault()
         window.api.toggleDiagnosticsDrawer()
       }
@@ -189,6 +231,23 @@ export default function App(): React.JSX.Element {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
+
+  // Immersive-mode toggles arrive from the main process (Cmd+Shift+H / Escape,
+  // routed regardless of focus) and the toolbar button. Only the device canvas
+  // supports it; other workspaces render their own full-screen chrome.
+  useEffect(() => {
+    const unsubscribeToggle = window.api.onToggleChrome(() => {
+      if (workspaceRef.current !== 'browser') return
+      applyChromeHidden(!chromeHiddenRef.current)
+    })
+    const unsubscribeExit = window.api.onExitChrome(() => {
+      if (chromeHiddenRef.current) applyChromeHidden(false)
+    })
+    return () => {
+      unsubscribeToggle()
+      unsubscribeExit()
+    }
+  }, [applyChromeHidden])
 
   return (
     <SidebarProvider>
@@ -219,8 +278,12 @@ export default function App(): React.JSX.Element {
               committedUrl={committedUrl}
               activePane={activePane}
               safariChromeEnabled={safariChromeEnabled}
-              visiblePanes={visiblePanes}
+              visiblePanes={effectiveVisiblePanes}
               paneProfiles={paneProfiles}
+              canFocus={canFocusPanes}
+              focusedPane={activeFocusPane}
+              onToggleFocus={handleToggleFocus}
+              chromeHidden={chromeHidden}
             />
           )}
         </ToolbarProvider>

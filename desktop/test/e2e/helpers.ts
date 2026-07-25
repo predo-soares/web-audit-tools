@@ -219,6 +219,22 @@ export async function getSidebarPage(window: Page): Promise<Page> {
   )
 }
 
+export async function getShortcutsPage(window: Page): Promise<Page> {
+  const context = window.context()
+  const started = Date.now()
+  while (Date.now() - started < 10_000) {
+    for (const page of context.pages()) {
+      if (!page.url().includes('overlay.html')) continue
+      if ((await page.getByTestId('shortcuts-dialog').count()) > 0) {
+        await page.waitForLoadState('domcontentloaded')
+        return page
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  throw new Error('Keyboard shortcuts modal overlay page not found')
+}
+
 export async function launchApp(existingUserDataDir?: string): Promise<LaunchedApp> {
   suppressMacRestorePrompt()
 
