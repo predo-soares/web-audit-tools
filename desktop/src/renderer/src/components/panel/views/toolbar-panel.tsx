@@ -481,33 +481,13 @@ export function ToolbarPanel(): React.JSX.Element {
           className="pointer-events-auto flex w-full min-w-0 max-w-[42rem] items-center gap-1"
           data-app-region="no-drag"
         >
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            data-testid="toolbar-back"
-            aria-label="Back"
-            aria-keyshortcuts="Meta+["
-            disabled={!canGoBack || navigating}
-            onClick={() => void window.panelApi.goBack()}
-          >
-            <Icon icon={ArrowLeft01Icon} size={14} />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            data-testid="toolbar-forward"
-            aria-label="Forward"
-            aria-keyshortcuts="Meta+]"
-            disabled={!canGoForward || navigating}
-            onClick={() => void window.panelApi.goForward()}
-          >
-            <Icon icon={ArrowRight01Icon} size={14} />
-          </Button>
           <UrlBar
             containerRef={urlBarRef}
             value={url}
+            canGoBack={canGoBack}
+            canGoForward={canGoForward}
+            onBack={() => void window.panelApi.goBack()}
+            onForward={() => void window.panelApi.goForward()}
             pageTitle={pageTitle}
             faviconUrl={faviconUrl}
             onChange={(next) => {
