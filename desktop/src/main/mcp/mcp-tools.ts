@@ -9,6 +9,7 @@ import {
   type AuditResult,
   type IndexingIntent
 } from '../../shared/seo-audit'
+import { LIGHTHOUSE_PROFILES, type LighthouseAssessmentState } from '../../shared/lighthouse'
 import type { PaneId } from '../../shared/types'
 import { normalizeUrl } from '../../shared/url'
 import type { DeviceInfo, McpToolPort, ObservedContext } from './mcp-tool-port'
@@ -131,6 +132,29 @@ function formatAuditResult(
     lines.push(`    Impact: ${finding.impact}`)
     if (finding.remediation) lines.push(`    Fix: ${finding.remediation}`)
   }
+
+  return lines.join('\n')
+}
+
+function formatScore(score: number | null): string {
+  return score == null ? 'n/a' : `${Math.round(score * 100)}`
+}
+
+function formatLighthouseState(state: LighthouseAssessmentState): string {
+  const lines: string[] = [`Lighthouse state: ${state.phase}`]
+  if (state.phase === 'failed') lines.push(`Error: ${state.error}`)
+
+  let anyResult = false
+  for (const profile of LIGHTHOUSE_PROFILES) {
+    const result = state.results[profile]
+    if (!result) continue
+    anyResult = true
+    lines.push('', `${profile}${result.stale ? ' (stale)' : ''}:`)
+    for (const category of result.categories) {
+      lines.push(`  ${category.title}: ${formatScore(category.score)}`)
+    }
+  }
+  if (!anyResult) lines.push('', 'No Lighthouse results yet.')
 
   return lines.join('\n')
 }
@@ -342,6 +366,37 @@ export function registerMcpTools(server: McpServer, port: McpToolPort): void {
       return textResult(
         formatAuditResult(state.result, { stale: state.stale, incomplete: state.incomplete })
       )
+    }
+  )
+
+  server.registerTool(
+    'run_lighthouse',
+    {
+      title: 'Run Lighthouse',
+      description:
+        'Run Lighthouse (mobile + desktop) for the active pane, await completion, and return the category scores so you can verify a performance change.',
+      inputSchema: {}
+    },
+    async () => {
+      const result = await port.runLighthouse()
+      if (!result.ok) {
+        return errorResult(
+          'Cannot run Lighthouse: no URL is loaded in the active pane. Navigate to a URL first.'
+        )
+      }
+      return textResult(formatLighthouseState(result.state))
+    }
+  )
+
+  server.registerTool(
+    'get_lighthouse_state',
+    {
+      title: 'Read the current Lighthouse state',
+      description: 'Return the current Lighthouse scores/state without re-running.',
+      inputSchema: {}
+    },
+    async () => {
+      return textResult(formatLighthouseState(port.getLighthouseState()))
     }
   )
 }

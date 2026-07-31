@@ -4,12 +4,14 @@ import { isLocalhostUrl } from '../../shared/dev-context'
 import { captureSnapshot } from '../services/snapshot-service'
 import { makeSnapshotPort } from '../ipc'
 import type { AuditManager } from '../seo/audit-manager'
+import type { LighthouseManager } from '../seo/lighthouse-manager'
 import type { PaneManager } from '../panes/pane-manager'
 import type { DeviceInfo, McpToolPort, ObservedContext } from './mcp-tool-port'
 
 export interface ComposeMcpToolPortDeps {
   paneManager: PaneManager
   auditManager: AuditManager
+  lighthouseManager: LighthouseManager
 }
 
 /**
@@ -18,7 +20,7 @@ export interface ComposeMcpToolPortDeps {
  * bridged, so both surfaces act on the same manager instances and never diverge.
  */
 export function composeMcpToolPort(deps: ComposeMcpToolPortDeps): McpToolPort {
-  const { paneManager, auditManager } = deps
+  const { paneManager, auditManager, lighthouseManager } = deps
 
   return {
     navigateAll: (url) => paneManager.navigateAll(url),
@@ -109,6 +111,23 @@ export function composeMcpToolPort(deps: ComposeMcpToolPortDeps): McpToolPort {
 
     runAudit: (indexingIntent) => auditManager.run({ indexingIntent }),
 
-    getAudit: () => auditManager.getState()
+    getAudit: () => auditManager.getState(),
+
+    runLighthouse: async () => {
+      const nav = paneManager.getNavigationState()
+      if (!nav.barUrl) return { ok: false, reason: 'no-url' }
+      const paneId = nav.activePane ?? 'desktop'
+      const state = await lighthouseManager.run({
+        url: nav.barUrl,
+        paneId,
+        // Disabled until cookies can be seeded into an isolated Chrome jar safely
+        // (mirrors the IPC surface).
+        shareSession: false,
+        headers: { 'User-Agent': paneManager.getUserAgentForPane(paneId) }
+      })
+      return { ok: true, state }
+    },
+
+    getLighthouseState: () => lighthouseManager.getState()
   }
 }

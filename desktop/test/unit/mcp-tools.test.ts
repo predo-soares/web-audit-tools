@@ -12,6 +12,10 @@ import type {
 } from '../../src/main/mcp/mcp-tool-port'
 import type { PaneId } from '../../src/shared/types'
 import { IDLE_AUDIT_STATE, type AuditResult, type IndexingIntent } from '../../src/shared/seo-audit'
+import {
+  EMPTY_LIGHTHOUSE_RESULTS,
+  type LighthouseAssessmentState
+} from '../../src/shared/lighthouse'
 
 interface FakePort extends McpToolPort {
   navigateCalls: string[]
@@ -21,6 +25,14 @@ interface FakePort extends McpToolPort {
   screenshotCalls: (PaneId | null)[]
   reloadCalls: number
   runAuditCalls: IndexingIntent[]
+  runLighthouseCalls: number
+}
+
+const IDLE_LIGHTHOUSE_STATE: LighthouseAssessmentState = {
+  phase: 'idle',
+  results: { ...EMPTY_LIGHTHOUSE_RESULTS },
+  error: null,
+  progress: null
 }
 
 const AUDIT_RESULT = {
@@ -92,6 +104,7 @@ function makePort(overrides?: Partial<McpToolPort>): FakePort {
   const runAuditCalls: IndexingIntent[] = []
   let captureBundleCalls = 0
   let reloadCalls = 0
+  let runLighthouseCalls = 0
   const port: FakePort = {
     navigateCalls,
     setActivePaneCalls,
@@ -100,6 +113,9 @@ function makePort(overrides?: Partial<McpToolPort>): FakePort {
     runAuditCalls,
     get reloadCalls() {
       return reloadCalls
+    },
+    get runLighthouseCalls() {
+      return runLighthouseCalls
     },
     get captureBundleCalls() {
       return captureBundleCalls
@@ -136,6 +152,11 @@ function makePort(overrides?: Partial<McpToolPort>): FakePort {
       return { ok: true, result: AUDIT_RESULT }
     },
     getAudit: () => IDLE_AUDIT_STATE,
+    runLighthouse: async () => {
+      runLighthouseCalls++
+      return { ok: true, state: IDLE_LIGHTHOUSE_STATE }
+    },
+    getLighthouseState: () => IDLE_LIGHTHOUSE_STATE,
     ...overrides
   }
   return port
@@ -531,6 +552,60 @@ describe('registerMcpTools', () => {
       const text = textOf(result)
       expect(text).toContain('(stale)')
       expect(text).toContain('search-appearance/title-present')
+    })
+  })
+
+  describe('run_lighthouse', () => {
+    it('delegates to runLighthouse and formats the returned scores', async () => {
+      const completed = {
+        phase: 'completed',
+        error: null,
+        progress: null,
+        results: {
+          mobile: {
+            stale: false,
+            categories: [
+              { id: 'performance', title: 'Performance', score: 0.91, auditIds: [] },
+              { id: 'seo', title: 'SEO', score: 1, auditIds: [] }
+            ]
+          },
+          desktop: null
+        }
+      } as unknown as LighthouseAssessmentState
+      const port = makePort({ runLighthouse: async () => ({ ok: true, state: completed }) })
+      const client = await connect(port)
+      const result = (await client.callTool({
+        name: 'run_lighthouse',
+        arguments: {}
+      })) as CallToolResult
+      const text = textOf(result)
+      expect(text).toContain('Lighthouse state: completed')
+      expect(text).toContain('Performance: 91')
+      expect(text).toContain('SEO: 100')
+    })
+
+    it('returns a structured error when no URL is loaded', async () => {
+      const port = makePort({ runLighthouse: async () => ({ ok: false, reason: 'no-url' }) })
+      const client = await connect(port)
+      const result = (await client.callTool({
+        name: 'run_lighthouse',
+        arguments: {}
+      })) as CallToolResult
+      expect(result.isError).toBe(true)
+      expect(textOf(result)).toMatch(/no url is loaded/i)
+    })
+  })
+
+  describe('get_lighthouse_state', () => {
+    it('returns the current state without re-running', async () => {
+      const port = makePort()
+      const client = await connect(port)
+      const result = (await client.callTool({
+        name: 'get_lighthouse_state',
+        arguments: {}
+      })) as CallToolResult
+      expect(port.runLighthouseCalls).toBe(0)
+      expect(textOf(result)).toContain('Lighthouse state: idle')
     })
   })
 })

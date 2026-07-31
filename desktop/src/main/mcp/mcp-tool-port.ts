@@ -14,6 +14,7 @@ import type { PaneId } from '../../shared/types'
 import type { DevContext } from '../../shared/dev-context'
 import type { RuntimeEvidenceSnapshot } from '../../shared/runtime-evidence'
 import type { AuditJobState, AuditRunResult, IndexingIntent } from '../../shared/seo-audit'
+import type { LighthouseAssessmentState } from '../../shared/lighthouse'
 
 /** Structured outcome of a capture-bundle request over MCP. */
 export type CaptureBundleResult =
@@ -38,6 +39,10 @@ export type SetVisibleDevicesResult = { ok: true } | { ok: false; reason: 'unsup
 
 /** Outcome of a pane screenshot request over MCP. */
 export type PaneScreenshotResult = { ok: true; png: Buffer } | { ok: false; reason: 'no-url' }
+
+/** Outcome of a Lighthouse run over MCP. */
+export type LighthouseRunResult =
+  { ok: true; state: LighthouseAssessmentState } | { ok: false; reason: 'no-url' }
 
 /** The active pane's observed context: runtime evidence + metadata + dev context. */
 export interface ObservedContext {
@@ -98,4 +103,10 @@ export interface McpToolPort {
 
   /** The most recent Page SEO audit job state (result, staleness, phase). */
   getAudit(): AuditJobState
+
+  /** Run Lighthouse for the active pane, awaiting completion. */
+  runLighthouse(): Promise<LighthouseRunResult>
+
+  /** The current Lighthouse assessment state without re-running. */
+  getLighthouseState(): LighthouseAssessmentState
 }

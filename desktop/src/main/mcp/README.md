@@ -40,13 +40,20 @@ one for a round-trip against the running app.
 
 ## Tools
 
-| Tool            | What it does                                                                                                                             |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `navigate`      | Load a URL across every device pane, exactly like the URL bar.                                                                           |
-| `captureBundle` | Produce a capture bundle (screenshot + runtime evidence + project context) for the active pane and return a pointer to its `context.md`. |
-
-More tools (device control, screenshots, observed context, Page SEO audit,
-Lighthouse) are added in later slices.
+| Tool                   | What it does                                                                                                                             |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `navigate`             | Load a URL across every device pane, exactly like the URL bar.                                                                           |
+| `captureBundle`        | Produce a capture bundle (screenshot + runtime evidence + project context) for the active pane and return a pointer to its `context.md`. |
+| `list_devices`         | List the device presets, which are visible, and which is the active pane.                                                                |
+| `set_active_pane`      | Switch which device is the active pane (what observed-context / screenshot reads reflect).                                               |
+| `set_devices`          | Set which device panes are visible (all panes, or a single soloed pane).                                                                 |
+| `screenshot`           | Capture the active pane (or a named device) as an inline image.                                                                          |
+| `get_observed_context` | Read the active pane's runtime evidence, metadata, and dev context as text.                                                              |
+| `reload`               | Reload every pane to verify a change.                                                                                                    |
+| `run_audit`            | Run a Page SEO audit on the active pane and return the findings.                                                                         |
+| `get_audit`            | Read the most recent Page SEO audit without re-running (flags staleness).                                                                |
+| `run_lighthouse`       | Run Lighthouse for the active pane and return the category scores.                                                                       |
+| `get_lighthouse_state` | Read the current Lighthouse state without re-running.                                                                                    |
 
 ## Security
 

@@ -5,6 +5,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { startMcpServer, type McpServerHandle } from '../../src/main/mcp/mcp-server'
 import type { McpToolPort } from '../../src/main/mcp/mcp-tool-port'
 import { IDLE_AUDIT_STATE } from '../../src/shared/seo-audit'
+import { EMPTY_LIGHTHOUSE_RESULTS } from '../../src/shared/lighthouse'
 
 function makePort(): McpToolPort & { navigateCalls: string[] } {
   const navigateCalls: string[] = []
@@ -28,7 +29,14 @@ function makePort(): McpToolPort & { navigateCalls: string[] } {
     }),
     reload: async () => {},
     runAudit: async () => ({ ok: false, reason: 'no-url' }),
-    getAudit: () => IDLE_AUDIT_STATE
+    getAudit: () => IDLE_AUDIT_STATE,
+    runLighthouse: async () => ({ ok: false, reason: 'no-url' }),
+    getLighthouseState: () => ({
+      phase: 'idle',
+      results: { ...EMPTY_LIGHTHOUSE_RESULTS },
+      error: null,
+      progress: null
+    })
   }
 }
 
