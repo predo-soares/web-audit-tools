@@ -177,6 +177,7 @@ export function registerIpcHandlers(
   ipcMain.handle('app:set-workspace-view', (_event, view: WorkspaceView) => {
     currentWorkspaceView = view
     panelManager.notifyToolbarPanel('workspace:view-changed', view)
+    panelManager.notifyPanel('sidebar-left', 'workspace:view-changed', view)
   })
   ipcMain.handle('app:get-workspace-view', () => currentWorkspaceView)
 

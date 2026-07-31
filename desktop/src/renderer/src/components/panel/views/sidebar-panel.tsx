@@ -3,7 +3,11 @@ import type { HistoryEntry } from '../../../../../shared/history'
 import { resolveFocusIndexAfterRemoval } from '../../../../../shared/history'
 import { isCommittedPageUrl } from '../../../../../shared/project'
 import type { Project } from '../../../../../shared/project'
-import { SIDEBAR_WIDTH_PX, TOOLBAR_HEIGHT_PX } from '../../../../../shared/sidebar'
+import {
+  SIDEBAR_WIDTH_PX,
+  TOOLBAR_HEIGHT_PX,
+  type WorkspaceView
+} from '../../../../../shared/sidebar'
 import { ClearHistoryDialog } from '@renderer/components/clear-history-dialog'
 import { HistoryRow } from '@renderer/components/history-row'
 import { ProjectRow } from '@renderer/components/project-row'
@@ -99,6 +103,17 @@ export function SidebarPanel({
       unsubscribeHide()
       unsubscribeClosed()
     }
+  }, [])
+
+  // The active tab mirrors the real workspace (owned by the main window), so it
+  // never desyncs — e.g. a page navigation that returns to the canvas highlights
+  // Preview. This is why the buttons set state, not toggle it.
+  useEffect(() => {
+    const applyWorkspace = (view: WorkspaceView): void => {
+      setActiveTab(view === 'browser' ? 'preview' : view)
+    }
+    void window.panelApi.getWorkspaceView().then(applyWorkspace)
+    return window.panelApi.onWorkspaceViewChanged(applyWorkspace)
   }, [])
 
   const focusHistoryHeading = useCallback(() => {
