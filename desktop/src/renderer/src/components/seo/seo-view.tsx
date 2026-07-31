@@ -75,9 +75,22 @@ export function SeoView({ onClose: _onClose }: { onClose: () => void }): React.J
           />
 
           {!result ? (
-            <p className="rounded-xl border border-white/10 bg-black/40 px-6 py-16 text-center text-sm text-white/55 backdrop-blur-md">
-              Run an audit to see results.
-            </p>
+            presentation.running ? (
+              <div
+                data-testid="seo-results-loading"
+                className="flex items-center justify-center gap-3 rounded-xl border border-white/10 bg-black/40 px-6 py-16 text-sm text-white/55 backdrop-blur-md"
+              >
+                <span
+                  aria-hidden
+                  className="size-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent"
+                />
+                Running audit…
+              </div>
+            ) : (
+              <p className="rounded-xl border border-white/10 bg-black/40 px-6 py-16 text-center text-sm text-white/55 backdrop-blur-md">
+                Run an audit to see results.
+              </p>
+            )
           ) : (
             <>
               <MotionTabs

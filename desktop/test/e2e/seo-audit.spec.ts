@@ -337,6 +337,27 @@ test('offers an editable URL bar before a page is committed', async () => {
   }
 })
 
+test('flags an invalid URL entered in the target bar', async () => {
+  const { window, close } = await launchApp()
+
+  try {
+    await waitForAllPanes(window)
+    const panel = await openSeoView(window)
+    const input = panel.getByTestId('seo-target-url')
+
+    await input.fill('not a url')
+    await input.press('Enter')
+    await expect(panel.getByTestId('seo-url-error')).toBeVisible()
+    await expect(input).toHaveAttribute('aria-invalid', 'true')
+
+    // Editing the value clears the error without navigating anywhere.
+    await input.fill('https://example.com')
+    await expect(panel.getByTestId('seo-url-error')).toHaveCount(0)
+  } finally {
+    await close()
+  }
+})
+
 test('renders a resolved search preview and preserves declared metadata', async ({
   fixturePort
 }) => {
