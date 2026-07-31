@@ -138,7 +138,7 @@ export function AuditControls({
   }
 
   return (
-    <div className={cn(CARD, 'px-3 py-3')}>
+    <div className={cn(CARD, 'relative z-20 px-3 py-3')}>
       {/* Grouped URL bar + indexing intent + run action */}
       <div className="relative">
         <form
