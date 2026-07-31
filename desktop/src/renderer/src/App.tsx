@@ -64,6 +64,10 @@ export default function App(): React.JSX.Element {
   // Tracks the last committed URL so we only react to genuine navigations, not
   // repeated nav-state updates (title changes, etc.) that carry the same URL.
   const lastCommittedUrlRef = useRef('')
+  // Set when a navigation is initiated from within a full-screen view's own URL
+  // bar (e.g. the SEO target bar), so the pane navigation that follows keeps the
+  // user in that view instead of returning them to the device canvas.
+  const suppressCanvasReturnRef = useRef(false)
   // Read by IPC callbacks whose effect runs once; keeps them off stale closures.
   const workspaceRef = useRef(workspace)
   const chromeHiddenRef = useRef(chromeHidden)
@@ -85,8 +89,15 @@ export default function App(): React.JSX.Element {
 
   // A real URL change returns the user to the device canvas (browser workspace).
   const returnToDeviceCanvasOnNavigate = (barUrl: string): void => {
-    if (!isCommittedPageUrl(barUrl) || barUrl === lastCommittedUrlRef.current) return
+    if (!isCommittedPageUrl(barUrl)) return
+    // A navigation the user triggered from a full-screen view's own bar should
+    // not eject them from that view. Consume the flag even on a no-op re-visit
+    // so it never lingers into a later, unrelated navigation.
+    const suppressed = suppressCanvasReturnRef.current
+    suppressCanvasReturnRef.current = false
+    if (barUrl === lastCommittedUrlRef.current) return
     lastCommittedUrlRef.current = barUrl
+    if (suppressed) return
     setWorkspace((current) => {
       if (current === 'browser') return current
       void window.api.setPanesVisible(true)
@@ -259,6 +270,9 @@ export default function App(): React.JSX.Element {
               onClose={() => {
                 setWorkspace('browser')
                 void window.api.setPanesVisible(true)
+              }}
+              onTargetNavigate={() => {
+                suppressCanvasReturnRef.current = true
               }}
             />
           ) : workspace === 'lighthouse' ? (

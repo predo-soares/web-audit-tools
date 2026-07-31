@@ -28,8 +28,14 @@ const SEO_TABS: Array<MotionTabItem<SeoTab>> = [
   { value: 'i18n', label: 'International', testId: 'seo-tab-i18n' }
 ]
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function SeoView({ onClose: _onClose }: { onClose: () => void }): React.JSX.Element {
+export function SeoView({
+  onTargetNavigate
+}: {
+  onClose: () => void
+  // Called just before the target bar navigates the pane, so App can keep the
+  // user in the SEO view rather than returning them to the device canvas.
+  onTargetNavigate: () => void
+}): React.JSX.Element {
   const { isOpen: sidebarOpen, isTransitioning: sidebarTransitioning } = useSidebar()
   const sidebarOffset = sidebarOpen || sidebarTransitioning ? SIDEBAR_WIDTH_PX : 0
   const [tab, setTab] = useState<SeoTab>('findings')
@@ -69,7 +75,10 @@ export function SeoView({ onClose: _onClose }: { onClose: () => void }): React.J
             job={presentation.job}
             result={result}
             history={presentation.history}
-            handleNavigate={presentation.handleNavigate}
+            handleNavigate={(target) => {
+              onTargetNavigate()
+              presentation.handleNavigate(target)
+            }}
             handleIntentChange={presentation.handleIntentChange}
             handleRun={presentation.handleRun}
             handleCancel={presentation.handleCancel}
