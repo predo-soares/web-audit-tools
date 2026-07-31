@@ -442,6 +442,11 @@ export function registerIpcHandlers(
     const panelId = panelManager.getPanelIdForWebContents(event.sender)
     if (!panelId) return
 
+    if (action.type === 'close-panel') {
+      panelManager.close(panelId)
+      return
+    }
+
     if (action.type === 'set-zoom' || action.type === 'set-theme' || action.type === 'fit-zoom') {
       void panelManager.handleAction(panelId, action)
       return
