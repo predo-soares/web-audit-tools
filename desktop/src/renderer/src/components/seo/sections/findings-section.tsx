@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { Accordion as AccordionPrimitive } from '@base-ui/react/accordion'
+import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
 
 import {
   CATEGORY_LABEL,
@@ -10,148 +11,155 @@ import {
 import { auditMarkdown } from '../../../../../shared/seo-markdown'
 import { cn } from '@renderer/lib/utils'
 import type { SeoAuditPresentation } from '@renderer/hooks/use-seo-audit-presentation'
+import { Icon } from '@renderer/components/ui/icon'
+import { Accordion, AccordionContent, AccordionItem } from '@renderer/components/ui/accordion'
 import { CopyButton } from '../copy-button'
-import { CARD, EASE_OUT, SECTION_TITLE } from '../lib/styles'
-import {
-  OUTCOME_CLASS,
-  OUTCOME_ORDER,
-  PRIMARY_OUTCOMES,
-  SECONDARY_OUTCOMES
-} from '../lib/finding-format'
+import { SECTION_TITLE } from '../lib/styles'
+import { CATEGORIES, OUTCOMES, OUTCOME_CLASS, OUTCOME_ORDER } from '../lib/finding-format'
+
+const chipClass = (active: boolean): string =>
+  cn(
+    'rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+    active
+      ? 'border-transparent bg-white/15 text-white'
+      : 'border-white/10 bg-white/[0.03] text-white/55 hover:text-white/90'
+  )
 
 export function FindingsSection({
   result,
   findingCategory,
   findingOutcome,
+  setFindingCategory,
+  setFindingOutcome,
   copyMarkdown
 }: {
   result: AuditResult
   findingCategory: AuditCategory | null
   findingOutcome: FindingOutcome | null
+  setFindingCategory: SeoAuditPresentation['setFindingCategory']
+  setFindingOutcome: SeoAuditPresentation['setFindingOutcome']
   copyMarkdown: SeoAuditPresentation['copyMarkdown']
 }): React.JSX.Element {
-  // Which collapsed outcomes the user has revealed. The explicit outcome filter
-  // (findingOutcome) still wins when set, so these toggles only matter otherwise.
-  const [revealed, setRevealed] = useState<Set<FindingOutcome>>(new Set())
-
   const inCategory = result.findings.filter(
     (finding) => !findingCategory || finding.category === findingCategory
   )
-
-  const activeOutcomes: ReadonlySet<FindingOutcome> = findingOutcome
-    ? new Set([findingOutcome])
-    : new Set([...PRIMARY_OUTCOMES, ...revealed])
-
   const visible = inCategory
-    .filter((finding) => activeOutcomes.has(finding.outcome))
+    .filter((finding) => !findingOutcome || finding.outcome === findingOutcome)
     .sort((a, b) => OUTCOME_ORDER[a.outcome] - OUTCOME_ORDER[b.outcome])
 
-  // Only offer a toggle for a secondary outcome that actually has findings, and
-  // only while no explicit outcome filter is overriding the view.
-  const toggles = findingOutcome
-    ? []
-    : SECONDARY_OUTCOMES.map((outcome) => ({
-        outcome,
-        count: inCategory.filter((finding) => finding.outcome === outcome).length
-      })).filter((entry) => entry.count > 0)
+  const outcomeCount = (outcome: FindingOutcome): number =>
+    inCategory.filter((finding) => finding.outcome === outcome).length
+  const categoryCount = (category: AuditCategory): number =>
+    result.findings.filter((finding) => finding.category === category).length
 
   return (
-    <section data-testid="seo-result">
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+    <section
+      data-testid="seo-result"
+      className="rounded-xl border border-white/10 bg-black/40 p-5 backdrop-blur-md"
+    >
+      <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className={SECTION_TITLE}>Findings</h2>
-        {toggles.length > 0 ? (
-          <div className="ml-auto flex flex-wrap gap-1.5">
-            {toggles.map(({ outcome, count }) => {
-              const on = revealed.has(outcome)
-              return (
-                <button
-                  key={outcome}
-                  type="button"
-                  data-testid="seo-outcome-toggle"
-                  data-outcome={outcome}
-                  aria-pressed={on}
-                  onClick={() =>
-                    setRevealed((prev) => {
-                      const next = new Set(prev)
-                      if (next.has(outcome)) next.delete(outcome)
-                      else next.add(outcome)
-                      return next
-                    })
-                  }
-                  className={cn(
-                    'rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors',
-                    on
-                      ? 'border-transparent bg-white/10 text-white/90'
-                      : 'border-white/10 bg-white/[0.03] text-white/55 hover:text-white/90'
-                  )}
-                >
-                  {on ? 'Hide' : 'Show'} {OUTCOME_LABEL[outcome].toLowerCase()} · {count}
-                </button>
-              )
-            })}
-          </div>
-        ) : null}
+        <span className="text-[11px] text-white/45">{result.findings.length} findings</span>
       </div>
-      <ul className="space-y-2">
-        {visible.map((finding, index) => (
-          <li
-            key={finding.ruleId}
-            data-testid="seo-finding"
-            data-outcome={finding.outcome}
-            data-rule-id={finding.ruleId}
-            style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
-            className={cn(
-              CARD,
-              'p-4',
-              'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2',
-              'motion-safe:duration-200',
-              EASE_OUT
-            )}
-          >
-            <div className="flex items-center gap-2">
-              <span
-                data-testid="seo-finding-outcome"
-                className={cn(
-                  'rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
-                  OUTCOME_CLASS[finding.outcome]
-                )}
-              >
-                {OUTCOME_LABEL[finding.outcome]}
-              </span>
-              <span className="text-xs text-white/55">{CATEGORY_LABEL[finding.category]}</span>
-              <code data-testid="seo-finding-rule-id" className="ml-auto text-[10px] text-white/55">
-                {finding.ruleId}
-              </code>
-              <CopyButton
-                label={`Copy ${finding.ruleId} finding`}
-                onCopy={() => copyMarkdown(auditMarkdown(result, { finding }), finding.ruleId)}
-              />
-            </div>
-            <p data-testid="seo-finding-summary" className="mt-2 text-sm text-white/90">
-              {finding.summary}
-            </p>
-            <p className="mt-1 text-xs text-white/55">{finding.impact}</p>
-            <p data-testid="seo-finding-evidence" className="mt-2 text-xs text-white/75">
-              <span className="text-white/55">
-                {finding.evidence.origin === 'delivered' ? 'Delivered' : 'Rendered'}:{' '}
-              </span>
-              {finding.evidence.detail}
-            </p>
-            {finding.remediation ? (
-              <p data-testid="seo-finding-remediation" className="mt-1.5 text-xs text-sky-400">
-                {finding.remediation}
-              </p>
-            ) : null}
-          </li>
-        ))}
-        {visible.length === 0 ? (
-          <li className="rounded-xl border border-white/10 bg-black/55 p-5 text-sm text-white/55 backdrop-blur-md">
-            {!findingCategory && !findingOutcome && toggles.length > 0
-              ? 'Nothing needs attention. Use the toggles above to review passed and unverifiable checks.'
-              : 'No findings match the current filters.'}
-          </li>
-        ) : null}
-      </ul>
+
+      <div data-testid="seo-overview" className="mb-4 flex flex-col gap-2">
+        <div className="flex flex-wrap gap-1.5">
+          {OUTCOMES.map((outcome) => (
+            <button
+              key={outcome}
+              type="button"
+              data-testid="seo-outcome-filter"
+              data-outcome={outcome}
+              aria-pressed={findingOutcome === outcome}
+              onClick={() => setFindingOutcome(findingOutcome === outcome ? null : outcome)}
+              className={chipClass(findingOutcome === outcome)}
+            >
+              {OUTCOME_LABEL[outcome]} · {outcomeCount(outcome)}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {CATEGORIES.map((category) => (
+            <button
+              key={category}
+              type="button"
+              data-testid="seo-category-row"
+              aria-pressed={findingCategory === category}
+              onClick={() => setFindingCategory(findingCategory === category ? null : category)}
+              className={chipClass(findingCategory === category)}
+            >
+              {CATEGORY_LABEL[category]} · {categoryCount(category)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {visible.length === 0 ? (
+        <p className="rounded-lg border border-white/10 bg-white/[0.02] p-4 text-sm text-white/55">
+          No findings match the current filters.
+        </p>
+      ) : (
+        <Accordion className="divide-y divide-white/5 border-t border-white/5">
+          {visible.map((finding) => (
+            <AccordionItem
+              key={finding.ruleId}
+              value={finding.ruleId}
+              data-testid="seo-finding"
+              data-outcome={finding.outcome}
+              data-rule-id={finding.ruleId}
+            >
+              <AccordionPrimitive.Header className="flex items-center gap-2">
+                <AccordionPrimitive.Trigger className="group/finding flex min-w-0 flex-1 items-center gap-2 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+                  <Icon
+                    icon={ArrowDown01Icon}
+                    className="size-3.5 shrink-0 text-white/40 transition-transform group-aria-expanded/finding:rotate-180"
+                  />
+                  <span
+                    data-testid="seo-finding-outcome"
+                    className={cn(
+                      'shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                      OUTCOME_CLASS[finding.outcome]
+                    )}
+                  >
+                    {OUTCOME_LABEL[finding.outcome]}
+                  </span>
+                  <span
+                    data-testid="seo-finding-summary"
+                    className="min-w-0 flex-1 truncate text-sm text-white/90"
+                  >
+                    {finding.summary}
+                  </span>
+                  <span className="sr-only">{CATEGORY_LABEL[finding.category]}</span>
+                </AccordionPrimitive.Trigger>
+                <CopyButton
+                  label={`Copy ${finding.ruleId} finding`}
+                  onCopy={() => copyMarkdown(auditMarkdown(result, { finding }), finding.ruleId)}
+                />
+              </AccordionPrimitive.Header>
+              <AccordionContent>
+                <div className="flex flex-col gap-1.5 pl-[1.375rem] text-xs">
+                  <p className="text-white/55">{finding.impact}</p>
+                  <p data-testid="seo-finding-evidence" className="text-white/75">
+                    <span className="text-white/55">
+                      {finding.evidence.origin === 'delivered' ? 'Delivered' : 'Rendered'}:{' '}
+                    </span>
+                    {finding.evidence.detail}
+                  </p>
+                  <code data-testid="seo-finding-rule-id" className="text-[10px] text-white/45">
+                    {finding.ruleId}
+                  </code>
+                  {finding.remediation ? (
+                    <p data-testid="seo-finding-remediation" className="text-sky-400">
+                      {finding.remediation}
+                    </p>
+                  ) : null}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      )}
     </section>
   )
 }
