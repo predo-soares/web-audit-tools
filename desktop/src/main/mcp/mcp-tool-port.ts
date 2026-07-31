@@ -33,6 +33,9 @@ export interface DeviceInfo {
 /** Outcome of a device-visibility change over MCP. */
 export type SetVisibleDevicesResult = { ok: true } | { ok: false; reason: 'unsupported-subset' }
 
+/** Outcome of a pane screenshot request over MCP. */
+export type PaneScreenshotResult = { ok: true; png: Buffer } | { ok: false; reason: 'no-url' }
+
 export interface McpToolPort {
   /**
    * Load a URL across every device pane, routed through the same navigation the
@@ -61,4 +64,11 @@ export interface McpToolPort {
    * (more than one but not all) is reported as `unsupported-subset`.
    */
   setVisibleDevices(devices: PaneId[]): SetVisibleDevicesResult
+
+  /**
+   * Capture the active pane (`device === null`) or a named device as a PNG,
+   * reusing the existing screenshot capture. Returns `no-url` when the target
+   * pane has no committed URL.
+   */
+  screenshot(device: PaneId | null): Promise<PaneScreenshotResult>
 }

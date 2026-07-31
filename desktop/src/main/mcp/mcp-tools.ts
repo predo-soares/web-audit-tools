@@ -144,4 +144,33 @@ export function registerMcpTools(server: McpServer, port: McpToolPort): void {
       return textResult(`Visible device panes: ${[...new Set(devices)].join(', ')}.`)
     }
   )
+
+  server.registerTool(
+    'screenshot',
+    {
+      title: 'Screenshot a device pane',
+      description:
+        'Capture the active pane (or a named device) as an image so you can reason about the rendered page visually.',
+      inputSchema: {
+        device: z
+          .string()
+          .optional()
+          .describe(
+            `Optional device preset id (${PANE_IDS.join(', ')}). Defaults to the active pane.`
+          )
+      }
+    },
+    async ({ device }) => {
+      if (device !== undefined && !isKnownDevice(device))
+        return errorResult(unknownDeviceMessage(device))
+      const result = await port.screenshot(device ?? null)
+      if (!result.ok) {
+        const target = device ? `the ${device} pane` : 'the active pane'
+        return errorResult(`Cannot capture a screenshot: no URL is loaded in ${target}.`)
+      }
+      return {
+        content: [{ type: 'image', data: result.png.toString('base64'), mimeType: 'image/png' }]
+      }
+    }
+  )
 }

@@ -15,7 +15,8 @@ function makePort(): McpToolPort & { navigateCalls: string[] } {
     captureBundle: async () => ({ ok: false, reason: 'no-url' }),
     listDevices: () => [],
     setActivePane: () => {},
-    setVisibleDevices: () => ({ ok: true })
+    setVisibleDevices: () => ({ ok: true }),
+    screenshot: async () => ({ ok: false, reason: 'no-url' })
   }
 }
 

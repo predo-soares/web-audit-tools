@@ -12,7 +12,10 @@ interface FakePort extends McpToolPort {
   captureBundleCalls: number
   setActivePaneCalls: PaneId[]
   setVisibleDevicesCalls: PaneId[][]
+  screenshotCalls: (PaneId | null)[]
 }
+
+const FIXED_PNG = Buffer.from('fake-png-bytes')
 
 const DEFAULT_DEVICES: DeviceInfo[] = [
   {
@@ -41,11 +44,13 @@ function makePort(overrides?: Partial<McpToolPort>): FakePort {
   const navigateCalls: string[] = []
   const setActivePaneCalls: PaneId[] = []
   const setVisibleDevicesCalls: PaneId[][] = []
+  const screenshotCalls: (PaneId | null)[] = []
   let captureBundleCalls = 0
   const port: FakePort = {
     navigateCalls,
     setActivePaneCalls,
     setVisibleDevicesCalls,
+    screenshotCalls,
     get captureBundleCalls() {
       return captureBundleCalls
     },
@@ -68,9 +73,19 @@ function makePort(overrides?: Partial<McpToolPort>): FakePort {
       setVisibleDevicesCalls.push(devices)
       return { ok: true }
     },
+    screenshot: async (device) => {
+      screenshotCalls.push(device)
+      return { ok: true, png: FIXED_PNG }
+    },
     ...overrides
   }
   return port
+}
+
+function imageOf(result: CallToolResult): { data: string; mimeType: string } | undefined {
+  return result.content.find(
+    (c): c is { type: 'image'; data: string; mimeType: string } => c.type === 'image'
+  )
 }
 
 /** Build a client connected to a server registered against the given fake port. */
@@ -242,6 +257,53 @@ describe('registerMcpTools', () => {
       })) as CallToolResult
       expect(result.isError).toBe(true)
       expect(textOf(result)).toMatch(/subset/i)
+    })
+  })
+
+  describe('screenshot', () => {
+    it('captures the active pane by default and returns image content', async () => {
+      const port = makePort()
+      const client = await connect(port)
+      const result = (await client.callTool({
+        name: 'screenshot',
+        arguments: {}
+      })) as CallToolResult
+      expect(port.screenshotCalls).toEqual([null])
+      const image = imageOf(result)
+      expect(image?.mimeType).toBe('image/png')
+      expect(image?.data).toBe(FIXED_PNG.toString('base64'))
+    })
+
+    it('captures a named device when specified', async () => {
+      const port = makePort()
+      const client = await connect(port)
+      await client.callTool({ name: 'screenshot', arguments: { device: 'desktop' } })
+      expect(port.screenshotCalls).toEqual(['desktop'])
+    })
+
+    it('returns a structured error for an unknown device', async () => {
+      const port = makePort()
+      const client = await connect(port)
+      const result = (await client.callTool({
+        name: 'screenshot',
+        arguments: { device: 'watch' }
+      })) as CallToolResult
+      expect(result.isError).toBe(true)
+      expect(textOf(result)).toMatch(/unknown device/i)
+      expect(port.screenshotCalls).toEqual([])
+    })
+
+    it('returns a structured error when no URL is loaded', async () => {
+      const port = makePort({
+        screenshot: async () => ({ ok: false, reason: 'no-url' })
+      })
+      const client = await connect(port)
+      const result = (await client.callTool({
+        name: 'screenshot',
+        arguments: {}
+      })) as CallToolResult
+      expect(result.isError).toBe(true)
+      expect(textOf(result)).toMatch(/no url is loaded/i)
     })
   })
 })

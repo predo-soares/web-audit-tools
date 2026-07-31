@@ -73,6 +73,17 @@ export function composeMcpToolPort(deps: ComposeMcpToolPortDeps): McpToolPort {
         return { ok: true }
       }
       return { ok: false, reason: 'unsupported-subset' }
+    },
+
+    screenshot: async (device) => {
+      if (device === null) {
+        const url = paneManager.getNavigationState().barUrl
+        if (!url || url === 'about:blank') return { ok: false, reason: 'no-url' }
+        return { ok: true, png: await paneManager.captureActivePaneScreenshot() }
+      }
+      const url = paneManager.getTrackedPaneUrl(device)
+      if (!url || url === 'about:blank') return { ok: false, reason: 'no-url' }
+      return { ok: true, png: await paneManager.capturePaneImage(device) }
     }
   }
 }
