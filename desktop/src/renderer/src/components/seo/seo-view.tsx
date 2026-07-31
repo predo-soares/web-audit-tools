@@ -75,18 +75,14 @@ export function SeoView({ onClose: _onClose }: { onClose: () => void }): React.J
             <>
               <AuditControls
                 url={presentation.url}
-                pageTitle={presentation.pageTitle}
                 intent={presentation.intent}
                 running={presentation.running}
                 job={presentation.job}
                 result={result}
-                copied={presentation.copied}
-                exportStatus={presentation.exportStatus}
+                handleNavigate={presentation.handleNavigate}
                 handleIntentChange={presentation.handleIntentChange}
                 handleRun={presentation.handleRun}
                 handleCancel={presentation.handleCancel}
-                copyMarkdown={copyMarkdown}
-                exportWithSnapshot={presentation.exportWithSnapshot}
               />
 
               {!result ? (

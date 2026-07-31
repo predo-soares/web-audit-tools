@@ -1,8 +1,9 @@
+import { useState } from 'react'
 import { InformationCircleIcon } from '@hugeicons/core-free-icons'
 import type { IndexingIntent } from '../../../../shared/seo-audit'
-import { auditMarkdown } from '../../../../shared/seo-markdown'
 import { Button } from '@renderer/components/ui/button'
 import { Icon } from '@renderer/components/ui/icon'
+import { Input } from '@renderer/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -13,57 +14,50 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip'
 import { cn } from '@renderer/lib/utils'
 import type { SeoAuditPresentation } from '@renderer/hooks/use-seo-audit-presentation'
-import { CopyButton } from './copy-button'
 import { CARD, PRESSABLE, SUBLABEL } from './lib/styles'
 import { INTENT_OPTIONS } from './lib/finding-format'
 
 type AuditControlsProps = Pick<
   SeoAuditPresentation,
   | 'url'
-  | 'pageTitle'
   | 'intent'
   | 'running'
   | 'job'
   | 'result'
-  | 'copied'
-  | 'exportStatus'
+  | 'handleNavigate'
   | 'handleIntentChange'
   | 'handleRun'
   | 'handleCancel'
-  | 'copyMarkdown'
-  | 'exportWithSnapshot'
 >
 
 export function AuditControls({
   url,
-  pageTitle,
   intent,
   running,
   job,
   result,
-  exportStatus,
+  handleNavigate,
   handleIntentChange,
   handleRun,
-  handleCancel,
-  copyMarkdown,
-  exportWithSnapshot
+  handleCancel
 }: AuditControlsProps): React.JSX.Element {
+  const [draft, setDraft] = useState(url)
+  // Keep the editable bar in sync when the pane navigates on its own, without a
+  // sync-in-effect: adjust state during render when the committed URL changes.
+  const [lastUrl, setLastUrl] = useState(url)
+  if (url !== lastUrl) {
+    setLastUrl(url)
+    setDraft(url)
+  }
+
   return (
     <div className={cn(CARD, 'px-5 py-4')}>
-      <div className="min-w-0">
-        <h2 className="text-sm font-semibold tracking-tight text-white">Target page</h2>
-        {url ? (
-          <p className="mt-0.5 truncate text-xs text-white/45" title={url}>
-            {pageTitle ? `${pageTitle} — ` : ''}
-            <span data-testid="seo-target-url">{url}</span>
-          </p>
-        ) : null}
-      </div>
-
-      {/* Indexing intent + run action */}
-      <div className="mt-4 border-t border-white/10 pt-4">
-        <div className="mb-1.5 flex items-center gap-1.5">
-          <p className={SUBLABEL}>Indexing intent</p>
+      <div className="mb-1.5 flex items-center justify-between">
+        <label htmlFor="seo-target-url" className={SUBLABEL}>
+          Target page
+        </label>
+        <div className="flex items-center gap-1.5">
+          <span className={SUBLABEL}>Indexing intent</span>
           <Tooltip>
             <TooltipTrigger
               type="button"
@@ -85,50 +79,69 @@ export function AuditControls({
             </TooltipContent>
           </Tooltip>
         </div>
-        <div className="flex items-center gap-2">
-          <Select
-            value={intent}
-            onValueChange={(value) => handleIntentChange(value as IndexingIntent)}
-          >
-            <SelectTrigger
-              data-testid="seo-intent-select"
-              aria-label="Indexing intent"
-              className="w-44"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {INTENT_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {running ? (
-            <Button
-              type="button"
-              variant="outline"
-              data-testid="seo-cancel-audit"
-              className={cn(PRESSABLE, 'ml-auto')}
-              onClick={handleCancel}
-            >
-              Cancel audit
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="solid"
-              color="neutral"
-              data-testid="seo-run-audit"
-              className={cn(PRESSABLE, 'ml-auto')}
-              onClick={handleRun}
-            >
-              {result ? 'Run audit again' : 'Run audit'}
-            </Button>
-          )}
-        </div>
       </div>
+
+      {/* Grouped URL + indexing intent + run action */}
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          handleNavigate(draft)
+        }}
+        className="flex items-stretch divide-x divide-input overflow-hidden rounded-lg border border-input bg-transparent transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50"
+      >
+        <Input
+          id="seo-target-url"
+          data-testid="seo-target-url"
+          type="text"
+          spellCheck={false}
+          autoComplete="off"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder="https://example.com"
+          className="h-8 flex-1 rounded-none border-0 bg-transparent focus-visible:border-0 focus-visible:ring-0 dark:bg-transparent"
+        />
+        <Select
+          value={intent}
+          onValueChange={(value) => handleIntentChange(value as IndexingIntent)}
+        >
+          <SelectTrigger
+            data-testid="seo-intent-select"
+            aria-label="Indexing intent"
+            className="h-8 w-40 shrink-0 rounded-none border-0 bg-transparent focus-visible:border-transparent focus-visible:ring-0 dark:bg-transparent dark:hover:bg-transparent"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {INTENT_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {running ? (
+          <Button
+            type="button"
+            variant="outline"
+            data-testid="seo-cancel-audit"
+            className={cn(PRESSABLE, 'shrink-0 rounded-none')}
+            onClick={handleCancel}
+          >
+            Cancel audit
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="solid"
+            color="neutral"
+            data-testid="seo-run-audit"
+            className={cn(PRESSABLE, 'shrink-0 rounded-none')}
+            onClick={handleRun}
+          >
+            {result ? 'Run audit again' : 'Run audit'}
+          </Button>
+        )}
+      </form>
 
       {/* Status + banners */}
       {running ? (
@@ -168,40 +181,6 @@ export function AuditControls({
             >
               This result is incomplete — the audit was interrupted before every check ran.
             </div>
-          ) : null}
-
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-            <span className="text-[11px] text-white/55">
-              {result.findings.length} finding{result.findings.length === 1 ? '' : 's'} ·{' '}
-              <span data-testid="seo-catalog-version">v{result.ruleCatalogVersion}</span>
-            </span>
-            <div className="flex items-center gap-2">
-              <CopyButton
-                testId="seo-copy-result"
-                label="Copy result"
-                onCopy={() => copyMarkdown(auditMarkdown(result), 'complete result')}
-              />
-              <Button
-                type="button"
-                variant="soft"
-                color="neutral"
-                size="tiny"
-                data-testid="seo-export-snapshot"
-                className={PRESSABLE}
-                onClick={exportWithSnapshot}
-              >
-                Export snapshot
-              </Button>
-            </div>
-          </div>
-          {exportStatus ? (
-            <p
-              data-testid="seo-export-status"
-              role="status"
-              className="mt-1.5 text-[10px] text-white/55"
-            >
-              {exportStatus}
-            </p>
           ) : null}
         </>
       ) : null}

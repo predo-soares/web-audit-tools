@@ -17,6 +17,7 @@ export interface SeoAuditPresentationAdapter {
   onPaneNavigation(callback: (state: PaneNavigationState) => void): () => void
   getSeoAuditState(): Promise<AuditJobState>
   onSeoAuditState(callback: (state: AuditJobState) => void): () => void
+  navigate(url: string): Promise<string>
   runSeoAudit(indexingIntent: IndexingIntent): Promise<AuditRunResult>
   cancelSeoAudit(): Promise<void>
   takeSnapshot(includeSeoAudit?: boolean): Promise<SnapshotResult>
@@ -44,6 +45,7 @@ export interface SeoAuditPresentation {
   setFindingOutcome: Dispatch<SetStateAction<FindingOutcome | null>>
   copied: string
   exportStatus: string
+  handleNavigate(url: string): void
   handleIntentChange(intent: IndexingIntent): void
   handleRun(): void
   handleCancel(): void
@@ -96,6 +98,15 @@ export function useSeoAuditPresentation(
     return adapter.onSeoAuditState(setJob)
   }, [adapter])
 
+  const handleNavigate = useCallback(
+    (url: string): void => {
+      const trimmed = url.trim()
+      if (!trimmed) return
+      void adapter.navigate(trimmed)
+    },
+    [adapter]
+  )
+
   const handleIntentChange = useCallback((intent: IndexingIntent): void => {
     intentTouchedRef.current = true
     setNavigation((current) => ({ ...current, intent }))
@@ -138,6 +149,7 @@ export function useSeoAuditPresentation(
     setFindingOutcome,
     copied,
     exportStatus,
+    handleNavigate,
     handleIntentChange,
     handleRun,
     handleCancel,

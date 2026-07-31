@@ -1,8 +1,5 @@
 import { test, expect } from './fixtures'
 import type { Locator } from '@playwright/test'
-import { existsSync, readFileSync, readdirSync } from 'fs'
-import { homedir } from 'os'
-import { join } from 'path'
 
 // The findings list leads with actionable outcomes and collapses passed /
 // unable-to-verify behind toggles. Tests that assert on those secondary
@@ -51,7 +48,7 @@ test('runs a full audit and reports a passed title finding', async ({ fixturePor
     await waitForPaneElement(window, 'desktop', 'seo-with-title')
 
     const panel = await openSeoView(window)
-    await expect(panel.getByTestId('seo-target-url')).toHaveText(
+    await expect(panel.getByTestId('seo-target-url')).toHaveValue(
       fixtureUrl(fixturePort, '/seo/with-title')
     )
 
@@ -71,7 +68,6 @@ test('runs a full audit and reports a passed title finding', async ({ fixturePor
           .evaluate((element) => getComputedStyle(element).opacity)
       )
       .toBe('1')
-    await expect(panel.getByTestId('seo-catalog-version')).toBeVisible()
 
     const titleFinding = panel.locator(
       '[data-testid="seo-finding"][data-rule-id="search-appearance/title-present"]'
@@ -119,13 +115,6 @@ test('runs a full audit and reports a passed title finding', async ({ fixturePor
         }
       })
     })
-    await panel.getByTestId('seo-copy-result').click()
-    await expect(panel.getByTestId('seo-copy-status')).toContainText('agent-ready Markdown')
-    expect(
-      await panel.evaluate(
-        () => (window as typeof window & { __copiedSeoMarkdown?: string }).__copiedSeoMarkdown
-      )
-    ).toContain('Rule catalog')
     await titleFinding.getByRole('button', { name: /Copy .* finding/ }).click()
     expect(
       await panel.evaluate(
@@ -142,25 +131,6 @@ test('runs a full audit and reports a passed title finding', async ({ fixturePor
     await expect(titleFinding).toHaveAttribute('data-outcome', 'error')
     await expect(panel.getByTestId('seo-stale-banner')).toHaveCount(0)
 
-    await panel.getByTestId('seo-export-snapshot').click()
-    await expect(panel.getByTestId('seo-export-status')).toContainText('SEO Snapshot exported')
-    const captures = join(homedir(), '.audit-screens', 'captures')
-    const latest = readdirSync(captures).sort().at(-1)
-    expect(latest).toBeTruthy()
-    const bundle = join(captures, latest!)
-    expect(existsSync(join(bundle, 'context.md'))).toBe(true)
-    expect(
-      existsSync(join(bundle, 'iphone-16-pro.png')) || existsSync(join(bundle, 'desktop.png'))
-    ).toBe(true)
-    expect(existsSync(join(bundle, 'seo-audit.json'))).toBe(true)
-    expect(readFileSync(join(bundle, 'context.md'), 'utf8')).toContain('## Page SEO Audit')
-    const exported = JSON.parse(readFileSync(join(bundle, 'seo-audit.json'), 'utf8'))
-    expect(exported.ruleCatalogVersion).toBeTruthy()
-    expect(
-      exported.findings.some(
-        (item: { ruleId: string }) => item.ruleId === 'search-appearance/title-present'
-      )
-    ).toBe(true)
     // No proprietary overall score is shown.
     await expect(result).not.toContainText('score')
   } finally {
@@ -197,25 +167,22 @@ test('keeps authenticated audit secrets out of copied and persisted evidence', a
     })
     await panel.getByTestId('seo-run-audit').click()
     await expect(panel.getByTestId('seo-result')).toBeVisible()
-    await panel.getByTestId('seo-copy-result').click()
-    const copied = await panel.evaluate(
-      () => (window as typeof window & { __copiedSeoMarkdown?: string }).__copiedSeoMarkdown ?? ''
-    )
-    expect(copied).not.toContain(secret)
-    expect(copied).not.toContain('fixture_auth')
+    await revealSecondaryOutcomes(panel)
 
-    await panel.getByTestId('seo-export-snapshot').click()
-    await expect(panel.getByTestId('seo-export-status')).toContainText('SEO Snapshot exported')
-    const captures = join(homedir(), '.audit-screens', 'captures')
-    const latest = readdirSync(captures).sort().at(-1)
-    expect(latest).toBeTruthy()
-    const bundle = join(captures, latest!)
-    const context = readFileSync(join(bundle, 'context.md'), 'utf8')
-    const auditJson = readFileSync(join(bundle, 'seo-audit.json'), 'utf8')
-    expect(context).not.toContain(secret)
-    expect(auditJson).not.toContain(secret)
-    expect(auditJson).not.toContain('fixture_auth')
-    expect(JSON.parse(auditJson).accessContext.authenticated).toBe(true)
+    // Copy every finding's evidence and assert the authenticated secret never
+    // leaks into agent-facing Markdown. (Whole-result copy and snapshot export
+    // were removed from the SEO view; their redaction stays covered by unit tests.)
+    const copyButtons = panel.getByRole('button', { name: /Copy .* finding/ })
+    const count = await copyButtons.count()
+    expect(count).toBeGreaterThan(0)
+    for (let index = 0; index < count; index++) {
+      await copyButtons.nth(index).click()
+      const copied = await panel.evaluate(
+        () => (window as typeof window & { __copiedSeoMarkdown?: string }).__copiedSeoMarkdown ?? ''
+      )
+      expect(copied).not.toContain(secret)
+      expect(copied).not.toContain('fixture_auth')
+    }
   } finally {
     await close()
   }
