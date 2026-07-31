@@ -12,7 +12,10 @@ function makePort(): McpToolPort & { navigateCalls: string[] } {
     navigateAll: async (url) => {
       navigateCalls.push(url)
     },
-    captureBundle: async () => ({ ok: false, reason: 'no-url' })
+    captureBundle: async () => ({ ok: false, reason: 'no-url' }),
+    listDevices: () => [],
+    setActivePane: () => {},
+    setVisibleDevices: () => ({ ok: true })
   }
 }
 

@@ -40,9 +40,9 @@ one for a round-trip against the running app.
 
 ## Tools
 
-| Tool            | What it does |
-| --------------- | ------------ |
-| `navigate`      | Load a URL across every device pane, exactly like the URL bar. |
+| Tool            | What it does                                                                                                                             |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `navigate`      | Load a URL across every device pane, exactly like the URL bar.                                                                           |
 | `captureBundle` | Produce a capture bundle (screenshot + runtime evidence + project context) for the active pane and return a pointer to its `context.md`. |
 
 More tools (device control, screenshots, observed context, Page SEO audit,

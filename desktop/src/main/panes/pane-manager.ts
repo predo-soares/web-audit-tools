@@ -888,6 +888,11 @@ export class PaneManager {
     this.applyPaneVisibility()
   }
 
+  /** The soloed pane, or null when every pane is visible. */
+  getFocusedPane(): PaneId | null {
+    return this.focusedPane
+  }
+
   private isPaneVisible(paneId: PaneId): boolean {
     return this.panesVisible && (this.focusedPane === null || this.focusedPane === paneId)
   }

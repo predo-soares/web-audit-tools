@@ -1,8 +1,9 @@
 import { writeFile } from 'node:fs/promises'
+import { DEVICE_PRESETS, PANE_IDS } from '../../shared/device-presets'
 import { captureSnapshot } from '../services/snapshot-service'
 import { makeSnapshotPort } from '../ipc'
 import type { PaneManager } from '../panes/pane-manager'
-import type { McpToolPort } from './mcp-tool-port'
+import type { DeviceInfo, McpToolPort } from './mcp-tool-port'
 
 export interface ComposeMcpToolPortDeps {
   paneManager: PaneManager
@@ -34,6 +35,44 @@ export function composeMcpToolPort(deps: ComposeMcpToolPortDeps): McpToolPort {
       })
       if (!result.ok) return { ok: false, reason: result.reason }
       return { ok: true, pointer: contextPath ?? '', warningCount: result.warningCount }
+    },
+
+    listDevices: (): DeviceInfo[] => {
+      const focused = paneManager.getFocusedPane()
+      const active = paneManager.getNavigationState().activePane
+      return PANE_IDS.map((id) => {
+        const preset = DEVICE_PRESETS[id]
+        return {
+          id,
+          name: preset.name,
+          width: preset.width,
+          height: preset.height,
+          deviceScaleFactor: preset.deviceScaleFactor,
+          touch: preset.touch,
+          visible: focused === null || focused === id,
+          active: active === id
+        }
+      })
+    },
+
+    setActivePane: (device) => {
+      paneManager.focusPane(device)
+    },
+
+    setVisibleDevices: (devices) => {
+      const requested = new Set(devices)
+      // The main-process visibility primitive is solo-or-all: showing every pane
+      // clears the solo focus, and a single pane solos it. An arbitrary subset
+      // (more than one, fewer than all) has no primitive.
+      if (requested.size >= PANE_IDS.length) {
+        paneManager.setFocusedPane(null)
+        return { ok: true }
+      }
+      if (requested.size === 1) {
+        paneManager.setFocusedPane([...requested][0])
+        return { ok: true }
+      }
+      return { ok: false, reason: 'unsupported-subset' }
     }
   }
 }
