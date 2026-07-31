@@ -12,6 +12,8 @@ import {
 import { isAuditableUrl } from '../../../../shared/seo-audit'
 import { SIDEBAR_WIDTH_PX, TOOLBAR_HEIGHT_PX } from '../../../../shared/sidebar'
 import { useSidebar } from '@renderer/context/sidebar-context'
+import { CANVAS_GLASS_SURFACE_CLASS } from '@renderer/lib/glass-surface'
+import { cn } from '@renderer/lib/utils'
 import { Button } from '@renderer/components/ui/button'
 import { LabSpecsPicker } from './lab-specs-picker'
 import { ProfileReport } from './profile-report'
@@ -65,17 +67,27 @@ export function LighthouseView(): React.JSX.Element {
   return (
     <div
       data-testid="lighthouse-view"
-      className="absolute inset-0 z-10 overflow-y-auto bg-transparent text-foreground"
-      style={{ top: TOOLBAR_HEIGHT_PX, left: sidebarOffset }}
+      className={cn(
+        'absolute inset-0 z-10 box-border overflow-y-auto text-foreground',
+        CANVAS_GLASS_SURFACE_CLASS
+      )}
+      style={{ paddingTop: TOOLBAR_HEIGHT_PX, paddingLeft: sidebarOffset }}
     >
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-8 py-8">
-        <header className="rounded-xl border border-white/10 bg-black/40 px-5 py-4 backdrop-blur-md">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-8 py-8">
+        <header>
+          <h1 className="text-lg font-semibold tracking-tight text-white">
+            Diagnose performance issues
+          </h1>
+          <p className="mt-1 text-xs text-white/45">
+            Runs Lighthouse for both Mobile and Desktop with the lab specs below.
+          </p>
+        </header>
+
+        <section className="rounded-xl border border-white/10 bg-black/40 px-5 py-4 backdrop-blur-md">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
-              <h1 className="text-lg font-semibold tracking-tight text-white">
-                Diagnose performance issues
-              </h1>
-              <p className="mt-1 truncate text-xs text-white/45" title={url}>
+              <h2 className="text-sm font-semibold tracking-tight text-white">Target page</h2>
+              <p className="mt-0.5 truncate text-xs text-white/45" title={url}>
                 {title ? `${title} — ` : ''}
                 {url || 'No page loaded'}
               </p>
@@ -101,11 +113,8 @@ export function LighthouseView(): React.JSX.Element {
               </Button>
             )}
           </div>
-          <p className="mt-3 text-[11px] text-white/30">
-            Runs Lighthouse for both Mobile and Desktop with the lab specs below.
-          </p>
           <LabSpecsPicker selection={labSelection} disabled={running} onChange={setLabSelection} />
-        </header>
+        </section>
 
         <ProfileTabs
           viewProfile={viewProfile}

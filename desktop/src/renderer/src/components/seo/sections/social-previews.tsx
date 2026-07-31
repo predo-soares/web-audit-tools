@@ -5,7 +5,7 @@ export function SocialPreviews({ result }: { result: AuditResult }): React.JSX.E
   return (
     <section
       data-testid="seo-social-previews"
-      className="rounded-xl border border-white/10 bg-black/55 p-5 backdrop-blur-md"
+      className="rounded-xl border border-white/10 bg-black/40 p-5 backdrop-blur-md"
     >
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-white/55">
