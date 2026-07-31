@@ -27,7 +27,7 @@ import {
   unavailableInternationalization,
   verifyInternationalization
 } from './seo/internationalization'
-import { LighthouseManager } from './seo/lighthouse-manager'
+import type { LighthouseManager } from './seo/lighthouse-manager'
 
 /**
  * Build a request Cookie header from the pane session so delivered evidence is
@@ -159,15 +159,9 @@ export function registerIpcHandlers(
   projectStore: ProjectStore,
   historyStore: HistoryStore,
   safariChromeManager: SafariChromeManager,
-  auditManager: AuditManager
+  auditManager: AuditManager,
+  lighthouseManager: LighthouseManager
 ): void {
-  const lighthouseManager = new LighthouseManager((state) => {
-    const mainWindow = BrowserWindow.getAllWindows()[0]
-    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
-      mainWindow.webContents.send('seo-lighthouse:state', state)
-    }
-  })
-  paneManager.onPaneDocumentChange((paneId) => lighthouseManager.handlePaneDocumentChange(paneId))
   ipcMain.handle('snapshot:take', async (_event, includeSeoAudit = false) => {
     return captureSnapshot(makeSnapshotPort(paneManager), undefined, {
       includeSeoAudit,
