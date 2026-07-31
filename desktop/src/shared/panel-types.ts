@@ -92,6 +92,7 @@ export type PanelAction =
   | { type: 'enter-seo-view' }
   | { type: 'enter-lighthouse-view' }
   | { type: 'enter-devices-view' }
+  | { type: 'enter-settings-view' }
   | { type: 'close-panel' }
   | { type: 'toggle-chrome' }
 

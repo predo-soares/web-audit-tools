@@ -11,10 +11,12 @@ import { PreviewCanvas } from '@renderer/components/preview-canvas'
 import { SeoView } from '@renderer/components/seo'
 import { DevicesView } from '@renderer/components/devices-view'
 import { LighthouseView } from '@renderer/components/lighthouse'
+import { SettingsView } from '@renderer/components/settings-view'
 import { ToolbarProvider } from '@renderer/context/toolbar-context'
 import { DiagnosticsProvider } from '@renderer/context/diagnostics-context'
 import { SidebarProvider } from '@renderer/context/sidebar-context'
 import { matchesAppShortcut } from '../../shared/shortcuts'
+import type { WorkspaceView } from '../../shared/sidebar'
 
 function catalogEntryToProfile(entry: CatalogEntry): DeviceProfile {
   return {
@@ -51,9 +53,7 @@ export default function App(): React.JSX.Element {
   const [activePane, setActivePane] = useState<PaneId | null>(null)
   const [committedUrl, setCommittedUrl] = useState('')
   const [safariChromeEnabled, setSafariChromeEnabled] = useState(false)
-  const [workspace, setWorkspace] = useState<'browser' | 'seo' | 'lighthouse' | 'devices'>(
-    'browser'
-  )
+  const [workspace, setWorkspace] = useState<WorkspaceView>('browser')
   const [selectedPresets, setSelectedPresets] = useState<SelectedPresets>(DEFAULT_SELECTED)
   // When set, the canvas shows only this pane; other devices are hidden. This is a
   // transient view concern layered on top of selectedPresets, not a selection change.
@@ -71,6 +71,12 @@ export default function App(): React.JSX.Element {
     workspaceRef.current = workspace
     chromeHiddenRef.current = chromeHidden
   }, [workspace, chromeHidden])
+
+  // Mirror the active workspace to the toolbar panel so it can hide the URL bar
+  // and page-scoped controls outside the browser view.
+  useEffect(() => {
+    void window.api.setWorkspaceView(workspace)
+  }, [workspace])
 
   const applyChromeHidden = useCallback((hidden: boolean): void => {
     setChromeHidden(hidden)
@@ -191,6 +197,13 @@ export default function App(): React.JSX.Element {
         return next
       })
     })
+    const unsubscribeSettingsView = window.api.onEnterSettingsView(() => {
+      setWorkspace((current) => {
+        const next = current === 'settings' ? 'browser' : 'settings'
+        void window.api.setPanesVisible(next === 'browser')
+        return next
+      })
+    })
 
     return () => {
       unsubscribeLoading()
@@ -200,6 +213,7 @@ export default function App(): React.JSX.Element {
       unsubscribeSeoView()
       unsubscribeLighthouseView()
       unsubscribeDevicesView()
+      unsubscribeSettingsView()
     }
   }, [])
 
@@ -262,6 +276,8 @@ export default function App(): React.JSX.Element {
             />
           ) : workspace === 'lighthouse' ? (
             <LighthouseView />
+          ) : workspace === 'settings' ? (
+            <SettingsView />
           ) : workspace === 'devices' ? (
             <DevicesView
               selectedPresets={selectedPresets}

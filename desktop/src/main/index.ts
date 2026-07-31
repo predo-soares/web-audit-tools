@@ -10,7 +10,8 @@ import { captureSnapshot } from './services/snapshot-service'
 import { AuditManager } from './seo/audit-manager'
 import { LighthouseManager } from './seo/lighthouse-manager'
 import { composeMcpToolPort } from './mcp/compose-tool-port'
-import { startMcpServer, type McpServerHandle } from './mcp/mcp-server'
+import { startMcpServer, MCP_PATH, type McpServerHandle } from './mcp/mcp-server'
+import { MCP_TOOL_SUMMARIES, type McpServerStatus } from '../shared/mcp-status'
 import { PaneManager } from './panes/pane-manager'
 import { PanelManager } from './panels/panel-manager'
 import { SafariChromeManager } from './chrome/safari-chrome-manager'
@@ -42,6 +43,17 @@ const projectStore = new ProjectStore()
 const historyStore = new HistoryStore()
 
 let mcpServerHandle: McpServerHandle | null = null
+// Source of truth for the MCP server state the Settings view reflects. Updated
+// once the loopback server resolves (or fails) and broadcast to the renderer.
+let mcpStatus: McpServerStatus = { state: 'starting' }
+
+function setMcpStatus(status: McpServerStatus): void {
+  mcpStatus = status
+  const mainWindow = BrowserWindow.getAllWindows()[0]
+  if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+    mainWindow.webContents.send('app:mcp-status', mcpStatus)
+  }
+}
 
 if (process.env.E2E_TEST) {
   ;(globalThis as { __paneManager?: PaneManager }).__paneManager = paneManager
@@ -168,7 +180,8 @@ function createWindow(): BrowserWindow {
     historyStore,
     safariChromeManager,
     auditManager,
-    lighthouseManager
+    lighthouseManager,
+    () => mcpStatus
   )
   projectStore.setOnChange((projects) => {
     if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
@@ -217,9 +230,22 @@ app.whenReady().then(() => {
   })
     .then((handle) => {
       mcpServerHandle = handle
+      const parsed = new URL(handle.url)
+      setMcpStatus({
+        state: 'listening',
+        url: handle.url,
+        host: parsed.hostname,
+        port: Number(parsed.port),
+        path: MCP_PATH,
+        tools: MCP_TOOL_SUMMARIES
+      })
       console.log(`MCP server listening at ${handle.url}`)
     })
     .catch((error) => {
+      setMcpStatus({
+        state: 'error',
+        message: error instanceof Error ? error.message : String(error)
+      })
       console.error('Failed to start MCP server:', error)
     })
 

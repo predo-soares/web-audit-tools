@@ -20,6 +20,8 @@ import type {
   LighthouseAssessmentState,
   LighthouseLabSelection
 } from '../shared/seo-audit'
+import type { McpServerStatus } from '../shared/mcp-status'
+import type { WorkspaceView } from '../shared/sidebar'
 
 export interface PreviewApi {
   closeWindow: () => Promise<void>
@@ -34,6 +36,10 @@ export interface PreviewApi {
   reload: () => Promise<void>
   stopLoading: () => Promise<void>
   savePaneScreenshot: (paneId: PaneId) => Promise<{ saved: boolean; filePath?: string }>
+  downloadMedia: (
+    url: string,
+    suggestedName?: string
+  ) => Promise<{ saved: boolean; filePath?: string }>
   goBack: () => Promise<void>
   goForward: () => Promise<void>
   getNavigationState: () => Promise<PaneNavigationState>
@@ -98,6 +104,10 @@ export interface PreviewApi {
   onEnterSeoView: (callback: () => void) => () => void
   onEnterLighthouseView: (callback: () => void) => () => void
   onEnterDevicesView: (callback: () => void) => () => void
+  onEnterSettingsView: (callback: () => void) => () => void
+  setWorkspaceView: (view: WorkspaceView) => Promise<void>
+  getMcpStatus: () => Promise<McpServerStatus>
+  onMcpStatus: (callback: (status: McpServerStatus) => void) => () => void
   onToggleChrome: (callback: () => void) => () => void
   onExitChrome: (callback: () => void) => () => void
   setDeviceProfile: (paneId: PaneId, profile: DeviceProfile) => Promise<void>
@@ -129,6 +139,8 @@ const api: PreviewApi = {
   reload: () => ipcRenderer.invoke('preview:reload'),
   stopLoading: () => ipcRenderer.invoke('preview:stop'),
   savePaneScreenshot: (paneId) => ipcRenderer.invoke('preview:screenshot', paneId),
+  downloadMedia: (url, suggestedName) =>
+    ipcRenderer.invoke('media:download', { url, suggestedName }),
   goBack: () => ipcRenderer.invoke('preview:go-back'),
   goForward: () => ipcRenderer.invoke('preview:go-forward'),
   getNavigationState: () => ipcRenderer.invoke('preview:navigation-state'),
@@ -293,6 +305,18 @@ const api: PreviewApi = {
     const listener = (): void => callback()
     ipcRenderer.on('app:devices-view', listener)
     return () => ipcRenderer.removeListener('app:devices-view', listener)
+  },
+  onEnterSettingsView: (callback) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('app:settings-view', listener)
+    return () => ipcRenderer.removeListener('app:settings-view', listener)
+  },
+  setWorkspaceView: (view) => ipcRenderer.invoke('app:set-workspace-view', view),
+  getMcpStatus: () => ipcRenderer.invoke('mcp:get-status'),
+  onMcpStatus: (callback) => {
+    const listener = (_event: unknown, status: McpServerStatus): void => callback(status)
+    ipcRenderer.on('app:mcp-status', listener)
+    return () => ipcRenderer.removeListener('app:mcp-status', listener)
   },
   onToggleChrome: (callback) => {
     const listener = (): void => callback()

@@ -28,6 +28,7 @@ import type {
   LighthouseAssessmentState,
   LighthouseLabSelection
 } from '../shared/seo-audit'
+import type { WorkspaceView } from '../shared/sidebar'
 
 export interface PanelOverlayApi {
   onShow: (callback: (message: PanelShowMessage) => void) => () => void
@@ -76,6 +77,8 @@ export interface PanelOverlayApi {
   onPanelLayoutSettled: (callback: (panelId: PanelId) => void) => () => void
   onFocusSidebarToggle: (callback: () => void) => () => void
   onToggleDiagnostics: (callback: () => void) => () => void
+  getWorkspaceView: () => Promise<WorkspaceView>
+  onWorkspaceViewChanged: (callback: (view: WorkspaceView) => void) => () => void
   getRuntimeEvidence: () => Promise<RuntimeEvidenceSnapshot>
   clearRuntimeEvidence: (channel: RuntimeEvidenceChannel) => Promise<RuntimeEvidenceSnapshot>
   onRuntimeEvidenceChanged: (callback: (snapshot: RuntimeEvidenceSnapshot) => void) => () => void
@@ -234,6 +237,13 @@ const panelApi: PanelOverlayApi = {
     const listener = (): void => callback()
     ipcRenderer.on('panel:toggle-diagnostics', listener)
     return () => ipcRenderer.removeListener('panel:toggle-diagnostics', listener)
+  },
+  getWorkspaceView: () => ipcRenderer.invoke('app:get-workspace-view'),
+  onWorkspaceViewChanged: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, view: WorkspaceView): void =>
+      callback(view)
+    ipcRenderer.on('workspace:view-changed', listener)
+    return () => ipcRenderer.removeListener('workspace:view-changed', listener)
   },
   getRuntimeEvidence: () => ipcRenderer.invoke('runtime-evidence:get'),
   clearRuntimeEvidence: (channel) => ipcRenderer.invoke('runtime-evidence:clear', channel),

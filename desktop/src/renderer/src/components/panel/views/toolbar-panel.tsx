@@ -8,7 +8,8 @@ import { normalizeMediaFeatures } from '../../../../../shared/media-features'
 import {
   SIDEBAR_TRANSITION_MS,
   SIDEBAR_WIDTH_PX,
-  TOOLBAR_HEIGHT_PX
+  TOOLBAR_HEIGHT_PX,
+  type WorkspaceView
 } from '../../../../../shared/sidebar'
 import {
   hasProjectForUrl,
@@ -28,6 +29,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import type { IconSvgElement } from '@hugeicons/react'
 import { Icon } from '@renderer/components/ui/icon'
+import { cn } from '@renderer/lib/utils'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SnapshotResult } from '../../../../../shared/snapshot'
 import type { HistoryEntry } from '../../../../../shared/history'
@@ -87,6 +89,7 @@ export function ToolbarPanel(): React.JSX.Element {
   const zoomTriggerRef = useRef<HTMLButtonElement>(null)
   const toggleButtonRef = useRef<HTMLButtonElement>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('browser')
   const [url, setUrl] = useState('')
   const [pageTitle, setPageTitle] = useState('')
   const [faviconUrl, setFaviconUrl] = useState<string | null>(null)
@@ -223,6 +226,7 @@ export function ToolbarPanel(): React.JSX.Element {
     void window.panelApi.getDiagnosticsWidth().then((width) => {
       setDiagnosticsWidth(width > 0 ? width : DIAGNOSTICS_DRAWER_WIDTH_PX)
     })
+    void window.panelApi.getWorkspaceView().then(setWorkspaceView)
 
     const unsubscribeNavigation = window.panelApi.onPaneNavigation((state) => {
       setUrl(state.barUrl)
@@ -267,6 +271,7 @@ export function ToolbarPanel(): React.JSX.Element {
     })
     const unsubscribeDiagnosticsWidth =
       window.panelApi.onDiagnosticsWidthChanged(setDiagnosticsWidth)
+    const unsubscribeWorkspace = window.panelApi.onWorkspaceViewChanged(setWorkspaceView)
 
     return () => {
       unsubscribeNavigation()
@@ -279,6 +284,7 @@ export function ToolbarPanel(): React.JSX.Element {
       unsubscribeSettled()
       unsubscribeFocus()
       unsubscribeDiagnosticsWidth()
+      unsubscribeWorkspace()
     }
   }, [])
 
@@ -433,6 +439,11 @@ export function ToolbarPanel(): React.JSX.Element {
     setThemePreference((current) => nextThemePreference(current))
   }
 
+  // The URL bar and page-scoped controls (zoom, theme, diagnostics) only apply to
+  // the device canvas; full-screen views (SEO, Lighthouse, Devices, Settings)
+  // replace it, so hide that chrome there.
+  const isBrowserView = workspaceView === 'browser'
+
   return (
     <header
       className="relative box-border flex h-full w-full items-center justify-between gap-3 bg-transparent px-3"
@@ -474,7 +485,10 @@ export function ToolbarPanel(): React.JSX.Element {
         }}
       >
         <div
-          className="pointer-events-auto flex w-full min-w-0 max-w-[42rem] items-center gap-1"
+          className={cn(
+            'pointer-events-auto flex w-full min-w-0 max-w-[42rem] items-center gap-1',
+            !isBrowserView && 'hidden'
+          )}
           data-app-region="no-drag"
         >
           <UrlBar
@@ -536,7 +550,7 @@ export function ToolbarPanel(): React.JSX.Element {
       </div>
       <div
         ref={toolbarRef}
-        className="relative z-10 flex shrink-0 items-center gap-1"
+        className={cn('relative z-10 flex shrink-0 items-center gap-1', !isBrowserView && 'hidden')}
         data-app-region="no-drag"
       >
         <Button

@@ -19,7 +19,8 @@ import {
   GaugeIcon,
   InformationCircleIcon,
   LaptopPhoneSyncIcon,
-  SearchVisualIcon
+  SearchVisualIcon,
+  Settings01Icon
 } from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
 
@@ -56,7 +57,9 @@ export function SidebarPanel({
   const [committedUrl, setCommittedUrl] = useState('')
   const [clearDialogOpen, setClearDialogOpen] = useState(false)
   const [historyExpanded, setHistoryExpanded] = useState(false)
-  const [activeTab, setActiveTab] = useState<'seo' | 'lighthouse' | 'devices' | null>(null)
+  const [activeTab, setActiveTab] = useState<
+    'seo' | 'lighthouse' | 'devices' | 'settings' | null
+  >(null)
   const HISTORY_PAGE_SIZE = 10
   const historyHeadingRef = useRef<HTMLButtonElement>(null)
   const historyRowRefs = useRef<Array<HTMLButtonElement | null>>([])
@@ -322,12 +325,32 @@ export function SidebarPanel({
             </Accordion>
         </nav>
       </div>
-      <footer className="shrink-0 border-t border-white/10 p-2">
+      <footer className="shrink-0 border-t border-white/10 p-2 flex items-center gap-1">
+        <button
+          type="button"
+          data-testid="sidebar-settings-view"
+          className={cn(
+            'flex flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors',
+            activeTab === 'settings'
+              ? 'bg-white/10 text-foreground'
+              : 'text-foreground/70 hover:bg-white/5 hover:text-foreground',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50'
+          )}
+          onClick={() => {
+            setActiveTab((v) => (v === 'settings' ? null : 'settings'))
+            onAction({ type: 'enter-settings-view' })
+          }}
+        >
+          <Icon icon={Settings01Icon} size={16} />
+          <span>Settings</span>
+        </button>
         <button
           ref={shortcutsTriggerRef}
           type="button"
           data-testid="shortcuts-trigger"
-          className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-foreground/70 transition-colors hover:bg-white/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          aria-label="Keyboard shortcuts"
+          title="Keyboard shortcuts"
+          className="flex shrink-0 items-center justify-center rounded-md p-1.5 text-foreground/70 transition-colors hover:bg-white/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           onClick={() => {
             void window.panelApi.openPanel({
               panelId: 'shortcuts',
@@ -336,7 +359,6 @@ export function SidebarPanel({
           }}
         >
           <Icon icon={InformationCircleIcon} size={16} />
-          <span>Keyboard shortcuts</span>
         </button>
       </footer>
       <ClearHistoryDialog
