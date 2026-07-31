@@ -35,7 +35,6 @@ export function SeoView({ onClose: _onClose }: { onClose: () => void }): React.J
   const [tab, setTab] = useState<SeoTab>('findings')
   const presentation = useSeoAuditPresentation(window.api)
   const {
-    auditable,
     result,
     linkFilter,
     setLinkFilter,
@@ -63,86 +62,74 @@ export function SeoView({ onClose: _onClose }: { onClose: () => void }): React.J
               Check discoverability, metadata, and structured data for the current page.
             </p>
           </header>
-          {!auditable ? (
-            <p
-              data-testid="seo-view-empty"
-              className="rounded-xl border border-white/10 bg-black/40 px-6 py-16 text-center text-sm text-white/55 backdrop-blur-md"
-            >
-              Nothing to audit yet — load a page in the browser view, then come back to run an
-              audit.
+          <AuditControls
+            url={presentation.url}
+            intent={presentation.intent}
+            running={presentation.running}
+            job={presentation.job}
+            result={result}
+            handleNavigate={presentation.handleNavigate}
+            handleIntentChange={presentation.handleIntentChange}
+            handleRun={presentation.handleRun}
+            handleCancel={presentation.handleCancel}
+          />
+
+          {!result ? (
+            <p className="rounded-xl border border-white/10 bg-black/40 px-6 py-16 text-center text-sm text-white/55 backdrop-blur-md">
+              Run an audit to see results.
             </p>
           ) : (
             <>
-              <AuditControls
-                url={presentation.url}
-                intent={presentation.intent}
-                running={presentation.running}
-                job={presentation.job}
-                result={result}
-                handleNavigate={presentation.handleNavigate}
-                handleIntentChange={presentation.handleIntentChange}
-                handleRun={presentation.handleRun}
-                handleCancel={presentation.handleCancel}
+              <MotionTabs
+                items={SEO_TABS}
+                value={tab}
+                onChange={setTab}
+                layoutId="seo-tab-indicator"
+                ariaLabel="SEO report sections"
               />
-
-              {!result ? (
-                <p className="rounded-xl border border-white/10 bg-black/40 px-6 py-16 text-center text-sm text-white/55 backdrop-blur-md">
-                  Run an audit to see results.
-                </p>
-              ) : (
-                <>
-                  <MotionTabs
-                    items={SEO_TABS}
-                    value={tab}
-                    onChange={setTab}
-                    layoutId="seo-tab-indicator"
-                    ariaLabel="SEO report sections"
+              <div
+                role="tabpanel"
+                data-testid={`seo-tabpanel-${tab}`}
+                className="flex flex-col gap-5"
+              >
+                {tab === 'findings' ? (
+                  <FindingsSection
+                    result={result}
+                    findingCategory={findingCategory}
+                    findingOutcome={findingOutcome}
+                    setFindingCategory={setFindingCategory}
+                    setFindingOutcome={setFindingOutcome}
+                    copyMarkdown={copyMarkdown}
                   />
-                  <div
-                    role="tabpanel"
-                    data-testid={`seo-tabpanel-${tab}`}
-                    className="flex flex-col gap-5"
-                  >
-                    {tab === 'findings' ? (
-                      <FindingsSection
-                        result={result}
-                        findingCategory={findingCategory}
-                        findingOutcome={findingOutcome}
-                        setFindingCategory={setFindingCategory}
-                        setFindingOutcome={setFindingOutcome}
-                        copyMarkdown={copyMarkdown}
-                      />
-                    ) : null}
+                ) : null}
 
-                    {tab === 'preview' ? (
-                      <>
-                        <SearchPreview result={result} />
-                        <SocialPreviews result={result} />
-                      </>
-                    ) : null}
+                {tab === 'preview' ? (
+                  <>
+                    <SearchPreview result={result} />
+                    <SocialPreviews result={result} />
+                  </>
+                ) : null}
 
-                    {tab === 'structure' ? (
-                      <>
-                        <DocumentStructureSection result={result} />
-                        <StructuredDataSection result={result} />
-                        <MetadataDetails result={result} />
-                      </>
-                    ) : null}
+                {tab === 'structure' ? (
+                  <>
+                    <DocumentStructureSection result={result} />
+                    <StructuredDataSection result={result} />
+                    <MetadataDetails result={result} />
+                  </>
+                ) : null}
 
-                    {tab === 'links' ? (
-                      <LinkInventorySection
-                        result={result}
-                        linkFilter={linkFilter}
-                        setLinkFilter={setLinkFilter}
-                      />
-                    ) : null}
+                {tab === 'links' ? (
+                  <LinkInventorySection
+                    result={result}
+                    linkFilter={linkFilter}
+                    setLinkFilter={setLinkFilter}
+                  />
+                ) : null}
 
-                    {tab === 'media' ? <ImagesMediaSection result={result} /> : null}
+                {tab === 'media' ? <ImagesMediaSection result={result} /> : null}
 
-                    {tab === 'i18n' ? <InternationalizationSection result={result} /> : null}
-                  </div>
-                </>
-              )}
+                {tab === 'i18n' ? <InternationalizationSection result={result} /> : null}
+              </div>
             </>
           )}
         </div>

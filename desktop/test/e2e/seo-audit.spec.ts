@@ -321,14 +321,17 @@ test('captures delivered evidence and flags a delivered-vs-rendered title discre
   }
 })
 
-test('explains there is nothing to audit before a page is committed', async () => {
+test('offers an editable URL bar before a page is committed', async () => {
   const { window, close } = await launchApp()
 
   try {
     await waitForAllPanes(window)
     const panel = await openSeoView(window)
-    await expect(panel.getByTestId('seo-view-empty')).toBeVisible()
-    await expect(panel.getByTestId('seo-run-audit')).toHaveCount(0)
+    // No empty state: the editable target-URL bar and run action are always
+    // available so a page can be entered from here.
+    await expect(panel.getByTestId('seo-target-url')).toBeVisible()
+    await expect(panel.getByTestId('seo-run-audit')).toBeVisible()
+    await expect(panel.getByText('Run an audit to see results.')).toBeVisible()
   } finally {
     await close()
   }

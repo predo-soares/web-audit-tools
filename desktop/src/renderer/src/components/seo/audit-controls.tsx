@@ -1,8 +1,6 @@
 import { useState } from 'react'
-import { InformationCircleIcon } from '@hugeicons/core-free-icons'
 import type { IndexingIntent } from '../../../../shared/seo-audit'
 import { Button } from '@renderer/components/ui/button'
-import { Icon } from '@renderer/components/ui/icon'
 import { Input } from '@renderer/components/ui/input'
 import {
   Select,
@@ -11,10 +9,9 @@ import {
   SelectTrigger,
   SelectValue
 } from '@renderer/components/ui/select'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip'
 import { cn } from '@renderer/lib/utils'
 import type { SeoAuditPresentation } from '@renderer/hooks/use-seo-audit-presentation'
-import { CARD, PRESSABLE, SUBLABEL } from './lib/styles'
+import { CARD, PRESSABLE } from './lib/styles'
 import { INTENT_OPTIONS } from './lib/finding-format'
 
 type AuditControlsProps = Pick<
@@ -52,47 +49,19 @@ export function AuditControls({
 
   return (
     <div className={cn(CARD, 'px-5 py-4')}>
-      <div className="mb-1.5 flex items-center justify-between">
-        <label htmlFor="seo-target-url" className={SUBLABEL}>
-          Target page
-        </label>
-        <div className="flex items-center gap-1.5">
-          <span className={SUBLABEL}>Indexing intent</span>
-          <Tooltip>
-            <TooltipTrigger
-              type="button"
-              aria-label="What is indexing intent?"
-              className="flex text-white/55 outline-none transition-colors hover:text-white/70 focus-visible:text-white/70"
-            >
-              <Icon icon={InformationCircleIcon} size={13} />
-            </TooltipTrigger>
-            <TooltipContent
-              side="top"
-              className="max-w-xs whitespace-normal text-left leading-relaxed"
-            >
-              Tells the audit how you expect search engines to treat this page, so discoverability
-              findings are judged against your goal — it changes how results are interpreted, not
-              which checks run. Indexable: should appear in search, so missing or blocking signals
-              are flagged. Non-indexable: intentionally hidden (e.g. thank-you pages), so a noindex
-              is expected rather than an error. Local / private: a dev or internal environment, so
-              crawler-facing checks are relaxed.
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      </div>
-
       {/* Grouped URL + indexing intent + run action */}
       <form
         onSubmit={(event) => {
           event.preventDefault()
           handleNavigate(draft)
         }}
-        className="flex items-stretch divide-x divide-input overflow-hidden rounded-lg border border-input bg-transparent transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50"
+        className="flex items-stretch overflow-hidden rounded-lg border border-input bg-transparent transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50"
       >
         <Input
           id="seo-target-url"
           data-testid="seo-target-url"
           type="text"
+          aria-label="Target page URL"
           spellCheck={false}
           autoComplete="off"
           value={draft}
@@ -107,7 +76,7 @@ export function AuditControls({
           <SelectTrigger
             data-testid="seo-intent-select"
             aria-label="Indexing intent"
-            className="h-8 w-40 shrink-0 rounded-none border-0 bg-transparent focus-visible:border-transparent focus-visible:ring-0 dark:bg-transparent dark:hover:bg-transparent"
+            className="h-8 w-40 shrink-0 rounded-none border-y-0 border-r-0 border-l border-l-input bg-transparent focus-visible:border-l-input focus-visible:ring-0 dark:bg-transparent dark:hover:bg-transparent"
           >
             <SelectValue />
           </SelectTrigger>
