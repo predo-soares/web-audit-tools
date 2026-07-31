@@ -1,5 +1,6 @@
 import type { AuditResult } from '../../../../../shared/seo-audit'
 import type { SeoAuditPresentation } from '@renderer/hooks/use-seo-audit-presentation'
+import { DetailRow, InfoDialog } from '../detail'
 
 export function LinkInventorySection({
   result,
@@ -13,7 +14,7 @@ export function LinkInventorySection({
   return (
     <section
       data-testid="seo-link-inventory"
-      className="rounded-xl border border-white/10 bg-black/55 p-5 backdrop-blur-md"
+      className="rounded-xl border border-white/10 bg-black/40 p-5 backdrop-blur-md"
     >
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-white/55">
@@ -30,7 +31,7 @@ export function LinkInventorySection({
         aria-label="Filter link inventory"
         className="mb-3 w-full rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-sm outline-none transition-colors placeholder:text-white/50 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
       />
-      <ul data-testid="seo-link-list" className="max-h-72 space-y-1.5 overflow-auto">
+      <ul data-testid="seo-link-list" className="space-y-1.5">
         {result.links
           .filter((link) => {
             const query = linkFilter.trim().toLowerCase()
@@ -48,24 +49,40 @@ export function LinkInventorySection({
                 .some((value) => String(value).toLowerCase().includes(query))
             )
           })
-          .map((link) => (
-            <li
-              key={link.sourceIndex}
-              data-testid="seo-link-item"
-              className="rounded-md border border-white/10 p-2.5 text-xs"
-            >
-              <p className="text-foreground">
-                {link.accessibleName || link.text || '(unnamed link)'}
-              </p>
-              <p className="mt-0.5 break-all text-white/55">
-                source {link.sourceIndex} · {link.kind} · {link.visible ? 'visible' : 'hidden'} ·{' '}
-                {link.resolvedHref ?? link.rawHref ?? '(no destination)'}
-              </p>
-              <p className="text-white/55">
-                target {link.target ?? '_self'} · rel {link.rel.join(' ') || '(none)'}
-              </p>
-            </li>
-          ))}
+          .map((link) => {
+            const name = link.accessibleName || link.text || '(unnamed link)'
+            const destination = link.resolvedHref ?? link.rawHref ?? '(no destination)'
+            return (
+              <li
+                key={link.sourceIndex}
+                data-testid="seo-link-item"
+                className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] p-2.5 text-xs"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-foreground">{name}</p>
+                  <p className="mt-0.5 truncate text-white/55">
+                    {link.kind} · {destination}
+                  </p>
+                </div>
+                <InfoDialog
+                  title={name}
+                  testId="seo-link-modal"
+                  triggerTestId="seo-link-details"
+                  triggerLabel={`Link details for ${name}`}
+                >
+                  <DetailRow label="Name">{name}</DetailRow>
+                  <DetailRow label="Source">
+                    source {link.sourceIndex} · {link.visible ? 'visible' : 'hidden'}
+                  </DetailRow>
+                  <DetailRow label="Kind">{link.kind}</DetailRow>
+                  <DetailRow label="Destination">{destination}</DetailRow>
+                  <DetailRow label="Raw href">{link.rawHref ?? '(none)'}</DetailRow>
+                  <DetailRow label="Target">{link.target ?? '_self'}</DetailRow>
+                  <DetailRow label="rel">{link.rel.join(' ') || '(none)'}</DetailRow>
+                </InfoDialog>
+              </li>
+            )
+          })}
       </ul>
       <p className="mt-3 text-[10px] text-white/55">
         Ordinary destinations are classified from rendered anchors and are not fetched.

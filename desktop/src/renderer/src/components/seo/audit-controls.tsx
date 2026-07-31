@@ -51,9 +51,9 @@ export function AuditControls({
   return (
     <div className={cn(CARD, 'px-5 py-4')}>
       <div className="min-w-0">
-        <h1 className="text-lg font-semibold tracking-tight text-white">Page SEO audit</h1>
+        <h2 className="text-sm font-semibold tracking-tight text-white">Target page</h2>
         {url ? (
-          <p className="mt-1 truncate text-xs text-white/55" title={url}>
+          <p className="mt-0.5 truncate text-xs text-white/45" title={url}>
             {pageTitle ? `${pageTitle} — ` : ''}
             <span data-testid="seo-target-url">{url}</span>
           </p>
@@ -61,7 +61,7 @@ export function AuditControls({
       </div>
 
       {/* Indexing intent + run action */}
-      <div className="mt-4">
+      <div className="mt-4 border-t border-white/10 pt-4">
         <div className="mb-1.5 flex items-center gap-1.5">
           <p className={SUBLABEL}>Indexing intent</p>
           <Tooltip>

@@ -11,6 +11,7 @@ import type { SafariChromeManager } from './chrome/safari-chrome-manager'
 import type { HistoryStore } from './stores/history-store'
 import type { ProjectStore } from './stores/project-store'
 import { captureSnapshot, type SnapshotPort } from './services/snapshot-service'
+import { downloadMedia } from './services/media-download'
 import type { AuditPort } from './seo/audit-service'
 import type { AuditManager } from './seo/audit-manager'
 import {
@@ -28,6 +29,12 @@ import {
   verifyInternationalization
 } from './seo/internationalization'
 import type { LighthouseManager } from './seo/lighthouse-manager'
+import type { McpServerStatus } from '../shared/mcp-status'
+import type { WorkspaceView } from '../shared/sidebar'
+
+// Last workspace the main window reported. Mirrored so a freshly (re)created
+// toolbar panel can read it on mount instead of waiting for the next change.
+let currentWorkspaceView: WorkspaceView = 'browser'
 
 /**
  * Build a request Cookie header from the pane session so delivered evidence is
@@ -160,8 +167,19 @@ export function registerIpcHandlers(
   historyStore: HistoryStore,
   safariChromeManager: SafariChromeManager,
   auditManager: AuditManager,
-  lighthouseManager: LighthouseManager
+  lighthouseManager: LighthouseManager,
+  getMcpStatus: () => McpServerStatus
 ): void {
+  ipcMain.handle('mcp:get-status', () => getMcpStatus())
+
+  // The active workspace lives in the main window's renderer, but the toolbar is a
+  // separate panel; mirror it here so the toolbar can hide page-scoped chrome.
+  ipcMain.handle('app:set-workspace-view', (_event, view: WorkspaceView) => {
+    currentWorkspaceView = view
+    panelManager.notifyToolbarPanel('workspace:view-changed', view)
+  })
+  ipcMain.handle('app:get-workspace-view', () => currentWorkspaceView)
+
   ipcMain.handle('snapshot:take', async (_event, includeSeoAudit = false) => {
     return captureSnapshot(makeSnapshotPort(paneManager), undefined, {
       includeSeoAudit,
@@ -287,6 +305,20 @@ export function registerIpcHandlers(
     }
     return paneManager.savePaneScreenshot(paneId, parentWindow)
   })
+
+  ipcMain.handle(
+    'media:download',
+    async (event, payload: { url: string; suggestedName?: string }) => {
+      if (!payload?.url) return { saved: false }
+      const parentWindow = BrowserWindow.fromWebContents(event.sender)
+      return downloadMedia(
+        parentWindow,
+        payload.url,
+        paneManager.getPreviewSession(),
+        payload.suggestedName
+      )
+    }
+  )
 
   ipcMain.handle('preview:go-back', async () => {
     await paneManager.goBack()
@@ -474,6 +506,14 @@ export function registerIpcHandlers(
       const mainWindow = BrowserWindow.getAllWindows()[0]
       if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
         mainWindow.webContents.send('app:lighthouse-view')
+      }
+      return
+    }
+
+    if (action.type === 'enter-settings-view') {
+      const mainWindow = BrowserWindow.getAllWindows()[0]
+      if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+        mainWindow.webContents.send('app:settings-view')
       }
       return
     }

@@ -4,7 +4,7 @@ export function SearchPreview({ result }: { result: AuditResult }): React.JSX.El
   return (
     <section
       data-testid="seo-search-preview"
-      className="rounded-xl border border-white/10 bg-black/55 p-5 backdrop-blur-md"
+      className="rounded-xl border border-white/10 bg-black/40 p-5 backdrop-blur-md"
     >
       <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-white/55">
         Representative search preview

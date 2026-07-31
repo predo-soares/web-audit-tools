@@ -16,6 +16,22 @@ async function revealSecondaryOutcomes(panel: Locator): Promise<void> {
     }
   }
 }
+
+// The URL bar is hidden in full-screen views, so a navigation that happens while
+// the SEO view is open (to test staleness) is driven through the app API — the
+// same path a sidebar project/history click or an agent takes.
+async function navigateInApp(window: Page, url: string): Promise<void> {
+  await window.evaluate((address) => window.api.navigate(address), url)
+}
+
+// The audit report is split across tabs; open the one holding the section a test
+// asserts on before locating it.
+async function selectSeoTab(
+  panel: Locator,
+  tab: 'findings' | 'preview' | 'structure' | 'links' | 'media' | 'i18n'
+): Promise<void> {
+  await panel.getByTestId(`seo-tab-${tab}`).click()
+}
 import {
   evaluateInPane,
   fixtureUrl,
@@ -73,7 +89,6 @@ test('runs a full audit and reports a passed title finding', async ({ fixturePor
     const searchAppearanceCategory = overview
       .getByTestId('seo-category-row')
       .filter({ hasText: 'Search appearance' })
-      .getByRole('button', { name: /^Search appearance ·/ })
     await searchAppearanceCategory.click()
     await expect
       .poll(async () => panel.getByTestId('seo-finding').allTextContents())
@@ -83,11 +98,14 @@ test('runs a full audit and reports a passed title finding', async ({ fixturePor
         text.includes('Search appearance')
       )
     ).toBe(true)
+    await selectSeoTab(panel, 'structure')
     await panel.getByText('Declared and resolved metadata').click()
     await expect(panel.getByTestId('seo-declared-metadata')).toContainText(
       'rendered · title #1: Fixture SEO Page'
     )
     await expect(panel.getByTestId('seo-resolved-metadata')).toContainText('Fixture SEO Page')
+    await window.keyboard.press('Escape')
+    await selectSeoTab(panel, 'findings')
     await searchAppearanceCategory.click()
     await panel.evaluate(() => {
       Object.defineProperty(navigator, 'clipboard', {
@@ -115,7 +133,7 @@ test('runs a full audit and reports a passed title finding', async ({ fixturePor
       )
     ).toContain('search-appearance/title-present')
 
-    await navigateTo(window, fixtureUrl(fixturePort, '/seo/no-title'))
+    await navigateInApp(window, fixtureUrl(fixturePort, '/seo/no-title'))
     await waitForPaneElement(window, 'desktop', 'seo-no-title')
     // A real navigation returns to the browser workspace; re-open SEO to inspect.
     await openSeoView(window)
@@ -211,10 +229,12 @@ test('verifies localized alternates with bounded reciprocal checks', async ({ fi
     const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
     await revealSecondaryOutcomes(panel)
+    await selectSeoTab(panel, 'i18n')
     const section = panel.getByTestId('seo-internationalization')
     await expect(section.getByTestId('seo-hreflang-item')).toHaveCount(3)
     await expect(section).toContainText('x-default')
     await expect(section).toContainText('reciprocal yes')
+    await selectSeoTab(panel, 'findings')
     await expect(
       panel.locator(
         '[data-testid="seo-finding"][data-rule-id="internationalization/hreflang-syntax"]'
@@ -245,6 +265,8 @@ test('reports an error finding when the page has no title', async ({ fixturePort
     )
     await expect(titleFinding).toHaveAttribute('data-outcome', 'error')
     await expect(titleFinding.getByTestId('seo-finding-summary')).toHaveText('Page has no title')
+    // Remediation lives in the finding's collapsible panel; expand it first.
+    await titleFinding.getByTestId('seo-finding-summary').click()
     await expect(titleFinding.getByTestId('seo-finding-remediation')).toBeVisible()
   } finally {
     await close()
@@ -292,7 +314,7 @@ test('marks a completed result stale after the pane navigates', async ({ fixture
 
     // Navigate the panes; the completed result should be flagged stale but stay
     // inspectable. A real navigation returns to the browser workspace first.
-    await navigateTo(window, fixtureUrl(fixturePort, '/seo/no-title'))
+    await navigateInApp(window, fixtureUrl(fixturePort, '/seo/no-title'))
     await openSeoView(window)
     await expect(panel.getByTestId('seo-stale-banner')).toBeVisible()
     await expect(panel.getByTestId('seo-result')).toBeVisible()
@@ -356,6 +378,7 @@ test('renders a resolved search preview and preserves declared metadata', async 
     const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
 
+    await selectSeoTab(panel, 'preview')
     await expect(panel.getByTestId('seo-preview-title')).toHaveText('Search Appearance Fixture')
     await expect(panel.getByTestId('seo-preview-description')).toContainText(
       'precise fixture description'
@@ -363,6 +386,7 @@ test('renders a resolved search preview and preserves declared metadata', async 
     await expect(panel.getByTestId('seo-preview-url')).toContainText('/seo/search-appearance')
     await expect(panel.getByTestId('seo-preview-measurements')).toContainText('chars')
 
+    await selectSeoTab(panel, 'structure')
     await panel.getByText('Declared and resolved metadata').click()
     await expect(panel.getByTestId('seo-declared-metadata')).toContainText('rendered · description')
     await expect(panel.getByTestId('seo-resolved-metadata')).toContainText(
@@ -390,6 +414,7 @@ test('reports duplicate and conflicting search metadata without hiding declarati
     await expect(finding).toHaveAttribute('data-outcome', 'warning')
     await expect(finding.getByTestId('seo-finding-evidence')).toContainText('declarations conflict')
 
+    await selectSeoTab(panel, 'structure')
     await panel.getByText('Declared and resolved metadata').click()
     const declared = panel.getByTestId('seo-declared-metadata')
     await expect(declared).toContainText('First description')
@@ -466,17 +491,20 @@ test('resolves social fallbacks, verifies the image, and renders representative 
     await panel.getByTestId('seo-run-audit').click()
 
     await revealSecondaryOutcomes(panel)
+    await selectSeoTab(panel, 'preview')
     await expect(panel.getByTestId('seo-social-previews')).toContainText(
       'Representative approximation'
     )
     await expect(panel.getByTestId('seo-social-preview')).toHaveCount(5)
     await expect(panel.getByTestId('seo-social-previews')).toContainText('Social Fixture Card')
+    await selectSeoTab(panel, 'findings')
     const imageFinding = panel.locator(
       '[data-testid="seo-finding"][data-rule-id="social-sharing/images-valid"]'
     )
     await expect(imageFinding).toHaveAttribute('data-outcome', 'passed')
     await expect(imageFinding.getByTestId('seo-finding-evidence')).toContainText('1200×630')
 
+    await selectSeoTab(panel, 'preview')
     await panel.getByText('Declared social metadata').click()
     await expect(panel.getByTestId('seo-social-declarations')).toContainText('og:image')
     await expect(panel.getByTestId('seo-social-declarations')).toContainText('twitter:card')
@@ -496,6 +524,7 @@ test('inspects JSON-LD, Microdata, RDFa, and attributed enhancement eligibility'
     await panel.getByTestId('seo-run-audit').click()
 
     await revealSecondaryOutcomes(panel)
+    await selectSeoTab(panel, 'structure')
     const inspector = panel.getByTestId('seo-structured-data')
     await expect(inspector).toContainText('does not guarantee a rich result')
     await expect(inspector.getByTestId('seo-structured-source')).toHaveCount(3)
@@ -503,6 +532,7 @@ test('inspects JSON-LD, Microdata, RDFa, and attributed enhancement eligibility'
     await expect(
       inspector.getByTestId('seo-search-enhancement').filter({ hasText: 'Article · eligible' })
     ).toHaveCount(1)
+    await selectSeoTab(panel, 'findings')
     await expect(
       panel.locator('[data-testid="seo-finding"][data-rule-id="structured-data/standards-valid"]')
     ).toHaveAttribute('data-outcome', 'passed')
@@ -550,14 +580,17 @@ test('inspects client-rendered headings, responsive visibility, and page landmar
     await panel.getByTestId('seo-run-audit').click()
 
     await revealSecondaryOutcomes(panel)
+    await selectSeoTab(panel, 'structure')
     const structure = panel.getByTestId('seo-document-structure')
     await expect(structure).toContainText('Language: en')
+    // The heading tree opens in a modal (portaled outside the section).
     await structure.getByText('Rendered heading tree').click()
-    await expect(structure.getByTestId('seo-heading-tree')).toContainText('Hidden desktop heading')
-    await expect(structure.getByTestId('seo-heading-tree')).toContainText('hidden')
-    await expect(structure.getByTestId('seo-heading-tree')).toContainText(
-      'Client-rendered page heading'
-    )
+    const headingTree = panel.getByTestId('seo-heading-tree')
+    await expect(headingTree).toContainText('Hidden desktop heading')
+    await expect(headingTree).toContainText('hidden')
+    await expect(headingTree).toContainText('Client-rendered page heading')
+    await window.keyboard.press('Escape')
+    await selectSeoTab(panel, 'findings')
     await expect(
       panel.locator(
         '[data-testid="seo-finding"][data-rule-id="document-structure/primary-heading"]'
@@ -609,6 +642,7 @@ test('inventories and filters rendered links without crawling ordinary destinati
     const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
 
+    await selectSeoTab(panel, 'links')
     const inventory = panel.getByTestId('seo-link-inventory')
     await expect(inventory).toContainText('12 anchors')
     await expect(inventory).toContainText('javascript')
@@ -617,6 +651,7 @@ test('inventories and filters rendered links without crawling ordinary destinati
     await expect(inventory.getByTestId('seo-link-item')).toHaveCount(1)
     await expect(inventory.getByTestId('seo-link-item')).toContainText('/client-rendered')
 
+    await selectSeoTab(panel, 'findings')
     await expect(
       panel.locator('[data-testid="seo-finding"][data-rule-id="links/destinations-valid"]')
     ).toHaveAttribute('data-outcome', 'error')
@@ -641,13 +676,29 @@ test('inspects selected responsive images and client-inserted media evidence', a
     const panel = await openSeoView(window)
     await panel.getByTestId('seo-run-audit').click()
 
+    await selectSeoTab(panel, 'media')
     const inventory = panel.getByTestId('seo-images-media')
     await expect(inventory).toContainText('6 images · 1 media')
-    await expect(inventory).toContainText('decorative')
-    await expect(inventory).toContainText('Client inserted image')
-    await expect(inventory).toContainText('srcset')
-    await expect(inventory).toContainText('picture source')
+    await expect(inventory.getByTestId('seo-image-item')).toHaveCount(6)
     await expect(inventory.getByTestId('seo-media-item')).toContainText('1 tracks')
+
+    // Per-image detail (alt, srcset, picture sources) moved into a modal opened
+    // from each card. The 5th image is the <picture> with a source + srcset.
+    await inventory.getByTestId('seo-image-item').nth(4).getByTestId('seo-image-details').click()
+    const modal = panel.getByTestId('seo-image-modal')
+    await expect(modal).toBeVisible()
+    await expect(modal).toContainText('Responsive illustration')
+    await expect(modal).toContainText('srcset')
+    await expect(modal).toContainText('picture source')
+    await window.keyboard.press('Escape')
+    await expect(modal).toHaveCount(0)
+
+    // The first image declares an empty alt, surfaced as decorative in its modal.
+    await inventory.getByTestId('seo-image-item').nth(0).getByTestId('seo-image-details').click()
+    await expect(panel.getByTestId('seo-image-modal')).toContainText('(decorative)')
+    await window.keyboard.press('Escape')
+
+    await selectSeoTab(panel, 'findings')
     await expect(
       panel.locator('[data-testid="seo-finding"][data-rule-id="images-media/alternatives"]')
     ).toHaveAttribute('data-outcome', 'warning')

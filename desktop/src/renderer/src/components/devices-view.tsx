@@ -4,6 +4,7 @@ import { DEVICE_CATALOG } from '../../../shared/device-catalog'
 import type { CatalogEntry } from '../../../shared/device-catalog'
 import type { PaneId } from '../../../shared/types'
 import { useSidebar } from '@renderer/context/sidebar-context'
+import { CANVAS_GLASS_SURFACE_CLASS } from '@renderer/lib/glass-surface'
 import { cn } from '@renderer/lib/utils'
 import { Icon } from '@renderer/components/ui/icon'
 
@@ -44,8 +45,11 @@ export function DevicesView({
   return (
     <div
       data-testid="devices-view"
-      className="absolute inset-0 z-10 flex items-start justify-center overflow-y-auto bg-transparent"
-      style={{ top: TOOLBAR_HEIGHT_PX, left: sidebarOffset }}
+      className={cn(
+        'absolute inset-0 z-10 box-border flex items-start justify-center overflow-y-auto',
+        CANVAS_GLASS_SURFACE_CLASS
+      )}
+      style={{ paddingTop: TOOLBAR_HEIGHT_PX, paddingLeft: sidebarOffset }}
     >
       <div className="flex items-start gap-5 px-8 py-8">
         {BRAND_GROUPS.map(({ brand, entries }) => (
