@@ -13,6 +13,7 @@
 import type { PaneId } from '../../shared/types'
 import type { DevContext } from '../../shared/dev-context'
 import type { RuntimeEvidenceSnapshot } from '../../shared/runtime-evidence'
+import type { AuditJobState, AuditRunResult, IndexingIntent } from '../../shared/seo-audit'
 
 /** Structured outcome of a capture-bundle request over MCP. */
 export type CaptureBundleResult =
@@ -91,4 +92,10 @@ export interface McpToolPort {
 
   /** Reload every pane so a change can be verified without human intervention. */
   reload(): Promise<void>
+
+  /** Run a Page SEO audit on the active pane, awaiting completion. */
+  runAudit(indexingIntent: IndexingIntent): Promise<AuditRunResult>
+
+  /** The most recent Page SEO audit job state (result, staleness, phase). */
+  getAudit(): AuditJobState
 }

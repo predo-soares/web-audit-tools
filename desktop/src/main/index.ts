@@ -212,7 +212,7 @@ app.whenReady().then(() => {
 
   // Start the local MCP server so an MCP-aware agent can drive the live panes and
   // read observed context. Binds loopback only; started after managers exist.
-  startMcpServer({ port: composeMcpToolPort({ paneManager }) })
+  startMcpServer({ port: composeMcpToolPort({ paneManager, auditManager }) })
     .then((handle) => {
       mcpServerHandle = handle
       console.log(`MCP server listening at ${handle.url}`)

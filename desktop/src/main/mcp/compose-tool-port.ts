@@ -3,11 +3,13 @@ import { DEVICE_PRESETS, PANE_IDS } from '../../shared/device-presets'
 import { isLocalhostUrl } from '../../shared/dev-context'
 import { captureSnapshot } from '../services/snapshot-service'
 import { makeSnapshotPort } from '../ipc'
+import type { AuditManager } from '../seo/audit-manager'
 import type { PaneManager } from '../panes/pane-manager'
 import type { DeviceInfo, McpToolPort, ObservedContext } from './mcp-tool-port'
 
 export interface ComposeMcpToolPortDeps {
   paneManager: PaneManager
+  auditManager: AuditManager
 }
 
 /**
@@ -16,7 +18,7 @@ export interface ComposeMcpToolPortDeps {
  * bridged, so both surfaces act on the same manager instances and never diverge.
  */
 export function composeMcpToolPort(deps: ComposeMcpToolPortDeps): McpToolPort {
-  const { paneManager } = deps
+  const { paneManager, auditManager } = deps
 
   return {
     navigateAll: (url) => paneManager.navigateAll(url),
@@ -103,6 +105,10 @@ export function composeMcpToolPort(deps: ComposeMcpToolPortDeps): McpToolPort {
       }
     },
 
-    reload: () => paneManager.reloadAll()
+    reload: () => paneManager.reloadAll(),
+
+    runAudit: (indexingIntent) => auditManager.run({ indexingIntent }),
+
+    getAudit: () => auditManager.getState()
   }
 }

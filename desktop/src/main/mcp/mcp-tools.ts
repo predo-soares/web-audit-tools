@@ -3,6 +3,12 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { PANE_IDS } from '../../shared/device-presets'
 import { isConsoleProblem, isNetworkProblem } from '../../shared/runtime-evidence'
+import {
+  CATEGORY_LABEL,
+  INDEXING_INTENT_LABEL,
+  type AuditResult,
+  type IndexingIntent
+} from '../../shared/seo-audit'
 import type { PaneId } from '../../shared/types'
 import { normalizeUrl } from '../../shared/url'
 import type { DeviceInfo, McpToolPort, ObservedContext } from './mcp-tool-port'
@@ -75,6 +81,55 @@ function formatObservedContext(ctx: ObservedContext): string {
   lines.push('', `Network failures (${networkFailures.length}):`)
   for (const entry of networkFailures) {
     lines.push(`  ${entry.method} ${entry.path}${entry.status != null ? ` → ${entry.status}` : ''}`)
+  }
+
+  return lines.join('\n')
+}
+
+const KNOWN_INDEXING_INTENTS = Object.keys(INDEXING_INTENT_LABEL) as IndexingIntent[]
+
+function isIndexingIntent(value: string): value is IndexingIntent {
+  return (KNOWN_INDEXING_INTENTS as string[]).includes(value)
+}
+
+function auditFailureMessage(reason: string): string {
+  switch (reason) {
+    case 'no-url':
+      return 'Cannot run an audit: no URL is loaded in the active pane. Navigate to a URL first.'
+    case 'busy':
+      return 'An audit is already running. Wait for it to finish, then read it with get_audit.'
+    case 'cancelled':
+      return 'The audit was cancelled (the pane navigated or reloaded before it completed).'
+    default:
+      return 'The audit could not be completed. Try again once the page has settled.'
+  }
+}
+
+function formatAuditResult(
+  result: AuditResult,
+  meta?: { stale?: boolean; incomplete?: boolean }
+): string {
+  const lines: string[] = []
+  const flags = [meta?.stale ? 'stale' : null, meta?.incomplete ? 'incomplete' : null]
+    .filter(Boolean)
+    .join(', ')
+  lines.push(`Page SEO audit for ${result.url}${flags ? ` (${flags})` : ''}`)
+  lines.push(
+    `Indexing intent: ${result.indexingIntent} | Rule catalog: ${result.ruleCatalogVersion}`
+  )
+
+  lines.push('', 'Findings by category:')
+  for (const category of Object.keys(CATEGORY_LABEL) as (keyof typeof CATEGORY_LABEL)[]) {
+    const count = result.findings.filter((finding) => finding.category === category).length
+    lines.push(`  ${CATEGORY_LABEL[category]}: ${count}`)
+  }
+
+  const actionable = result.findings.filter((finding) => finding.remediation)
+  lines.push('', `Actionable findings (${actionable.length}):`)
+  for (const finding of actionable) {
+    lines.push(`  [${finding.outcome}] ${finding.ruleId}: ${finding.summary}`)
+    lines.push(`    Impact: ${finding.impact}`)
+    if (finding.remediation) lines.push(`    Fix: ${finding.remediation}`)
   }
 
   return lines.join('\n')
@@ -237,6 +292,56 @@ export function registerMcpTools(server: McpServer, port: McpToolPort): void {
     async () => {
       await port.reload()
       return textResult('Reloaded all device panes.')
+    }
+  )
+
+  server.registerTool(
+    'run_audit',
+    {
+      title: 'Run a Page SEO audit',
+      description:
+        'Run a Page SEO audit on the active pane, await completion, and return the findings (outcome, impact, and remediation) grouped by category.',
+      inputSchema: {
+        indexingIntent: z
+          .string()
+          .optional()
+          .describe(
+            `How the page is meant to be indexed (${KNOWN_INDEXING_INTENTS.join(', ')}). Defaults to "indexable".`
+          )
+      }
+    },
+    async ({ indexingIntent }) => {
+      const intent = indexingIntent ?? 'indexable'
+      if (!isIndexingIntent(intent)) {
+        return errorResult(
+          `Unknown indexing intent "${intent}". Use one of: ${KNOWN_INDEXING_INTENTS.join(', ')}.`
+        )
+      }
+      const result = await port.runAudit(intent)
+      if (!result.ok) return errorResult(auditFailureMessage(result.reason))
+      return textResult(formatAuditResult(result.result))
+    }
+  )
+
+  server.registerTool(
+    'get_audit',
+    {
+      title: 'Read the latest Page SEO audit',
+      description:
+        'Return the most recent Page SEO audit result without re-running it, noting when it is stale (the pane has navigated or reloaded since).',
+      inputSchema: {}
+    },
+    async () => {
+      const state = port.getAudit()
+      if (!state.result) {
+        if (state.phase === 'running') {
+          return textResult('An audit is currently running. Read it again once it completes.')
+        }
+        return textResult('No audit has been run yet. Use run_audit to run one.')
+      }
+      return textResult(
+        formatAuditResult(state.result, { stale: state.stale, incomplete: state.incomplete })
+      )
     }
   )
 }

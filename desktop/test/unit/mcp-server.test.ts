@@ -4,6 +4,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { startMcpServer, type McpServerHandle } from '../../src/main/mcp/mcp-server'
 import type { McpToolPort } from '../../src/main/mcp/mcp-tool-port'
+import { IDLE_AUDIT_STATE } from '../../src/shared/seo-audit'
 
 function makePort(): McpToolPort & { navigateCalls: string[] } {
   const navigateCalls: string[] = []
@@ -25,7 +26,9 @@ function makePort(): McpToolPort & { navigateCalls: string[] } {
       evidence: { paneId: 'desktop', console: [], network: [], problemCount: 0 },
       devContext: null
     }),
-    reload: async () => {}
+    reload: async () => {},
+    runAudit: async () => ({ ok: false, reason: 'no-url' }),
+    getAudit: () => IDLE_AUDIT_STATE
   }
 }
 

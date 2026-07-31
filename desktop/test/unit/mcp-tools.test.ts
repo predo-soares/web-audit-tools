@@ -11,6 +11,7 @@ import type {
   ObservedContext
 } from '../../src/main/mcp/mcp-tool-port'
 import type { PaneId } from '../../src/shared/types'
+import { IDLE_AUDIT_STATE, type AuditResult, type IndexingIntent } from '../../src/shared/seo-audit'
 
 interface FakePort extends McpToolPort {
   navigateCalls: string[]
@@ -19,7 +20,35 @@ interface FakePort extends McpToolPort {
   setVisibleDevicesCalls: PaneId[][]
   screenshotCalls: (PaneId | null)[]
   reloadCalls: number
+  runAuditCalls: IndexingIntent[]
 }
+
+const AUDIT_RESULT = {
+  id: 'audit-1',
+  url: 'http://localhost:3000/',
+  ruleCatalogVersion: 'test.1',
+  indexingIntent: 'indexable',
+  findings: [
+    {
+      ruleId: 'search-appearance/title-present',
+      category: 'search-appearance',
+      outcome: 'error',
+      summary: 'Missing title',
+      impact: 'Hard to identify in search.',
+      remediation: 'Add a <title>.',
+      evidence: { origin: 'rendered', detail: 'No title.' }
+    },
+    {
+      ruleId: 'search-appearance/title-ok',
+      category: 'search-appearance',
+      outcome: 'passed',
+      summary: 'Nothing to do',
+      impact: 'n/a',
+      remediation: null,
+      evidence: { origin: 'rendered', detail: 'ok' }
+    }
+  ]
+} as unknown as AuditResult
 
 const FIXED_PNG = Buffer.from('fake-png-bytes')
 
@@ -60,6 +89,7 @@ function makePort(overrides?: Partial<McpToolPort>): FakePort {
   const setActivePaneCalls: PaneId[] = []
   const setVisibleDevicesCalls: PaneId[][] = []
   const screenshotCalls: (PaneId | null)[] = []
+  const runAuditCalls: IndexingIntent[] = []
   let captureBundleCalls = 0
   let reloadCalls = 0
   const port: FakePort = {
@@ -67,6 +97,7 @@ function makePort(overrides?: Partial<McpToolPort>): FakePort {
     setActivePaneCalls,
     setVisibleDevicesCalls,
     screenshotCalls,
+    runAuditCalls,
     get reloadCalls() {
       return reloadCalls
     },
@@ -100,6 +131,11 @@ function makePort(overrides?: Partial<McpToolPort>): FakePort {
     reload: async () => {
       reloadCalls++
     },
+    runAudit: async (indexingIntent) => {
+      runAuditCalls.push(indexingIntent)
+      return { ok: true, result: AUDIT_RESULT }
+    },
+    getAudit: () => IDLE_AUDIT_STATE,
     ...overrides
   }
   return port
@@ -406,6 +442,95 @@ describe('registerMcpTools', () => {
       })) as CallToolResult
       expect(result.isError).toBeFalsy()
       expect(port.reloadCalls).toBe(1)
+    })
+  })
+
+  describe('run_audit', () => {
+    it('defaults the indexing intent to indexable and returns actionable findings', async () => {
+      const port = makePort()
+      const client = await connect(port)
+      const result = (await client.callTool({
+        name: 'run_audit',
+        arguments: {}
+      })) as CallToolResult
+      expect(port.runAuditCalls).toEqual(['indexable'])
+      const text = textOf(result)
+      expect(text).toContain('Page SEO audit for http://localhost:3000/')
+      expect(text).toContain('Actionable findings (1)')
+      expect(text).toContain('search-appearance/title-present')
+      expect(text).toContain('Fix: Add a <title>.')
+    })
+
+    it('passes a provided indexing intent through', async () => {
+      const port = makePort()
+      const client = await connect(port)
+      await client.callTool({ name: 'run_audit', arguments: { indexingIntent: 'local-private' } })
+      expect(port.runAuditCalls).toEqual(['local-private'])
+    })
+
+    it('returns a structured error for an unknown indexing intent', async () => {
+      const port = makePort()
+      const client = await connect(port)
+      const result = (await client.callTool({
+        name: 'run_audit',
+        arguments: { indexingIntent: 'sometimes' }
+      })) as CallToolResult
+      expect(result.isError).toBe(true)
+      expect(textOf(result)).toMatch(/unknown indexing intent/i)
+      expect(port.runAuditCalls).toEqual([])
+    })
+
+    it('maps a busy run to a structured error', async () => {
+      const port = makePort({ runAudit: async () => ({ ok: false, reason: 'busy' }) })
+      const client = await connect(port)
+      const result = (await client.callTool({
+        name: 'run_audit',
+        arguments: {}
+      })) as CallToolResult
+      expect(result.isError).toBe(true)
+      expect(textOf(result)).toMatch(/already running/i)
+    })
+
+    it('maps a no-url failure to a structured error', async () => {
+      const port = makePort({ runAudit: async () => ({ ok: false, reason: 'no-url' }) })
+      const client = await connect(port)
+      const result = (await client.callTool({
+        name: 'run_audit',
+        arguments: {}
+      })) as CallToolResult
+      expect(result.isError).toBe(true)
+      expect(textOf(result)).toMatch(/no url is loaded/i)
+    })
+  })
+
+  describe('get_audit', () => {
+    it('reports when no audit has run yet', async () => {
+      const client = await connect(makePort())
+      const result = (await client.callTool({
+        name: 'get_audit',
+        arguments: {}
+      })) as CallToolResult
+      expect(textOf(result)).toMatch(/no audit has been run/i)
+    })
+
+    it('returns the latest result and flags staleness', async () => {
+      const port = makePort({
+        getAudit: () => ({
+          phase: 'completed',
+          running: null,
+          result: AUDIT_RESULT,
+          stale: true,
+          incomplete: false
+        })
+      })
+      const client = await connect(port)
+      const result = (await client.callTool({
+        name: 'get_audit',
+        arguments: {}
+      })) as CallToolResult
+      const text = textOf(result)
+      expect(text).toContain('(stale)')
+      expect(text).toContain('search-appearance/title-present')
     })
   })
 })
