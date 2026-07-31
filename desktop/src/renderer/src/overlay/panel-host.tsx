@@ -138,7 +138,7 @@ export function PanelHost(): React.JSX.Element | null {
         ref={containerRef}
         data-testid="shortcuts-modal-backdrop"
         data-visible={visible ? 'true' : 'false'}
-        className="flex h-screen w-screen items-center justify-center bg-black/55 p-4 transition-opacity"
+        className="flex h-screen w-screen items-center justify-center bg-black/60 p-4 transition-opacity supports-backdrop-filter:bg-black/45 supports-backdrop-filter:backdrop-blur-md"
         style={{
           opacity: visible ? 1 : 0,
           transitionDuration: `${visible ? 160 : 120}ms`

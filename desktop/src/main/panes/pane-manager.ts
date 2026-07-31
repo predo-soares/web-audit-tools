@@ -859,8 +859,12 @@ export class PaneManager {
   }
 
   async captureActivePaneScreenshot(): Promise<Buffer> {
+    return this.capturePaneImage(this.resolveActivePaneForEvidence())
+  }
+
+  /** Capture a specific pane, restoring its mount afterwards (like the active-pane capture). */
+  async capturePaneImage(paneId: PaneId): Promise<Buffer> {
     await this.deviceReady
-    const paneId = this.resolveActivePaneForEvidence()
     try {
       return await this.capturePaneScreenshot(paneId)
     } finally {
@@ -886,6 +890,11 @@ export class PaneManager {
     if (this.focusedPane === paneId) return
     this.focusedPane = paneId
     this.applyPaneVisibility()
+  }
+
+  /** The soloed pane, or null when every pane is visible. */
+  getFocusedPane(): PaneId | null {
+    return this.focusedPane
   }
 
   private isPaneVisible(paneId: PaneId): boolean {

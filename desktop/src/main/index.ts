@@ -8,6 +8,9 @@ import { HistoryStore } from './stores/history-store'
 import { registerIpcHandlers, makeSnapshotPort, makeAuditPort } from './ipc'
 import { captureSnapshot } from './services/snapshot-service'
 import { AuditManager } from './seo/audit-manager'
+import { LighthouseManager } from './seo/lighthouse-manager'
+import { composeMcpToolPort } from './mcp/compose-tool-port'
+import { startMcpServer, type McpServerHandle } from './mcp/mcp-server'
 import { PaneManager } from './panes/pane-manager'
 import { PanelManager } from './panels/panel-manager'
 import { SafariChromeManager } from './chrome/safari-chrome-manager'
@@ -25,10 +28,20 @@ if (process.env.E2E_USER_DATA_DIR) {
 
 const paneManager = new PaneManager()
 const auditManager = new AuditManager(makeAuditPort(paneManager))
+// Hoisted out of registerIpcHandlers so the IPC and MCP surfaces share one
+// LighthouseManager instance (and therefore one Lighthouse state).
+const lighthouseManager = new LighthouseManager((state) => {
+  const mainWindow = BrowserWindow.getAllWindows()[0]
+  if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+    mainWindow.webContents.send('seo-lighthouse:state', state)
+  }
+})
 const panelManager = new PanelManager(paneManager)
 const safariChromeManager = new SafariChromeManager(paneManager)
 const projectStore = new ProjectStore()
 const historyStore = new HistoryStore()
+
+let mcpServerHandle: McpServerHandle | null = null
 
 if (process.env.E2E_TEST) {
   ;(globalThis as { __paneManager?: PaneManager }).__paneManager = paneManager
@@ -140,6 +153,7 @@ function createWindow(): BrowserWindow {
   // panel restores progress on reopen.
   paneManager.onPaneDocumentChange((paneId) => {
     auditManager.handlePaneDocumentChange(paneId)
+    lighthouseManager.handlePaneDocumentChange(paneId)
   })
   auditManager.subscribe((state) => {
     panelManager.notifyOverlayPanels('seo-audit:state', state)
@@ -153,7 +167,8 @@ function createWindow(): BrowserWindow {
     projectStore,
     historyStore,
     safariChromeManager,
-    auditManager
+    auditManager,
+    lighthouseManager
   )
   projectStore.setOnChange((projects) => {
     if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
@@ -195,9 +210,29 @@ app.whenReady().then(() => {
     })
   })
 
+  // Start the local MCP server so an MCP-aware agent can drive the live panes and
+  // read observed context. Binds loopback only; started after managers exist.
+  startMcpServer({
+    port: composeMcpToolPort({ paneManager, auditManager, lighthouseManager })
+  })
+    .then((handle) => {
+      mcpServerHandle = handle
+      console.log(`MCP server listening at ${handle.url}`)
+    })
+    .catch((error) => {
+      console.error('Failed to start MCP server:', error)
+    })
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+})
+
+app.on('will-quit', () => {
+  if (mcpServerHandle) {
+    void mcpServerHandle.stop()
+    mcpServerHandle = null
+  }
 })
 
 app.on('window-all-closed', () => {

@@ -41,7 +41,6 @@ export function AuditControls({
   running,
   job,
   result,
-  copied,
   exportStatus,
   handleIntentChange,
   handleRun,
