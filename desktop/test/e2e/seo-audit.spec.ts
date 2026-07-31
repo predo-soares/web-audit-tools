@@ -358,6 +358,25 @@ test('flags an invalid URL entered in the target bar', async () => {
   }
 })
 
+test('suggests visited pages from history in the target bar', async ({ fixturePort }) => {
+  const { window, close } = await launchApp()
+
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/seo/with-title'))
+    await waitForPaneElement(window, 'desktop', 'seo-with-title')
+
+    const panel = await openSeoView(window)
+    const input = panel.getByTestId('seo-target-url')
+    await input.click()
+
+    const history = panel.getByTestId('seo-url-history')
+    await expect(history).toBeVisible()
+    await expect(history.getByTestId('seo-url-history-item').first()).toContainText('with-title')
+  } finally {
+    await close()
+  }
+})
+
 test('renders a resolved search preview and preserves declared metadata', async ({
   fixturePort
 }) => {

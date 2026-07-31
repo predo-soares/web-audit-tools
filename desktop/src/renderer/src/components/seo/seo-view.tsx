@@ -68,6 +68,7 @@ export function SeoView({ onClose: _onClose }: { onClose: () => void }): React.J
             running={presentation.running}
             job={presentation.job}
             result={result}
+            history={presentation.history}
             handleNavigate={presentation.handleNavigate}
             handleIntentChange={presentation.handleIntentChange}
             handleRun={presentation.handleRun}

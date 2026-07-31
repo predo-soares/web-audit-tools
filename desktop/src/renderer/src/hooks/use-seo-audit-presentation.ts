@@ -11,6 +11,7 @@ import {
 } from '../../../shared/seo-audit'
 import type { PaneNavigationState } from '../../../shared/types'
 import type { SnapshotResult } from '../../../shared/snapshot'
+import type { HistoryEntry } from '../../../shared/history'
 
 export interface SeoAuditPresentationAdapter {
   getNavigationState(): Promise<PaneNavigationState>
@@ -21,6 +22,8 @@ export interface SeoAuditPresentationAdapter {
   runSeoAudit(indexingIntent: IndexingIntent): Promise<AuditRunResult>
   cancelSeoAudit(): Promise<void>
   takeSnapshot(includeSeoAudit?: boolean): Promise<SnapshotResult>
+  listHistory(): Promise<HistoryEntry[]>
+  onHistoryUpdated(callback: (entries: HistoryEntry[]) => void): () => void
 }
 
 export interface SeoNavigationPresentation {
@@ -34,6 +37,7 @@ export interface SeoAuditPresentation {
   pageTitle: string
   intent: IndexingIntent
   auditable: boolean
+  history: HistoryEntry[]
   job: AuditJobState
   result: AuditJobState['result']
   running: boolean
@@ -82,6 +86,7 @@ export function useSeoAuditPresentation(
   const [copied, setCopied] = useState('')
   const [exportStatus, setExportStatus] = useState('')
   const [job, setJob] = useState<AuditJobState>(IDLE_AUDIT_STATE)
+  const [history, setHistory] = useState<HistoryEntry[]>([])
   const intentTouchedRef = useRef(false)
 
   const applyNavigation = useCallback((state: PaneNavigationState): void => {
@@ -96,6 +101,11 @@ export function useSeoAuditPresentation(
   useEffect(() => {
     void adapter.getSeoAuditState().then(setJob)
     return adapter.onSeoAuditState(setJob)
+  }, [adapter])
+
+  useEffect(() => {
+    void adapter.listHistory().then(setHistory)
+    return adapter.onHistoryUpdated(setHistory)
   }, [adapter])
 
   const handleNavigate = useCallback(
@@ -138,6 +148,7 @@ export function useSeoAuditPresentation(
     pageTitle: navigation.pageTitle,
     intent: navigation.intent,
     auditable: isAuditableUrl(navigation.url),
+    history,
     job,
     result: job.result,
     running: job.phase === 'running',
