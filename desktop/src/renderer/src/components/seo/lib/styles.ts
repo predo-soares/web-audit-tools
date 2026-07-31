@@ -7,7 +7,7 @@ export const PRESSABLE =
 
 // bg-black/40 matches the Settings and Lighthouse section cards so every
 // full-screen workspace shares one card shade over the dotted canvas surface.
-export const CARD = 'rounded-xl border border-white/10 bg-black/40 backdrop-blur-md'
+export const CARD = 'rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md'
 
 export const SECTION_TITLE = 'text-xs font-semibold uppercase tracking-wider text-white/55'
 
