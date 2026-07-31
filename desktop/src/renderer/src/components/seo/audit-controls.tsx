@@ -197,7 +197,12 @@ export function AuditControls({
             >
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent align="start" alignItemWithTrigger={false} className="min-w-72">
+              <p className="border-b border-white/10 px-2 py-2 text-[11px] leading-relaxed text-muted-foreground">
+                How you expect search engines to treat this page. It changes how discoverability
+                findings are judged, not which checks run — indexable flags missing signals,
+                non-indexable expects a noindex, local / private relaxes crawler checks.
+              </p>
               {INTENT_OPTIONS.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
