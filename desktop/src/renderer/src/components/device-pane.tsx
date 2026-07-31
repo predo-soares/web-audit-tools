@@ -16,7 +16,6 @@ import {
 } from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
 import { Button } from '@renderer/components/ui/button'
-import { Badge } from '@renderer/components/ui/badge'
 import { useCallback } from 'react'
 
 interface DevicePaneProps {
@@ -66,7 +65,6 @@ export function DevicePane({
   error,
   safariChromeEnabled = false,
   profileOverride,
-  canFocus = false,
   isSoloed = false,
   onToggleFocus,
   isLinked = true,
