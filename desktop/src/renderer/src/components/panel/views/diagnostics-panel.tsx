@@ -17,8 +17,14 @@ import { Icon } from '@renderer/components/ui/icon'
 import { Input } from '@renderer/components/ui/input'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@renderer/components/ui/select'
-import { Tabs, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@renderer/components/ui/select'
+import { MotionTabs } from '@renderer/components/ui/motion-tabs'
 import { RenderingControls } from './rendering-controls'
 
 type DiagnosticsTab = RuntimeEvidenceChannel | 'rendering'
@@ -268,9 +274,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
         className="absolute inset-y-0 left-0 z-20 w-1 -translate-x-1/2 cursor-col-resize touch-none hover:bg-white/10 active:bg-white/15"
         onPointerDown={handleResizePointerDown}
       />
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => v && setActiveTab(v as DiagnosticsTab)}
+      <div
         className="relative z-[1] flex min-h-0 flex-1 flex-col gap-0"
         style={{ width: panelWidth }}
       >
@@ -278,43 +282,44 @@ export function DiagnosticsPanel(): React.JSX.Element {
           className="flex items-center gap-1 border-b border-white/10 px-2 py-2"
           style={{ paddingTop: TOOLBAR_HEIGHT_PX }}
         >
-          <TabsList variant="line" className="h-auto gap-0 bg-transparent p-0">
-            <TabsTrigger
-              value="console"
-              data-testid="diagnostics-tab-console"
-              className="h-auto gap-1.5 rounded-md px-2 py-1 text-xs font-medium data-active:bg-white/10 data-active:text-foreground data-active:shadow-none after:hidden"
-            >
-              Console
-              <Badge
-                data-testid="diagnostics-console-badge"
-                variant="secondary"
-                className="h-auto px-1.5 py-0.5 text-[10px] tabular-nums"
-              >
-                {consoleCount}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger
-              value="network"
-              data-testid="diagnostics-tab-network"
-              className="h-auto gap-1.5 rounded-md px-2 py-1 text-xs font-medium data-active:bg-white/10 data-active:text-foreground data-active:shadow-none after:hidden"
-            >
-              Network
-              <Badge
-                data-testid="diagnostics-network-badge"
-                variant="secondary"
-                className="h-auto px-1.5 py-0.5 text-[10px] tabular-nums"
-              >
-                {networkCount}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger
-              value="rendering"
-              data-testid="diagnostics-tab-rendering"
-              className="h-auto rounded-md px-2 py-1 text-xs font-medium data-active:bg-white/10 data-active:text-foreground data-active:shadow-none after:hidden"
-            >
-              Rendering
-            </TabsTrigger>
-          </TabsList>
+          <MotionTabs<DiagnosticsTab>
+            value={activeTab}
+            onChange={setActiveTab}
+            layoutId="diagnostics-tab-indicator"
+            ariaLabel="Diagnostics channels"
+            tabClassName="px-2 py-1"
+            items={[
+              {
+                value: 'console',
+                label: 'Console',
+                testId: 'diagnostics-tab-console',
+                trailing: (
+                  <Badge
+                    data-testid="diagnostics-console-badge"
+                    variant="secondary"
+                    className="h-auto px-1.5 py-0.5 text-[10px] tabular-nums"
+                  >
+                    {consoleCount}
+                  </Badge>
+                )
+              },
+              {
+                value: 'network',
+                label: 'Network',
+                testId: 'diagnostics-tab-network',
+                trailing: (
+                  <Badge
+                    data-testid="diagnostics-network-badge"
+                    variant="secondary"
+                    className="h-auto px-1.5 py-0.5 text-[10px] tabular-nums"
+                  >
+                    {networkCount}
+                  </Badge>
+                )
+              },
+              { value: 'rendering', label: 'Rendering', testId: 'diagnostics-tab-rendering' }
+            ]}
+          />
         </header>
         {activeTab === 'rendering' ? (
           <RenderingControls />
@@ -583,7 +588,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
             </div>
           </div>
         )}
-      </Tabs>
+      </div>
     </aside>
   )
 }
