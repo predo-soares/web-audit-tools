@@ -16,6 +16,7 @@ import {
 } from '@renderer/components/ui/accordion'
 import { cn } from '@renderer/lib/utils'
 import {
+  BrowserIcon,
   GaugeIcon,
   InformationCircleIcon,
   LaptopPhoneSyncIcon,
@@ -58,8 +59,8 @@ export function SidebarPanel({
   const [clearDialogOpen, setClearDialogOpen] = useState(false)
   const [historyExpanded, setHistoryExpanded] = useState(false)
   const [activeTab, setActiveTab] = useState<
-    'seo' | 'lighthouse' | 'devices' | 'settings' | null
-  >(null)
+    'preview' | 'seo' | 'lighthouse' | 'devices' | 'settings'
+  >('preview')
   const HISTORY_PAGE_SIZE = 10
   const historyHeadingRef = useRef<HTMLButtonElement>(null)
   const historyRowRefs = useRef<Array<HTMLButtonElement | null>>([])
@@ -179,6 +180,24 @@ export function SidebarPanel({
           <div className="mb-3 px-2 flex flex-col gap-0.5">
             <button
               type="button"
+              data-testid="sidebar-preview-view"
+              className={cn(
+                'flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors',
+                activeTab === 'preview'
+                  ? 'bg-white/10 text-foreground'
+                  : 'text-foreground/70 hover:bg-white/5 hover:text-foreground',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50'
+              )}
+              onClick={() => {
+                setActiveTab('preview')
+                onAction({ type: 'enter-preview-view' })
+              }}
+            >
+              <Icon icon={BrowserIcon} size={16} />
+              <span className="text-foreground">Preview</span>
+            </button>
+            <button
+              type="button"
               data-testid="sidebar-seo-view"
               className={cn(
                 'flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors',
@@ -188,10 +207,7 @@ export function SidebarPanel({
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50'
               )}
               onClick={() => {
-                if (activeTab === 'devices') {
-                  onAction({ type: 'enter-devices-view' })
-                }
-                setActiveTab((v) => (v === 'seo' ? null : 'seo'))
+                setActiveTab('seo')
                 onAction({ type: 'enter-seo-view' })
               }}
             >
@@ -208,7 +224,7 @@ export function SidebarPanel({
                   : 'text-foreground/70 hover:bg-white/5 hover:text-foreground'
               )}
               onClick={() => {
-                setActiveTab((value) => (value === 'lighthouse' ? null : 'lighthouse'))
+                setActiveTab('lighthouse')
                 onAction({ type: 'enter-lighthouse-view' })
               }}
             >
@@ -226,10 +242,7 @@ export function SidebarPanel({
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50'
               )}
               onClick={() => {
-                if (activeTab === 'seo') {
-                  onAction({ type: 'enter-seo-view' })
-                }
-                setActiveTab((v) => (v === 'devices' ? null : 'devices'))
+                setActiveTab('devices')
                 onAction({ type: 'enter-devices-view' })
               }}
             >
@@ -337,7 +350,7 @@ export function SidebarPanel({
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50'
           )}
           onClick={() => {
-            setActiveTab((v) => (v === 'settings' ? null : 'settings'))
+            setActiveTab('settings')
             onAction({ type: 'enter-settings-view' })
           }}
         >

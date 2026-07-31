@@ -176,40 +176,27 @@ export default function App(): React.JSX.Element {
       }
     })
     const unsubscribeSafariChrome = window.api.onSafariChromeEnabledChanged(setSafariChromeEnabled)
-    const unsubscribeSeoView = window.api.onEnterSeoView(() => {
+    const showWorkspace = (next: WorkspaceView): void => {
       setWorkspace((current) => {
-        const next = current === 'seo' ? 'browser' : 'seo'
+        if (current === next) return current
         void window.api.setPanesVisible(next === 'browser')
         return next
       })
-    })
-    const unsubscribeLighthouseView = window.api.onEnterLighthouseView(() => {
-      setWorkspace((current) => {
-        const next = current === 'lighthouse' ? 'browser' : 'lighthouse'
-        void window.api.setPanesVisible(next === 'browser')
-        return next
-      })
-    })
-    const unsubscribeDevicesView = window.api.onEnterDevicesView(() => {
-      setWorkspace((current) => {
-        const next = current === 'devices' ? 'browser' : 'devices'
-        void window.api.setPanesVisible(next === 'browser')
-        return next
-      })
-    })
-    const unsubscribeSettingsView = window.api.onEnterSettingsView(() => {
-      setWorkspace((current) => {
-        const next = current === 'settings' ? 'browser' : 'settings'
-        void window.api.setPanesVisible(next === 'browser')
-        return next
-      })
-    })
+    }
+    const unsubscribePreviewView = window.api.onEnterPreviewView(() => showWorkspace('browser'))
+    const unsubscribeSeoView = window.api.onEnterSeoView(() => showWorkspace('seo'))
+    const unsubscribeLighthouseView = window.api.onEnterLighthouseView(() =>
+      showWorkspace('lighthouse')
+    )
+    const unsubscribeDevicesView = window.api.onEnterDevicesView(() => showWorkspace('devices'))
+    const unsubscribeSettingsView = window.api.onEnterSettingsView(() => showWorkspace('settings'))
 
     return () => {
       unsubscribeLoading()
       unsubscribeLoadError()
       unsubscribeNavigation()
       unsubscribeSafariChrome()
+      unsubscribePreviewView()
       unsubscribeSeoView()
       unsubscribeLighthouseView()
       unsubscribeDevicesView()

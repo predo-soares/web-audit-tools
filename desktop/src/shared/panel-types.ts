@@ -89,6 +89,7 @@ export type PanelAction =
   | { type: 'go-forward' }
   | { type: 'reload' }
   | { type: 'stop-loading' }
+  | { type: 'enter-preview-view' }
   | { type: 'enter-seo-view' }
   | { type: 'enter-lighthouse-view' }
   | { type: 'enter-devices-view' }

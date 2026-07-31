@@ -191,7 +191,7 @@ export async function openSeoView(window: Page): Promise<Page> {
  */
 export async function reopenSeoView(window: Page): Promise<Page> {
   const sidebar = await getSidebarPage(window)
-  await sidebar.getByTestId('sidebar-seo-view').click() // back to browser
+  await sidebar.getByTestId('sidebar-preview-view').click() // back to browser
   await expect(window.getByTestId('seo-view')).toHaveCount(0)
   await sidebar.getByTestId('sidebar-seo-view').click() // re-enter SEO
   await expect(window.getByTestId('seo-view')).toBeVisible()

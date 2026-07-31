@@ -486,6 +486,14 @@ export function registerIpcHandlers(
       return
     }
 
+    if (action.type === 'enter-preview-view') {
+      const mainWindow = BrowserWindow.getAllWindows()[0]
+      if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+        mainWindow.webContents.send('app:preview-view')
+      }
+      return
+    }
+
     if (action.type === 'enter-seo-view') {
       const mainWindow = BrowserWindow.getAllWindows()[0]
       if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {

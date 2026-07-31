@@ -101,6 +101,7 @@ export interface PreviewApi {
   runLighthouse: (labSelection?: LighthouseLabSelection) => Promise<LighthouseAssessmentState>
   cancelLighthouse: () => Promise<void>
   onLighthouseState: (callback: (state: LighthouseAssessmentState) => void) => () => void
+  onEnterPreviewView: (callback: () => void) => () => void
   onEnterSeoView: (callback: () => void) => () => void
   onEnterLighthouseView: (callback: () => void) => () => void
   onEnterDevicesView: (callback: () => void) => () => void
@@ -290,6 +291,11 @@ const api: PreviewApi = {
       callback(state)
     ipcRenderer.on('seo-lighthouse:state', listener)
     return () => ipcRenderer.removeListener('seo-lighthouse:state', listener)
+  },
+  onEnterPreviewView: (callback) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('app:preview-view', listener)
+    return () => ipcRenderer.removeListener('app:preview-view', listener)
   },
   onEnterSeoView: (callback) => {
     const listener = (): void => callback()
