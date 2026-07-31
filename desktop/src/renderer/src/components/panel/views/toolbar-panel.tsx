@@ -19,7 +19,6 @@ import type { Project } from '../../../../../shared/project'
 import type { PaneId } from '../../../../../shared/types'
 import { WindowControls } from '@renderer/components/window-controls'
 import {
-  FullScreenIcon,
   Monitor,
   Moon01Icon,
   PanelLeftIcon,
@@ -589,17 +588,6 @@ export function ToolbarPanel(): React.JSX.Element {
               {problemCount > 99 ? '99+' : problemCount}
             </Badge>
           ) : null}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          data-testid="hide-chrome-toggle"
-          aria-label="Hide interface, show only devices"
-          aria-keyshortcuts="Meta+Shift+H"
-          onClick={() => window.panelApi.sendAction({ type: 'toggle-chrome' })}
-        >
-          <Icon icon={FullScreenIcon} size={14} />
         </Button>
       </div>
     </header>
