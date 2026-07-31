@@ -1,9 +1,10 @@
 import { writeFile } from 'node:fs/promises'
 import { DEVICE_PRESETS, PANE_IDS } from '../../shared/device-presets'
+import { isLocalhostUrl } from '../../shared/dev-context'
 import { captureSnapshot } from '../services/snapshot-service'
 import { makeSnapshotPort } from '../ipc'
 import type { PaneManager } from '../panes/pane-manager'
-import type { DeviceInfo, McpToolPort } from './mcp-tool-port'
+import type { DeviceInfo, McpToolPort, ObservedContext } from './mcp-tool-port'
 
 export interface ComposeMcpToolPortDeps {
   paneManager: PaneManager
@@ -84,6 +85,24 @@ export function composeMcpToolPort(deps: ComposeMcpToolPortDeps): McpToolPort {
       const url = paneManager.getTrackedPaneUrl(device)
       if (!url || url === 'about:blank') return { ok: false, reason: 'no-url' }
       return { ok: true, png: await paneManager.capturePaneImage(device) }
-    }
+    },
+
+    getObservedContext: (): ObservedContext => {
+      const nav = paneManager.getNavigationState()
+      const activePane = nav.activePane ?? 'desktop'
+      // Dev context is only meaningful for a local project, so include it when
+      // any pane is on localhost — matching the capture bundle's boundary.
+      const anyLocalhost = PANE_IDS.some((id) => isLocalhostUrl(paneManager.getTrackedPaneUrl(id)))
+      return {
+        device: { id: activePane, name: DEVICE_PRESETS[activePane].name },
+        url: nav.barUrl || null,
+        title: nav.pageTitle,
+        lastNavTimestamp: paneManager.getLastNavTimestamp(activePane),
+        evidence: paneManager.getRuntimeEvidenceSnapshot(),
+        devContext: anyLocalhost ? paneManager.getDevContext() : null
+      }
+    },
+
+    reload: () => paneManager.reloadAll()
   }
 }

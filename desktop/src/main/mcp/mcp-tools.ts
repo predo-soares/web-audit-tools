@@ -2,9 +2,10 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { PANE_IDS } from '../../shared/device-presets'
+import { isConsoleProblem, isNetworkProblem } from '../../shared/runtime-evidence'
 import type { PaneId } from '../../shared/types'
 import { normalizeUrl } from '../../shared/url'
-import type { DeviceInfo, McpToolPort } from './mcp-tool-port'
+import type { DeviceInfo, McpToolPort, ObservedContext } from './mcp-tool-port'
 
 function textResult(text: string): CallToolResult {
   return { content: [{ type: 'text', text }] }
@@ -39,6 +40,44 @@ function captureBundleFailureMessage(reason: string): string {
     return 'Cannot capture a bundle: no URL is loaded in the active pane. Navigate to a URL first.'
   }
   return `Could not capture a bundle: ${reason}.`
+}
+
+function formatObservedContext(ctx: ObservedContext): string {
+  const lines: string[] = []
+  lines.push(`Active pane: ${ctx.device.name} (${ctx.device.id})`)
+  lines.push(`URL: ${ctx.url ?? '(none loaded)'}`)
+  lines.push(`Title: ${ctx.title || '(untitled)'}`)
+  lines.push(
+    `Last navigation: ${ctx.lastNavTimestamp != null ? new Date(ctx.lastNavTimestamp).toISOString() : 'unknown'}`
+  )
+
+  lines.push('', 'Project context:')
+  if (!ctx.devContext) {
+    lines.push('  (not a local project, or no pane on localhost)')
+  } else {
+    const branch = ctx.devContext.branch ?? '(detached)'
+    const commit = ctx.devContext.commit ? ctx.devContext.commit.slice(0, 7) : 'unknown'
+    lines.push(`  Repo: ${ctx.devContext.repoPath}`)
+    lines.push(
+      `  Branch: ${branch} | Commit: ${commit} | Dirty: ${ctx.devContext.dirty ? 'yes' : 'no'}`
+    )
+  }
+
+  const consoleProblems = ctx.evidence.console.filter((entry) => isConsoleProblem(entry.level))
+  lines.push('', `Console problems (${consoleProblems.length}):`)
+  for (const entry of consoleProblems) {
+    lines.push(`  [${entry.level.toUpperCase()}] ${entry.message}`)
+    if (entry.sourceUrl)
+      lines.push(`    at ${entry.sourceUrl}${entry.line != null ? `:${entry.line}` : ''}`)
+  }
+
+  const networkFailures = ctx.evidence.network.filter((entry) => isNetworkProblem(entry))
+  lines.push('', `Network failures (${networkFailures.length}):`)
+  for (const entry of networkFailures) {
+    lines.push(`  ${entry.method} ${entry.path}${entry.status != null ? ` → ${entry.status}` : ''}`)
+  }
+
+  return lines.join('\n')
 }
 
 /**
@@ -171,6 +210,33 @@ export function registerMcpTools(server: McpServer, port: McpToolPort): void {
       return {
         content: [{ type: 'image', data: result.png.toString('base64'), mimeType: 'image/png' }]
       }
+    }
+  )
+
+  server.registerTool(
+    'get_observed_context',
+    {
+      title: 'Read the active pane observed context',
+      description:
+        "Read the active pane's runtime evidence (console problems and network failures), pane metadata (device, URL, title), and dev context (repo, branch, commit) when a pane is on localhost. This is the same evidence the diagnostics drawer shows.",
+      inputSchema: {}
+    },
+    async () => {
+      return textResult(formatObservedContext(port.getObservedContext()))
+    }
+  )
+
+  server.registerTool(
+    'reload',
+    {
+      title: 'Reload all device panes',
+      description:
+        'Reload every pane so you can verify a code change and then re-read observed context or re-run an audit.',
+      inputSchema: {}
+    },
+    async () => {
+      await port.reload()
+      return textResult('Reloaded all device panes.')
     }
   )
 }

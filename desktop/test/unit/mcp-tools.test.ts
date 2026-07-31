@@ -4,7 +4,12 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { registerMcpTools } from '../../src/main/mcp/mcp-tools'
-import type { CaptureBundleResult, DeviceInfo, McpToolPort } from '../../src/main/mcp/mcp-tool-port'
+import type {
+  CaptureBundleResult,
+  DeviceInfo,
+  McpToolPort,
+  ObservedContext
+} from '../../src/main/mcp/mcp-tool-port'
 import type { PaneId } from '../../src/shared/types'
 
 interface FakePort extends McpToolPort {
@@ -13,9 +18,19 @@ interface FakePort extends McpToolPort {
   setActivePaneCalls: PaneId[]
   setVisibleDevicesCalls: PaneId[][]
   screenshotCalls: (PaneId | null)[]
+  reloadCalls: number
 }
 
 const FIXED_PNG = Buffer.from('fake-png-bytes')
+
+const DEFAULT_CONTEXT: ObservedContext = {
+  device: { id: 'iphone', name: 'iPhone 16 Pro' },
+  url: 'http://localhost:3000/',
+  title: 'My App',
+  lastNavTimestamp: null,
+  evidence: { paneId: 'iphone', console: [], network: [], problemCount: 0 },
+  devContext: null
+}
 
 const DEFAULT_DEVICES: DeviceInfo[] = [
   {
@@ -46,11 +61,15 @@ function makePort(overrides?: Partial<McpToolPort>): FakePort {
   const setVisibleDevicesCalls: PaneId[][] = []
   const screenshotCalls: (PaneId | null)[] = []
   let captureBundleCalls = 0
+  let reloadCalls = 0
   const port: FakePort = {
     navigateCalls,
     setActivePaneCalls,
     setVisibleDevicesCalls,
     screenshotCalls,
+    get reloadCalls() {
+      return reloadCalls
+    },
     get captureBundleCalls() {
       return captureBundleCalls
     },
@@ -76,6 +95,10 @@ function makePort(overrides?: Partial<McpToolPort>): FakePort {
     screenshot: async (device) => {
       screenshotCalls.push(device)
       return { ok: true, png: FIXED_PNG }
+    },
+    getObservedContext: () => DEFAULT_CONTEXT,
+    reload: async () => {
+      reloadCalls++
     },
     ...overrides
   }
@@ -304,6 +327,85 @@ describe('registerMcpTools', () => {
       })) as CallToolResult
       expect(result.isError).toBe(true)
       expect(textOf(result)).toMatch(/no url is loaded/i)
+    })
+  })
+
+  describe('get_observed_context', () => {
+    it('formats pane metadata, evidence counts, and no local project by default', async () => {
+      const client = await connect(makePort())
+      const result = (await client.callTool({
+        name: 'get_observed_context',
+        arguments: {}
+      })) as CallToolResult
+      const text = textOf(result)
+      expect(text).toContain('Active pane: iPhone 16 Pro (iphone)')
+      expect(text).toContain('URL: http://localhost:3000/')
+      expect(text).toContain('Title: My App')
+      expect(text).toContain('Console problems (0)')
+      expect(text).toContain('Network failures (0)')
+      expect(text).toMatch(/no pane on localhost/i)
+    })
+
+    it('renders dev context, console problems, and network failures when present', async () => {
+      const port = makePort({
+        getObservedContext: () => ({
+          device: { id: 'desktop', name: 'Desktop' },
+          url: 'http://localhost:3000/',
+          title: 'App',
+          lastNavTimestamp: null,
+          evidence: {
+            paneId: 'desktop',
+            console: [
+              { id: '1', timestamp: 1, level: 'log', message: 'noise' },
+              { id: '2', timestamp: 2, level: 'error', message: 'boom' }
+            ],
+            network: [
+              {
+                id: '3',
+                timestamp: 3,
+                method: 'GET',
+                url: 'http://localhost:3000/missing',
+                path: '/missing',
+                status: 404,
+                failed: true
+              }
+            ],
+            problemCount: 2
+          },
+          devContext: {
+            repoPath: '/Users/me/project',
+            branch: 'feature/x',
+            commit: 'deadbeefcafe',
+            dirty: true
+          }
+        })
+      })
+      const client = await connect(port)
+      const result = (await client.callTool({
+        name: 'get_observed_context',
+        arguments: {}
+      })) as CallToolResult
+      const text = textOf(result)
+      expect(text).toContain('Repo: /Users/me/project')
+      expect(text).toContain('Branch: feature/x | Commit: deadbee | Dirty: yes')
+      expect(text).toContain('Console problems (1)')
+      expect(text).toContain('[ERROR] boom')
+      expect(text).not.toContain('noise')
+      expect(text).toContain('Network failures (1)')
+      expect(text).toContain('GET /missing → 404')
+    })
+  })
+
+  describe('reload', () => {
+    it('delegates to reload', async () => {
+      const port = makePort()
+      const client = await connect(port)
+      const result = (await client.callTool({
+        name: 'reload',
+        arguments: {}
+      })) as CallToolResult
+      expect(result.isError).toBeFalsy()
+      expect(port.reloadCalls).toBe(1)
     })
   })
 })

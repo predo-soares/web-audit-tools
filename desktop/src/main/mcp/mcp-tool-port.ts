@@ -11,6 +11,8 @@
  */
 
 import type { PaneId } from '../../shared/types'
+import type { DevContext } from '../../shared/dev-context'
+import type { RuntimeEvidenceSnapshot } from '../../shared/runtime-evidence'
 
 /** Structured outcome of a capture-bundle request over MCP. */
 export type CaptureBundleResult =
@@ -35,6 +37,18 @@ export type SetVisibleDevicesResult = { ok: true } | { ok: false; reason: 'unsup
 
 /** Outcome of a pane screenshot request over MCP. */
 export type PaneScreenshotResult = { ok: true; png: Buffer } | { ok: false; reason: 'no-url' }
+
+/** The active pane's observed context: runtime evidence + metadata + dev context. */
+export interface ObservedContext {
+  device: { id: PaneId; name: string }
+  url: string | null
+  title: string
+  lastNavTimestamp: number | null
+  /** Same runtime-evidence snapshot the diagnostics drawer reads. */
+  evidence: RuntimeEvidenceSnapshot
+  /** Present only when at least one pane is on a localhost URL; otherwise null. */
+  devContext: DevContext | null
+}
 
 export interface McpToolPort {
   /**
@@ -71,4 +85,10 @@ export interface McpToolPort {
    * pane has no committed URL.
    */
   screenshot(device: PaneId | null): Promise<PaneScreenshotResult>
+
+  /** The active pane's current observed context (runtime evidence + metadata + dev context). */
+  getObservedContext(): ObservedContext
+
+  /** Reload every pane so a change can be verified without human intervention. */
+  reload(): Promise<void>
 }

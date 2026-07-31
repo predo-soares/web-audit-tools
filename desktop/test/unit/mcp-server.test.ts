@@ -16,7 +16,16 @@ function makePort(): McpToolPort & { navigateCalls: string[] } {
     listDevices: () => [],
     setActivePane: () => {},
     setVisibleDevices: () => ({ ok: true }),
-    screenshot: async () => ({ ok: false, reason: 'no-url' })
+    screenshot: async () => ({ ok: false, reason: 'no-url' }),
+    getObservedContext: () => ({
+      device: { id: 'desktop', name: 'Desktop' },
+      url: null,
+      title: '',
+      lastNavTimestamp: null,
+      evidence: { paneId: 'desktop', console: [], network: [], problemCount: 0 },
+      devContext: null
+    }),
+    reload: async () => {}
   }
 }
 
