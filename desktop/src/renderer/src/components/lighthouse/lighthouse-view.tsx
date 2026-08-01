@@ -7,19 +7,22 @@ import type {
 import {
   DEFAULT_LIGHTHOUSE_LAB_SELECTION,
   EMPTY_LIGHTHOUSE_RESULTS,
-  hasAnyLighthouseResult
+  hasAnyLighthouseResult,
+  LIGHTHOUSE_PROFILES
 } from '../../../../shared/lighthouse'
 import type { HistoryEntry } from '../../../../shared/history'
 import { isAuditableUrl } from '../../../../shared/seo-audit'
 import { SIDEBAR_WIDTH_PX, TOOLBAR_HEIGHT_PX } from '../../../../shared/sidebar'
+import { LaptopIcon, SmartPhone01Icon } from '@hugeicons/core-free-icons'
 import { useSidebar } from '@renderer/context/sidebar-context'
 import { CANVAS_GLASS_SURFACE_CLASS } from '@renderer/lib/glass-surface'
 import { cn } from '@renderer/lib/utils'
+import { Icon } from '@renderer/components/ui/icon'
+import { MotionTabs, type MotionTabItem } from '@renderer/components/ui/motion-tabs'
 import { TargetUrlBar } from '@renderer/components/target-url-bar'
 import { CARD } from '@renderer/components/seo/lib/styles'
 import { LabSpecsPopover } from './lab-specs-popover'
 import { ProfileReport } from './profile-report'
-import { ProfileTabs } from './profile-tabs'
 import { ProgressPanel } from './progress-panel'
 
 const LIGHTHOUSE_URL_BAR_TEST_IDS = {
@@ -82,6 +85,23 @@ export function LighthouseView({
   const result = state.results[viewProfile]
   const hasResults = hasAnyLighthouseResult(state.results)
 
+  const profileTabs: Array<MotionTabItem<LighthouseProfile>> = LIGHTHOUSE_PROFILES.map(
+    (profile) => ({
+      value: profile,
+      label: (
+        <span className="flex items-center gap-1.5">
+          <Icon icon={profile === 'mobile' ? SmartPhone01Icon : LaptopIcon} size={14} />
+          <span className="capitalize">{profile}</span>
+        </span>
+      ),
+      trailing:
+        state.results[profile] != null ? (
+          <span className="size-1.5 rounded-full bg-emerald-400/80" aria-hidden />
+        ) : undefined,
+      testId: `lighthouse-tab-${profile}`
+    })
+  )
+
   return (
     <div
       data-testid="lighthouse-view"
@@ -125,10 +145,12 @@ export function LighthouseView({
           />
         </section>
 
-        <ProfileTabs
-          viewProfile={viewProfile}
-          isProfileReady={(profile) => state.results[profile] != null}
-          onSelect={setViewProfile}
+        <MotionTabs
+          items={profileTabs}
+          value={viewProfile}
+          onChange={setViewProfile}
+          layoutId="lighthouse-profile-indicator"
+          ariaLabel="Device profile"
         />
 
         {running && state.progress ? (
