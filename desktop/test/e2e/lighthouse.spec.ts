@@ -61,3 +61,35 @@ test('suggests visited pages from history in the Lighthouse target bar', async (
     await close()
   }
 })
+
+test('renders the final Lighthouse screenshot in the results summary', async ({ fixturePort }) => {
+  test.setTimeout(180_000)
+  const { window, close } = await launchApp()
+
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/seo/with-title'))
+    await waitForPaneElement(window, 'desktop', 'seo-with-title')
+
+    const panel = await openLighthouseView(window)
+    const runButton = panel.getByTestId('lighthouse-run')
+    await runButton.click()
+    await expect(runButton).toBeEnabled({ timeout: 120_000 })
+
+    const screenshot = panel.getByTestId('lighthouse-final-screenshot')
+    await expect(screenshot).toBeVisible({ timeout: 120_000 })
+    await expect(screenshot).toHaveAttribute('src', /^data:image\/jpeg;base64,/)
+    await expect
+      .poll(() => screenshot.evaluate((image: HTMLImageElement) => image.naturalWidth))
+      .toBeGreaterThan(0)
+
+    const performance = panel.getByTestId('lighthouse-performance-overview')
+    await performance.hover()
+    const subgauges = performance.getByTestId('lighthouse-performance-subgauge')
+    await expect(subgauges).toHaveCount(5)
+    await expect
+      .poll(() => subgauges.first().evaluate((element) => getComputedStyle(element).opacity))
+      .toBe('1')
+  } finally {
+    await close()
+  }
+})

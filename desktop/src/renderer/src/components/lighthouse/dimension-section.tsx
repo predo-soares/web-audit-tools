@@ -4,7 +4,6 @@ import type {
   LighthouseCategory
 } from '../../../../shared/lighthouse'
 import { AuditBucket } from './audits/audit-bucket'
-import { MetricsGrid } from './audits/metrics-grid'
 import { ScoreGauge } from './score/score-gauge'
 import { ScoreLegend } from './score/score-legend'
 import { classifyAudit, CORE_METRIC_SET, type AuditBucketId } from './lib/audits'
@@ -62,8 +61,6 @@ export function DimensionSection({
           <ScoreLegend />
         </div>
       </div>
-
-      {category.id === 'performance' ? <MetricsGrid result={result} /> : null}
 
       <div className="mt-6">
         <AuditBucket bucket="failed" audits={buckets.failed} auditGroups={result.auditGroups} />

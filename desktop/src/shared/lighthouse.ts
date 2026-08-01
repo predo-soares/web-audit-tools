@@ -102,6 +102,7 @@ export interface LighthouseAssessmentResult {
   auditGroups: Record<string, LighthouseAuditGroupMeta>
   opportunityIds: string[]
   diagnosticIds: string[]
+  screenshotDataUrl: string | null
   retainedAuditCount: number
   totalAuditCount: number
   truncatedAuditCount: number
@@ -149,6 +150,7 @@ export type LighthouseAssessmentState =
 
 const MAX_TEXT = 2000
 const MAX_AUDITS = 250
+const MAX_SCREENSHOT_DATA_URL = 2_000_000
 const OPPORTUNITY_GROUPS = new Set(['load-opportunities', 'budgets'])
 const DIAGNOSTIC_GROUPS = new Set(['diagnostics'])
 
@@ -190,6 +192,16 @@ interface LhrLike {
     { title?: string; score?: number | null; auditRefs?: Array<{ id: string; group?: string }> }
   >
   audits?: Record<string, Record<string, unknown>>
+}
+
+function lighthouseScreenshotDataUrl(lhr: LhrLike): string | null {
+  const audit = lhr.audits?.['final-screenshot']
+  const details = audit?.details
+  if (!details || typeof details !== 'object') return null
+  const data = (details as Record<string, unknown>).data
+  if (typeof data !== 'string' || data.length > MAX_SCREENSHOT_DATA_URL) return null
+  if (!/^data:image\/(?:jpeg|png|webp);base64,[a-z0-9+/=\s]+$/i.test(data)) return null
+  return data
 }
 
 export function projectLighthouseResult(
@@ -275,6 +287,7 @@ export function projectLighthouseResult(
     auditGroups,
     opportunityIds: opportunityIds.filter((id) => retainedSet.has(id)),
     diagnosticIds: diagnosticIds.filter((id) => retainedSet.has(id)),
+    screenshotDataUrl: lighthouseScreenshotDataUrl(lhr),
     retainedAuditCount: retained.length,
     totalAuditCount: priority.length,
     truncatedAuditCount: Math.max(0, priority.length - retained.length),

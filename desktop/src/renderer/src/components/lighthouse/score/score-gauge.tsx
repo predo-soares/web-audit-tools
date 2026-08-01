@@ -9,15 +9,16 @@ export function ScoreGauge({
   centered = false
 }: {
   category: LighthouseCategory
-  size?: 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg'
   centered?: boolean
 }): React.JSX.Element {
   const tone = scoreTone(category.score)
   const value = category.score == null ? 0 : Math.max(0, Math.min(1, category.score))
   const large = size === 'lg'
-  const box = large ? 120 : 88
-  const radius = large ? 48 : 36
-  const stroke = large ? 8 : 6
+  const small = size === 'sm'
+  const box = large ? 120 : small ? 68 : 88
+  const radius = large ? 48 : small ? 27 : 36
+  const stroke = large ? 8 : small ? 5 : 6
   const circumference = 2 * Math.PI * radius
   const dash = circumference * value
 
@@ -28,7 +29,10 @@ export function ScoreGauge({
         'flex flex-col items-center gap-2',
         !large &&
           !centered &&
-          'rounded-xl border border-white/10 bg-black/40 px-4 py-5 backdrop-blur-md'
+          cn(
+            'rounded-xl ',
+            small ? 'px-2 py-3' : ''
+          )
       )}
     >
       <div className="relative" style={{ width: box, height: box }}>
@@ -60,7 +64,7 @@ export function ScoreGauge({
         <strong
           className={cn(
             'absolute inset-0 flex items-center justify-center font-semibold tabular-nums',
-            large ? 'text-4xl' : 'text-2xl',
+            large ? 'text-4xl' : small ? 'text-xl' : 'text-2xl',
             TONE_TEXT[tone]
           )}
         >
@@ -68,7 +72,12 @@ export function ScoreGauge({
         </strong>
       </div>
       {!centered ? (
-        <span className={cn('text-center text-white/55', large ? 'text-sm' : 'text-xs')}>
+        <span
+          className={cn(
+            'text-center text-white/55',
+            large ? 'text-sm' : small ? 'text-[11px]' : 'text-xs'
+          )}
+        >
           {category.title}
         </span>
       ) : null}

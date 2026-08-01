@@ -1,7 +1,9 @@
 import type { LighthouseAssessmentResult } from '../../../../shared/lighthouse'
 import { cn } from '@renderer/lib/utils'
 import { DimensionSection } from './dimension-section'
+import { MetricsGrid } from './audits/metrics-grid'
 import { ScoreGauge } from './score/score-gauge'
+import { PerformanceOverview } from './score/performance-overview'
 import { SpecsBar } from './specs-bar'
 import { EASE_OUT } from './lib/styles'
 
@@ -26,26 +28,39 @@ export function ProfileReport({
 
       <SpecsBar spec={result.labSpec} />
 
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {result.categories.map((category, index) => (
-          <a
-            key={category.id}
-            href={`#lighthouse-dimension-${category.id}`}
-            style={{ animationDelay: `${index * 40}ms` }}
-            className={cn(
-              'block rounded-xl outline-none',
-              'transition-transform duration-[160ms]',
-              EASE_OUT,
-              '[@media(hover:hover)_and_(pointer:fine)]:hover:scale-[1.02]',
-              'active:scale-[0.97] motion-reduce:active:scale-100',
-              'focus-visible:ring-2 focus-visible:ring-sky-400/50',
-              'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95',
-              'motion-safe:duration-200'
-            )}
-          >
-            <ScoreGauge category={category} />
-          </a>
-        ))}
+      <section
+        data-testid="lighthouse-result-summary"
+        className="rounded-xl border border-white/10 bg-black/40 px-5 py-5 backdrop-blur-md"
+      >
+        <div>
+          <h2 className="text-sm font-semibold text-white">Results summary</h2>
+          <p className="mt-1 text-xs text-white/45">
+            Core performance metrics from this {result.deviceMode} lab run.
+          </p>
+        </div>
+        <div className="mt-5 grid grid-cols-5 gap-3">
+          {result.categories.map((category, index) => (
+            <a
+              key={category.id}
+              href={`#lighthouse-dimension-${category.id}`}
+              style={{ animationDelay: `${index * 40}ms` }}
+              className={cn(
+                'block rounded-xl outline-none',
+                'transition-transform duration-[160ms]',
+                EASE_OUT,
+                '[@media(hover:hover)_and_(pointer:fine)]:hover:scale-[1.02]',
+                'active:scale-[0.97] motion-reduce:active:scale-100',
+                'focus-visible:ring-2 focus-visible:ring-sky-400/50',
+                'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95',
+                'motion-safe:duration-200'
+              )}
+            >
+              <ScoreGauge category={category} size="sm" />
+            </a>
+          ))}
+        </div>
+        <PerformanceOverview result={result} />
+        <MetricsGrid result={result} />
       </section>
 
       {result.categories.map((category) => (

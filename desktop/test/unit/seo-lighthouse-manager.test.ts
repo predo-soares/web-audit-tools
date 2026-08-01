@@ -27,6 +27,7 @@ function makeResult(
     auditGroups: {},
     opportunityIds: [],
     diagnosticIds: [],
+    screenshotDataUrl: null,
     retainedAuditCount: 0,
     totalAuditCount: 0,
     truncatedAuditCount: 0,

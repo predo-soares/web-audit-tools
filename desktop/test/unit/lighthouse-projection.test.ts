@@ -19,7 +19,12 @@ describe('Lighthouse result projection', () => {
         },
         audits: {
           'unused-css': { title: 'Remove unused CSS', score: 0.2, displayValue: '120 KiB' },
-          'main-thread': { title: 'Main thread work', score: 0.5, numericValue: 2400 }
+          'main-thread': { title: 'Main thread work', score: 0.5, numericValue: 2400 },
+          'final-screenshot': {
+            title: 'Final screenshot',
+            score: 1,
+            details: { type: 'screenshot', data: 'data:image/jpeg;base64,Y2FwdHVyZQ==' }
+          }
         }
       },
       {
@@ -56,6 +61,42 @@ describe('Lighthouse result projection', () => {
     expect(result.diagnosticIds).toEqual(['main-thread'])
     expect(result.finalUrl).toBe('https://site.test/final')
     expect(result.labSpec.deviceLabel).toBe('Moto G Power')
+    expect(result.screenshotDataUrl).toBe('data:image/jpeg;base64,Y2FwdHVyZQ==')
+  })
+
+  it('rejects non-image final screenshot data', () => {
+    const result = projectLighthouseResult(
+      { audits: { 'final-screenshot': { details: { data: 'data:text/html;base64,PHNjcmlwdD4=' } } } },
+      {
+        id: 'lh-2',
+        paneId: 'desktop',
+        profile: 'desktop',
+        requestedUrl: 'https://site.test/',
+        shareSession: false,
+        startedAt: 1,
+        completedAt: 2,
+        labSpec: {
+          deviceId: 'desktop-1350',
+          deviceLabel: 'Desktop 1350×940',
+          networkId: 'none',
+          networkLabel: 'No network throttling',
+          cpuLabel: 'No CPU throttling',
+          formFactor: 'desktop',
+          screen: {
+            mobile: false,
+            width: 1350,
+            height: 940,
+            deviceScaleFactor: 1,
+            disabled: false
+          },
+          browserLabel: 'Headless Chromium',
+          lighthouseVersion: '13.4.0',
+          completedAt: 2
+        }
+      }
+    )
+
+    expect(result.screenshotDataUrl).toBeNull()
   })
 
   it('sanitizes sensitive failure text', () => {

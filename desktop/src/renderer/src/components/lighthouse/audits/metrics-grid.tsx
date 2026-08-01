@@ -23,11 +23,13 @@ export function MetricsGrid({ result }: { result: LighthouseAssessmentResult }):
           return (
             <div
               key={metric.id}
+              data-testid="lighthouse-metric"
+              data-metric-id={metric.id}
               style={{ animationDelay: `${index * 50}ms` }}
               className={cn(
                 'flex items-start gap-3 rounded-lg border border-white/10 bg-black/30 px-3 py-3',
                 'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2',
-                'motion-safe:fill-mode-forwards motion-safe:opacity-0 motion-safe:duration-200',
+                'motion-safe:duration-200',
                 EASE_OUT
               )}
             >
