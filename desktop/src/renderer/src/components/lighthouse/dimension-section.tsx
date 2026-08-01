@@ -1,12 +1,7 @@
-import type {
-  LighthouseAssessmentResult,
-  LighthouseAuditDetail,
-  LighthouseCategory
-} from '../../../../shared/lighthouse'
-import { AuditBucket } from './audits/audit-bucket'
+import type { LighthouseAssessmentResult, LighthouseCategory } from '../../../../shared/lighthouse'
+import { DimensionAudits } from './audits/dimension-audits'
 import { ScoreGauge } from './score/score-gauge'
 import { ScoreLegend } from './score/score-legend'
-import { classifyAudit, CORE_METRIC_SET, type AuditBucketId } from './lib/audits'
 
 const CATEGORY_BLURB: Record<string, string> = {
   performance:
@@ -25,24 +20,6 @@ export function DimensionSection({
   category: LighthouseCategory
   result: LighthouseAssessmentResult
 }): React.JSX.Element {
-  const audits = category.auditIds
-    .map((id) => result.audits[id])
-    .filter((audit): audit is LighthouseAuditDetail => {
-      if (!audit) return false
-      if (category.id === 'performance' && CORE_METRIC_SET.has(audit.id)) return false
-      return true
-    })
-
-  const buckets: Record<AuditBucketId, LighthouseAuditDetail[]> = {
-    failed: [],
-    manual: [],
-    passed: [],
-    notApplicable: []
-  }
-  for (const audit of audits) {
-    buckets[classifyAudit(audit)].push(audit)
-  }
-
   const blurb =
     CATEGORY_BLURB[category.id] ??
     `These checks highlight opportunities to improve ${category.title.toLowerCase()}.`
@@ -63,14 +40,7 @@ export function DimensionSection({
       </div>
 
       <div className="mt-6">
-        <AuditBucket bucket="failed" audits={buckets.failed} auditGroups={result.auditGroups} />
-        <AuditBucket bucket="manual" audits={buckets.manual} auditGroups={result.auditGroups} />
-        <AuditBucket bucket="passed" audits={buckets.passed} auditGroups={result.auditGroups} />
-        <AuditBucket
-          bucket="notApplicable"
-          audits={buckets.notApplicable}
-          auditGroups={result.auditGroups}
-        />
+        <DimensionAudits category={category} result={result} />
       </div>
     </section>
   )
