@@ -40,7 +40,7 @@ export function ProfileReport({
               'active:scale-[0.97] motion-reduce:active:scale-100',
               'focus-visible:ring-2 focus-visible:ring-sky-400/50',
               'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95',
-              'motion-safe:fill-mode-forwards motion-safe:opacity-0 motion-safe:duration-200'
+              'motion-safe:duration-200'
             )}
           >
             <ScoreGauge category={category} />
