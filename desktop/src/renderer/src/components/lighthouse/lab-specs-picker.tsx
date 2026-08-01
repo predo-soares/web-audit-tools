@@ -60,10 +60,7 @@ export function LabSpecsPicker({
   onChange: (next: LighthouseLabSelection) => void
 }): React.JSX.Element {
   return (
-    <div
-      data-testid="lighthouse-lab-picker"
-      className="mt-4 grid gap-3 border-t border-white/10 pt-4 sm:grid-cols-2"
-    >
+    <div data-testid="lighthouse-lab-picker" className="grid gap-3 sm:w-[26rem] sm:grid-cols-2">
       <div className="rounded-lg border border-white/10 bg-black/25 p-3">
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/40">
           Mobile lab

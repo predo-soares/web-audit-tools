@@ -9,22 +9,39 @@ import {
   EMPTY_LIGHTHOUSE_RESULTS,
   hasAnyLighthouseResult
 } from '../../../../shared/lighthouse'
+import type { HistoryEntry } from '../../../../shared/history'
 import { isAuditableUrl } from '../../../../shared/seo-audit'
 import { SIDEBAR_WIDTH_PX, TOOLBAR_HEIGHT_PX } from '../../../../shared/sidebar'
 import { useSidebar } from '@renderer/context/sidebar-context'
 import { CANVAS_GLASS_SURFACE_CLASS } from '@renderer/lib/glass-surface'
 import { cn } from '@renderer/lib/utils'
-import { Button } from '@renderer/components/ui/button'
-import { LabSpecsPicker } from './lab-specs-picker'
+import { TargetUrlBar } from '@renderer/components/target-url-bar'
+import { CARD } from '@renderer/components/seo/lib/styles'
+import { LabSpecsPopover } from './lab-specs-popover'
 import { ProfileReport } from './profile-report'
 import { ProfileTabs } from './profile-tabs'
 import { ProgressPanel } from './progress-panel'
 
-export function LighthouseView(): React.JSX.Element {
+const LIGHTHOUSE_URL_BAR_TEST_IDS = {
+  input: 'lighthouse-target-url',
+  run: 'lighthouse-run',
+  cancel: 'lighthouse-cancel',
+  error: 'lighthouse-url-error',
+  history: 'lighthouse-url-history',
+  historyItem: 'lighthouse-url-history-item'
+}
+
+export function LighthouseView({
+  onTargetNavigate
+}: {
+  // Keeps the user in Lighthouse when they navigate from its own target bar,
+  // rather than bouncing to the device canvas.
+  onTargetNavigate: () => void
+}): React.JSX.Element {
   const { isOpen: sidebarOpen, isTransitioning: sidebarTransitioning } = useSidebar()
   const sidebarOffset = sidebarOpen || sidebarTransitioning ? SIDEBAR_WIDTH_PX : 0
   const [url, setUrl] = useState('')
-  const [title, setTitle] = useState('')
+  const [history, setHistory] = useState<HistoryEntry[]>([])
   const [viewProfile, setViewProfile] = useState<LighthouseProfile>('mobile')
   const [labSelection, setLabSelection] = useState<LighthouseLabSelection>({
     ...DEFAULT_LIGHTHOUSE_LAB_SELECTION
@@ -39,17 +56,18 @@ export function LighthouseView(): React.JSX.Element {
   useEffect(() => {
     void window.api.getNavigationState().then((navigation) => {
       setUrl(navigation.barUrl)
-      setTitle(navigation.pageTitle)
     })
     void window.api.getLighthouseState().then(setState)
+    void window.api.listHistory().then(setHistory)
     const stopNavigation = window.api.onPaneNavigation((navigation) => {
       setUrl(navigation.barUrl)
-      setTitle(navigation.pageTitle)
     })
     const stopState = window.api.onLighthouseState(setState)
+    const stopHistory = window.api.onHistoryUpdated(setHistory)
     return () => {
       stopNavigation()
       stopState()
+      stopHistory()
     }
   }, [])
 
@@ -83,37 +101,28 @@ export function LighthouseView(): React.JSX.Element {
           </p>
         </header>
 
-        <section className="rounded-xl border border-white/10 bg-black/40 px-5 py-4 backdrop-blur-md">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0">
-              <h2 className="text-sm font-semibold tracking-tight text-white">Target page</h2>
-              <p className="mt-0.5 truncate text-xs text-white/45" title={url}>
-                {title ? `${title} — ` : ''}
-                {url || 'No page loaded'}
-              </p>
-            </div>
-            {running ? (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void window.api.cancelLighthouse()}
-              >
-                Cancel
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                variant="solid"
-                color="neutral"
-                data-testid="lighthouse-run"
-                disabled={!auditable}
-                onClick={() => void window.api.runLighthouse(labSelection)}
-              >
-                Analyze page
-              </Button>
-            )}
-          </div>
-          <LabSpecsPicker selection={labSelection} disabled={running} onChange={setLabSelection} />
+        <section className={cn(CARD, 'relative z-20 px-3 py-3')}>
+          <TargetUrlBar
+            url={url}
+            history={history}
+            running={running}
+            runLabel="Analyze page"
+            runDisabled={!auditable}
+            onNavigate={(target) => {
+              onTargetNavigate()
+              void window.api.navigate(target)
+            }}
+            onRun={() => void window.api.runLighthouse(labSelection)}
+            onCancel={() => void window.api.cancelLighthouse()}
+            testIds={LIGHTHOUSE_URL_BAR_TEST_IDS}
+            middleSlot={
+              <LabSpecsPopover
+                selection={labSelection}
+                disabled={running}
+                onChange={setLabSelection}
+              />
+            }
+          />
         </section>
 
         <ProfileTabs
@@ -148,21 +157,15 @@ export function LighthouseView(): React.JSX.Element {
           </p>
         ) : null}
 
-        {!auditable ? (
-          <p className="rounded-xl border border-white/10 bg-black/30 px-6 py-16 text-center text-sm text-white/40 backdrop-blur-md">
-            Load an HTTP or HTTPS page to run Lighthouse.
-          </p>
-        ) : null}
-
         {result ? <ProfileReport result={result} /> : null}
 
-        {auditable && !result && !running && !hasResults ? (
+        {!result && !running && !hasResults ? (
           <p className="rounded-xl border border-white/10 bg-black/30 px-6 py-16 text-center text-sm text-white/40 backdrop-blur-md">
             Analyze the page to generate Mobile and Desktop Lighthouse reports.
           </p>
         ) : null}
 
-        {auditable && !result && (running || hasResults) ? (
+        {!result && (running || hasResults) ? (
           <p className="rounded-xl border border-white/10 bg-black/30 px-6 py-12 text-center text-sm text-white/40 backdrop-blur-md">
             {running
               ? `Waiting for ${viewProfile} results…`

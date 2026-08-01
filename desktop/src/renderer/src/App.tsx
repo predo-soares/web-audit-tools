@@ -276,7 +276,11 @@ export default function App(): React.JSX.Element {
               }}
             />
           ) : workspace === 'lighthouse' ? (
-            <LighthouseView />
+            <LighthouseView
+              onTargetNavigate={() => {
+                suppressCanvasReturnRef.current = true
+              }}
+            />
           ) : workspace === 'settings' ? (
             <SettingsView />
           ) : workspace === 'devices' ? (
