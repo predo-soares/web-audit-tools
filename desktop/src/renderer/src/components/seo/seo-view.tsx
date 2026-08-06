@@ -44,10 +44,10 @@ export function SeoView({
     result,
     linkFilter,
     setLinkFilter,
-    findingCategory,
-    setFindingCategory,
-    findingOutcome,
-    setFindingOutcome,
+    findingCategories,
+    setFindingCategories,
+    findingOutcomes,
+    setFindingOutcomes,
     copyMarkdown
   } = presentation
 
@@ -118,10 +118,10 @@ export function SeoView({
                 {tab === 'findings' ? (
                   <FindingsSection
                     result={result}
-                    findingCategory={findingCategory}
-                    findingOutcome={findingOutcome}
-                    setFindingCategory={setFindingCategory}
-                    setFindingOutcome={setFindingOutcome}
+                    findingCategories={findingCategories}
+                    findingOutcomes={findingOutcomes}
+                    setFindingCategories={setFindingCategories}
+                    setFindingOutcomes={setFindingOutcomes}
                     copyMarkdown={copyMarkdown}
                   />
                 ) : null}

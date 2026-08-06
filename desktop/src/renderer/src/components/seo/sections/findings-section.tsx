@@ -13,43 +13,44 @@ import { cn } from '@renderer/lib/utils'
 import type { SeoAuditPresentation } from '@renderer/hooks/use-seo-audit-presentation'
 import { Icon } from '@renderer/components/ui/icon'
 import { Accordion, AccordionContent, AccordionItem } from '@renderer/components/ui/accordion'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue
+} from '@renderer/components/ui/select'
 import { CopyButton } from '../copy-button'
 import { SECTION_TITLE } from '../lib/styles'
 import { CATEGORIES, OUTCOMES, OUTCOME_CLASS, OUTCOME_ORDER } from '../lib/finding-format'
 
-const chipClass = (active: boolean): string =>
-  cn(
-    'rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors',
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-    active
-      ? 'border-transparent bg-white/15 text-white'
-      : 'border-white/10 bg-white/[0.03] text-white/55 hover:text-white/90'
-  )
+const CLEAR_FILTER_VALUE = '__clear_filter__'
 
 export function FindingsSection({
   result,
-  findingCategory,
-  findingOutcome,
-  setFindingCategory,
-  setFindingOutcome,
+  findingCategories,
+  findingOutcomes,
+  setFindingCategories,
+  setFindingOutcomes,
   copyMarkdown
 }: {
   result: AuditResult
-  findingCategory: AuditCategory | null
-  findingOutcome: FindingOutcome | null
-  setFindingCategory: SeoAuditPresentation['setFindingCategory']
-  setFindingOutcome: SeoAuditPresentation['setFindingOutcome']
+  findingCategories: AuditCategory[]
+  findingOutcomes: FindingOutcome[]
+  setFindingCategories: SeoAuditPresentation['setFindingCategories']
+  setFindingOutcomes: SeoAuditPresentation['setFindingOutcomes']
   copyMarkdown: SeoAuditPresentation['copyMarkdown']
 }): React.JSX.Element {
-  const inCategory = result.findings.filter(
-    (finding) => !findingCategory || finding.category === findingCategory
+  const inCategories = result.findings.filter(
+    (finding) => findingCategories.length === 0 || findingCategories.includes(finding.category)
   )
-  const visible = inCategory
-    .filter((finding) => !findingOutcome || finding.outcome === findingOutcome)
+  const visible = inCategories
+    .filter((finding) => findingOutcomes.length === 0 || findingOutcomes.includes(finding.outcome))
     .sort((a, b) => OUTCOME_ORDER[a.outcome] - OUTCOME_ORDER[b.outcome])
 
   const outcomeCount = (outcome: FindingOutcome): number =>
-    inCategory.filter((finding) => finding.outcome === outcome).length
+    inCategories.filter((finding) => finding.outcome === outcome).length
   const categoryCount = (category: AuditCategory): number =>
     result.findings.filter((finding) => finding.category === category).length
 
@@ -58,40 +59,133 @@ export function FindingsSection({
       data-testid="seo-result"
       className="rounded-xl border border-white/10 bg-black/40 p-5 backdrop-blur-md"
     >
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className={SECTION_TITLE}>Findings</h2>
-        <span className="text-[11px] text-white/45">{result.findings.length} findings</span>
-      </div>
-
-      <div data-testid="seo-overview" className="mb-4 flex flex-col gap-2">
-        <div className="flex flex-wrap gap-1.5">
-          {OUTCOMES.map((outcome) => (
-            <button
-              key={outcome}
-              type="button"
-              data-testid="seo-outcome-filter"
-              data-outcome={outcome}
-              aria-pressed={findingOutcome === outcome}
-              onClick={() => setFindingOutcome(findingOutcome === outcome ? null : outcome)}
-              className={chipClass(findingOutcome === outcome)}
-            >
-              {OUTCOME_LABEL[outcome]} · {outcomeCount(outcome)}
-            </button>
-          ))}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <h2 className={SECTION_TITLE}>Findings</h2>
+          <span
+            className="text-[11px] text-white/45"
+            aria-label={`${result.findings.length} findings`}
+          >
+            {result.findings.length}
+          </span>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {CATEGORIES.map((category) => (
-            <button
-              key={category}
-              type="button"
-              data-testid="seo-category-row"
-              aria-pressed={findingCategory === category}
-              onClick={() => setFindingCategory(findingCategory === category ? null : category)}
-              className={chipClass(findingCategory === category)}
+
+        <div
+          data-testid="seo-overview"
+          className="ml-auto flex flex-wrap items-center justify-end gap-1.5"
+        >
+          <Select
+            multiple
+            value={findingOutcomes}
+            onValueChange={(value) => {
+              const selected = value as string[]
+              setFindingOutcomes(
+                selected.includes(CLEAR_FILTER_VALUE) ? [] : (selected as FindingOutcome[])
+              )
+            }}
+          >
+            <SelectTrigger
+              size="sm"
+              data-testid="seo-outcome-filter"
+              aria-label="Filter findings by status"
+              className={cn(
+                'h-7 border-white/10 bg-white/[0.03] text-xs',
+                findingOutcomes.length > 0 && 'border-white/20 bg-white/10'
+              )}
             >
-              {CATEGORY_LABEL[category]} · {categoryCount(category)}
-            </button>
-          ))}
+              <SelectValue>
+                {(value) => {
+                  const selected = Array.isArray(value) ? (value as FindingOutcome[]) : []
+                  if (selected.length === 0) return 'Status'
+                  if (selected.length === 1) return OUTCOME_LABEL[selected[0]]
+                  return `${selected.length} selected`
+                }}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent align="end" alignItemWithTrigger={false} className="min-w-48">
+              {OUTCOMES.map((outcome) => (
+                <SelectItem
+                  key={outcome}
+                  value={outcome}
+                  data-testid="seo-outcome-option"
+                  data-outcome={outcome}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className={cn('size-2 shrink-0 rounded-full', OUTCOME_CLASS[outcome])} />
+                    <span>{OUTCOME_LABEL[outcome]}</span>
+                  </span>
+                  <span className="ml-auto text-white/35">{outcomeCount(outcome)}</span>
+                </SelectItem>
+              ))}
+              {findingOutcomes.length > 0 ? (
+                <>
+                  <SelectSeparator />
+                  <SelectItem
+                    value={CLEAR_FILTER_VALUE}
+                    data-testid="seo-outcome-clear"
+                    className="text-white/55"
+                  >
+                    Clear filter
+                  </SelectItem>
+                </>
+              ) : null}
+            </SelectContent>
+          </Select>
+
+          <Select
+            multiple
+            value={findingCategories}
+            onValueChange={(value) => {
+              const selected = value as string[]
+              setFindingCategories(
+                selected.includes(CLEAR_FILTER_VALUE) ? [] : (selected as AuditCategory[])
+              )
+            }}
+          >
+            <SelectTrigger
+              size="sm"
+              data-testid="seo-category-filter"
+              aria-label="Filter findings by category"
+              className={cn(
+                'h-7 border-white/10 bg-white/[0.03] text-xs',
+                findingCategories.length > 0 && 'border-white/20 bg-white/10'
+              )}
+            >
+              <SelectValue>
+                {(value) => {
+                  const selected = Array.isArray(value) ? (value as AuditCategory[]) : []
+                  if (selected.length === 0) return 'Category'
+                  if (selected.length === 1) return CATEGORY_LABEL[selected[0]]
+                  return `${selected.length} selected`
+                }}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent align="end" alignItemWithTrigger={false} className="min-w-56">
+              {CATEGORIES.map((category) => (
+                <SelectItem
+                  key={category}
+                  value={category}
+                  data-testid="seo-category-option"
+                  data-category={category}
+                >
+                  <span>{CATEGORY_LABEL[category]}</span>
+                  <span className="ml-auto text-white/35">{categoryCount(category)}</span>
+                </SelectItem>
+              ))}
+              {findingCategories.length > 0 ? (
+                <>
+                  <SelectSeparator />
+                  <SelectItem
+                    value={CLEAR_FILTER_VALUE}
+                    data-testid="seo-category-clear"
+                    className="text-white/55"
+                  >
+                    Clear filter
+                  </SelectItem>
+                </>
+              ) : null}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -117,13 +211,11 @@ export function FindingsSection({
                   />
                   <span
                     data-testid="seo-finding-outcome"
-                    className={cn(
-                      'shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
-                      OUTCOME_CLASS[finding.outcome]
-                    )}
-                  >
-                    {OUTCOME_LABEL[finding.outcome]}
-                  </span>
+                    role="img"
+                    aria-label={OUTCOME_LABEL[finding.outcome]}
+                    title={OUTCOME_LABEL[finding.outcome]}
+                    className={cn('size-2 shrink-0 rounded-full', OUTCOME_CLASS[finding.outcome])}
+                  />
                   <span
                     data-testid="seo-finding-summary"
                     className="min-w-0 flex-1 truncate text-sm text-white/90"

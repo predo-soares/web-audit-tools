@@ -24,11 +24,11 @@ export const OUTCOME_ORDER: Record<FindingOutcome, number> = {
 }
 
 export const OUTCOME_CLASS: Record<FindingOutcome, string> = {
-  error: 'bg-destructive/15 text-destructive',
-  warning: 'bg-amber-500/15 text-amber-500',
-  opportunity: 'bg-sky-500/15 text-sky-500',
-  passed: 'bg-emerald-500/15 text-emerald-500',
-  'unable-to-verify': 'bg-white/10 text-white/55'
+  error: 'bg-destructive',
+  warning: 'bg-amber-500',
+  opportunity: 'bg-sky-500',
+  passed: 'bg-emerald-500',
+  'unable-to-verify': 'bg-white/50'
 }
 
 export const INTENT_OPTIONS: { label: string; value: IndexingIntent }[] = (

@@ -75,17 +75,30 @@ test('runs a full audit and reports a passed title finding', async ({ fixturePor
     await expect(titleFinding).toHaveAttribute('data-outcome', 'passed')
     await expect(titleFinding.getByTestId('seo-finding-evidence')).toContainText('Fixture SEO Page')
     const overview = panel.getByTestId('seo-overview')
-    await expect(overview.getByTestId('seo-category-row')).toHaveCount(9)
-    await expect(overview.getByTestId('seo-outcome-filter')).toHaveCount(5)
-    await overview.locator('[data-testid="seo-outcome-filter"][data-outcome="warning"]').click()
-    await expect(panel.getByTestId('seo-finding')).toHaveCount(
-      await panel.locator('[data-testid="seo-finding"][data-outcome="warning"]').count()
+    await expect(overview.getByTestId('seo-category-filter')).toBeVisible()
+    await expect(overview.getByTestId('seo-outcome-filter')).toBeVisible()
+    await overview.getByTestId('seo-outcome-filter').click()
+    const warningOption = panel.locator(
+      '[data-testid="seo-outcome-option"][data-outcome="warning"]'
     )
-    await overview.locator('[data-testid="seo-outcome-filter"][data-outcome="warning"]').click()
-    const searchAppearanceCategory = overview
-      .getByTestId('seo-category-row')
-      .filter({ hasText: 'Search appearance' })
-    await searchAppearanceCategory.click()
+    const passedOption = panel.locator('[data-testid="seo-outcome-option"][data-outcome="passed"]')
+    await warningOption.click()
+    await passedOption.click()
+    await expect(warningOption).toHaveAttribute('aria-selected', 'true')
+    await expect(passedOption).toHaveAttribute('aria-selected', 'true')
+    await panel.keyboard.press('Escape')
+    await expect(panel.getByTestId('seo-finding')).toHaveCount(
+      await panel.locator('[data-testid="seo-finding"]').count()
+    )
+    await overview.getByTestId('seo-outcome-filter').click()
+    await warningOption.click()
+    await passedOption.click()
+    await panel.keyboard.press('Escape')
+    await overview.getByTestId('seo-category-filter').click()
+    await panel
+      .locator('[data-testid="seo-category-option"][data-category="search-appearance"]')
+      .click()
+    await panel.keyboard.press('Escape')
     await expect
       .poll(async () => panel.getByTestId('seo-finding').allTextContents())
       .toEqual(expect.arrayContaining([expect.stringContaining('Search appearance')]))
@@ -102,7 +115,8 @@ test('runs a full audit and reports a passed title finding', async ({ fixturePor
     await expect(panel.getByTestId('seo-resolved-metadata')).toContainText('Fixture SEO Page')
     await window.keyboard.press('Escape')
     await selectSeoTab(panel, 'findings')
-    await searchAppearanceCategory.click()
+    await overview.getByTestId('seo-category-filter').click()
+    await panel.getByTestId('seo-category-clear').click()
     await panel.evaluate(() => {
       Object.defineProperty(navigator, 'clipboard', {
         configurable: true,

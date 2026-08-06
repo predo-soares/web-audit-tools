@@ -43,10 +43,10 @@ export interface SeoAuditPresentation {
   running: boolean
   linkFilter: string
   setLinkFilter: Dispatch<SetStateAction<string>>
-  findingCategory: AuditCategory | null
-  setFindingCategory: Dispatch<SetStateAction<AuditCategory | null>>
-  findingOutcome: FindingOutcome | null
-  setFindingOutcome: Dispatch<SetStateAction<FindingOutcome | null>>
+  findingCategories: AuditCategory[]
+  setFindingCategories: Dispatch<SetStateAction<AuditCategory[]>>
+  findingOutcomes: FindingOutcome[]
+  setFindingOutcomes: Dispatch<SetStateAction<FindingOutcome[]>>
   copied: string
   exportStatus: string
   handleNavigate(url: string): void
@@ -81,8 +81,8 @@ export function useSeoAuditPresentation(
     intent: 'indexable'
   })
   const [linkFilter, setLinkFilter] = useState('')
-  const [findingCategory, setFindingCategory] = useState<AuditCategory | null>(null)
-  const [findingOutcome, setFindingOutcome] = useState<FindingOutcome | null>(null)
+  const [findingCategories, setFindingCategories] = useState<AuditCategory[]>([])
+  const [findingOutcomes, setFindingOutcomes] = useState<FindingOutcome[]>([])
   const [copied, setCopied] = useState('')
   const [exportStatus, setExportStatus] = useState('')
   const [job, setJob] = useState<AuditJobState>(IDLE_AUDIT_STATE)
@@ -154,10 +154,10 @@ export function useSeoAuditPresentation(
     running: job.phase === 'running',
     linkFilter,
     setLinkFilter,
-    findingCategory,
-    setFindingCategory,
-    findingOutcome,
-    setFindingOutcome,
+    findingCategories,
+    setFindingCategories,
+    findingOutcomes,
+    setFindingOutcomes,
     copied,
     exportStatus,
     handleNavigate,
