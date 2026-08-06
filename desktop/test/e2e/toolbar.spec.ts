@@ -41,6 +41,29 @@ test('toolbar menus stay non-modal and keep the app visible', async () => {
   }
 })
 
+test('url bar stays centered between the open sidebars', async () => {
+  const { window, close } = await launchApp()
+
+  try {
+    const toolbar = await getToolbarPage(window)
+    const urlBar = toolbar.getByTestId('url-input')
+    const before = await urlBar.boundingBox()
+    expect(before).not.toBeNull()
+
+    await toolbar.getByTestId('diagnostics-toggle').click()
+    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute('aria-expanded', 'true')
+
+    await expect
+      .poll(async () => {
+        const box = await urlBar.boundingBox()
+        return box?.x ?? null
+      })
+      .toBeLessThan(before?.x ?? Number.POSITIVE_INFINITY)
+  } finally {
+    await close()
+  }
+})
+
 test('toolbar back and forward navigate the active pane history', async ({ fixturePort }) => {
   const { window, close } = await launchApp()
 

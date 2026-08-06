@@ -478,9 +478,11 @@ export function ToolbarPanel(): React.JSX.Element {
         </Button>
       </div>
       <div
-        className="flex min-w-0 flex-1 items-center justify-center px-2 transition-[padding-left] ease-out"
+        data-testid="toolbar-url-layout"
+        className="flex min-w-0 flex-1 items-center justify-center px-2 transition-[padding-left,padding-right] ease-out"
         style={{
           paddingLeft: sidebarOpen ? SIDEBAR_WIDTH_PX : undefined,
+          paddingRight: diagnosticsVisible ? diagnosticsWidth : undefined,
           transitionDuration: `${SIDEBAR_TRANSITION_MS}ms`
         }}
       >
