@@ -111,7 +111,7 @@ export function DevicesView({
                       disabled={isLastVisible}
                       onClick={() => onTogglePreset(entry.presetId)}
                       className={cn(
-                        'flex items-center gap-3 rounded-lg border px-4 py-3 text-left transition-colors',
+                        'flex items-center gap-3 rounded-lg border px-4 py-3 text-left transition-[transform,background-color,border-color,color] duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
                         thisActive
                           ? 'border-white/40 bg-white/15 text-white'
                           : paneActive
