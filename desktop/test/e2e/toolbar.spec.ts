@@ -1,6 +1,9 @@
 import { test, expect } from './fixtures'
+import { DIAGNOSTICS_DRAWER_WIDTH_PX } from '../../src/shared/runtime-evidence'
+import { SIDEBAR_WIDTH_PX } from '../../src/shared/sidebar'
 import {
   evaluateInPane,
+  expectSidebarOpen,
   fixtureUrl,
   focusPane,
   getOverlayPage,
@@ -59,6 +62,41 @@ test('url bar stays centered between the open sidebars', async () => {
         return box?.x ?? null
       })
       .toBeLessThan(before?.x ?? Number.POSITIVE_INFINITY)
+  } finally {
+    await close()
+  }
+})
+
+test('preview viewport stays between the docked sidebars', async () => {
+  const { window, close } = await launchApp()
+
+  try {
+    await expectSidebarOpen(window, true)
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('diagnostics-toggle').click()
+    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute('aria-expanded', 'true')
+
+    const viewportWidth = await window.evaluate(() => window.innerWidth)
+    await expect
+      .poll(async () =>
+        window.evaluate(
+          () =>
+            document
+              .querySelector<HTMLElement>('[data-testid="preview-canvas"]')
+              ?.getBoundingClientRect().left ?? 0
+        )
+      )
+      .toBeGreaterThanOrEqual(SIDEBAR_WIDTH_PX)
+    await expect
+      .poll(async () =>
+        window.evaluate(
+          () =>
+            document
+              .querySelector<HTMLElement>('[data-testid="preview-canvas"]')
+              ?.getBoundingClientRect().right ?? 0
+        )
+      )
+      .toBeLessThanOrEqual(viewportWidth - DIAGNOSTICS_DRAWER_WIDTH_PX)
   } finally {
     await close()
   }

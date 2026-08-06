@@ -102,11 +102,11 @@ export function PreviewCanvas({
       <div className="relative h-screen overflow-hidden bg-transparent text-foreground">
         <div
           data-canvas-viewport
-          className={cn('box-border h-screen overflow-auto', CANVAS_GLASS_SURFACE_CLASS)}
+          className={cn('absolute inset-y-0 overflow-auto', CANVAS_GLASS_SURFACE_CLASS)}
           style={{
-            paddingTop: topOffset,
-            paddingLeft: sidebarOffset,
-            paddingRight: rightOffset
+            left: sidebarOffset,
+            right: rightOffset,
+            paddingTop: topOffset
           }}
           onWheel={handleWheel}
           data-testid="preview-canvas"
