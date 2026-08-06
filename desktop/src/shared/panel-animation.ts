@@ -3,6 +3,11 @@ import type { PanelAlign, PanelPlacement } from './panel-types'
 export const PANEL_ENTER_MS = 180
 export const PANEL_EXIT_MS = 120
 
+export function getDockedPanelTransform(edge: 'left' | 'right', visible: boolean): string {
+  if (visible) return 'translateX(0)'
+  return edge === 'right' ? 'translateX(100%)' : 'translateX(-100%)'
+}
+
 export function getPanelTransformOrigin(placement: PanelPlacement, align: PanelAlign): string {
   const crossAxis = align === 'start' ? '0%' : align === 'center' ? '50%' : '100%'
 

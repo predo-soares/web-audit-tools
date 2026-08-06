@@ -248,6 +248,16 @@
     -webkit-app-region: no-drag;
   }
 
+  [data-panel-transitioning='true']
+    :is([data-testid='sidebar'] nav, [data-testid='diagnostics-list']) {
+    scrollbar-width: none;
+  }
+
+  [data-panel-transitioning='true']
+    :is([data-testid='sidebar'] nav, [data-testid='diagnostics-list'])::-webkit-scrollbar {
+    display: none;
+  }
+
   .glass-docked-panel {
     position: relative;
     isolation: isolate;

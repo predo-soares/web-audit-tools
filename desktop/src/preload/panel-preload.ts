@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { HistoryEntry } from '../shared/history'
 import type {
   PanelAction,
+  PanelCloseOptions,
   PanelId,
   PanelOpenOptions,
   PanelPlacement,
@@ -33,6 +34,9 @@ import type { WorkspaceView } from '../shared/sidebar'
 export interface PanelOverlayApi {
   onShow: (callback: (message: PanelShowMessage) => void) => () => void
   onHide: (callback: () => void) => () => void
+  onTransition: (
+    callback: (state: { panelId: PanelId; transitioning: boolean }) => void
+  ) => () => void
   onPlacement: (callback: (placement: PanelPlacement) => void) => () => void
   reportSize: (size: Size) => void
   reportExitComplete: () => void
@@ -57,7 +61,7 @@ export interface PanelOverlayApi {
   getMediaFeatures: () => Promise<MediaFeatureState>
   setMediaFeatures: (state: MediaFeatureState) => Promise<MediaFeatureState>
   openPanel: (options: PanelOpenOptions) => Promise<void>
-  closePanel: (panelId: PanelId) => Promise<void>
+  closePanel: (panelId: PanelId, options?: PanelCloseOptions) => Promise<void>
   getOpenPanels: () => Promise<PanelId[]>
   closeWindow: () => Promise<void>
   minimizeWindow: () => Promise<void>
@@ -113,6 +117,14 @@ const panelApi: PanelOverlayApi = {
     ipcRenderer.on('panel:hide', listener)
     return () => ipcRenderer.removeListener('panel:hide', listener)
   },
+  onTransition: (callback) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      state: { panelId: PanelId; transitioning: boolean }
+    ): void => callback(state)
+    ipcRenderer.on('panel:transition', listener)
+    return () => ipcRenderer.removeListener('panel:transition', listener)
+  },
   onPlacement: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, placement: PanelPlacement): void =>
       callback(placement)
@@ -153,7 +165,7 @@ const panelApi: PanelOverlayApi = {
   getMediaFeatures: () => ipcRenderer.invoke('media-features:get'),
   setMediaFeatures: (state) => ipcRenderer.invoke('media-features:set', state),
   openPanel: (options) => ipcRenderer.invoke('panel:open', options),
-  closePanel: (panelId) => ipcRenderer.invoke('panel:close', panelId),
+  closePanel: (panelId, options) => ipcRenderer.invoke('panel:close', panelId, options),
   getOpenPanels: () => ipcRenderer.invoke('panel:get-open'),
   closeWindow: () => ipcRenderer.invoke('window:close'),
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),

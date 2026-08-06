@@ -6,6 +6,7 @@ import {
   fixtureUrl,
   focusPane,
   getDiagnosticsDrawerPage,
+  getSidebarPage,
   getToolbarPage,
   launchApp,
   navigateTo,
@@ -583,6 +584,43 @@ test('diagnostics drawer and sidebar can be open together with pane interaction'
 
     const drawer = await getDiagnosticsDrawerPage(window)
     await expect(drawer.getByText('deliberate test error')).toBeVisible()
+  } finally {
+    await close()
+  }
+})
+
+test('diagnostics drawer closes outside preview and restores on return', async () => {
+  const { window, close } = await launchApp()
+
+  try {
+    const toolbar = await getToolbarPage(window)
+    const sidebar = await getSidebarPage(window)
+
+    await toolbar.getByTestId('diagnostics-toggle').click()
+    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute('aria-expanded', 'true')
+
+    await sidebar.getByTestId('sidebar-seo-view').click()
+    await expect(window.getByTestId('seo-view')).toBeVisible()
+    await expect
+      .poll(async () => {
+        const openPanels = await window.evaluate(() => window.api.getOpenPanels())
+        return openPanels.includes('diagnostics-right')
+      })
+      .toBe(false)
+    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
+
+    await sidebar.getByTestId('sidebar-preview-view').click()
+    await expect(window.getByTestId('seo-view')).toHaveCount(0)
+    await expect
+      .poll(async () => {
+        const openPanels = await window.evaluate(() => window.api.getOpenPanels())
+        return openPanels.includes('diagnostics-right')
+      })
+      .toBe(true)
+    await expect(toolbar.getByTestId('diagnostics-toggle')).toHaveAttribute('aria-expanded', 'true')
   } finally {
     await close()
   }

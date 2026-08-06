@@ -5,6 +5,7 @@ import { is } from '@electron-toolkit/utils'
 import type {
   PanelAction,
   PanelAlign,
+  PanelCloseOptions,
   PanelEdge,
   PanelId,
   PanelOpenOptions,
@@ -41,6 +42,8 @@ interface PanelEntry {
   lastShow: PanelShowMessage | null
   dockedWidth: number
   boundsAnimationTimer: ReturnType<typeof setInterval> | null
+  transitioning: boolean
+  immediateNextOpen: boolean
   closeFallbackTimer: ReturnType<typeof setTimeout> | null
   mounted: boolean
   ready: Promise<void>
@@ -124,6 +127,10 @@ function isChromeToggleInput(input: Electron.Input): boolean {
 
 // Panels that make up the app chrome and are soft-hidden by the immersive mode.
 const CHROME_PANEL_IDS: PanelId[] = ['toolbar-top', 'sidebar-left', 'diagnostics-right']
+
+function isSlidingDockedPanel(panelId: PanelId): boolean {
+  return panelId === 'sidebar-left' || panelId === 'diagnostics-right'
+}
 
 export class PanelManager {
   private entries = new Map<PanelId, PanelEntry>()
@@ -312,6 +319,8 @@ export class PanelManager {
     entry.size = null
     entry.isOpen = true
     entry.isClosing = false
+    const immediate = entry.immediateNextOpen
+    entry.immediateNextOpen = false
     entry.view.setVisible(true)
     this.bringToFront(panelId)
 
@@ -329,7 +338,8 @@ export class PanelManager {
         panelId,
         mode: 'docked',
         edge: entry.options.edge,
-        payload: options.payload
+        payload: options.payload,
+        immediate
       }
       this.deliverShow(panelId, message)
 
@@ -339,6 +349,23 @@ export class PanelManager {
           : panelId === 'diagnostics-right'
             ? this.getDiagnosticsWidth()
             : (entry.options.width ?? SIDEBAR_WIDTH_PX)
+
+      if (isSlidingDockedPanel(panelId)) {
+        // Keep the native view at its real width while the renderer slides its
+        // contents in. Animating the WebContentsView width makes the sidebar
+        // reflow and briefly exposes a scrollbar during the transition.
+        entry.dockedWidth = panelId === 'sidebar-left' ? SIDEBAR_WIDTH_PX : targetWidth
+        this.applyDockedBounds(panelId, entry.dockedWidth)
+        if (immediate) {
+          this.sendTransition(panelId, false)
+          return
+        }
+        this.sendTransition(panelId, true)
+        this.animateDockedTransition(panelId, () => {
+          this.sendTransition(panelId, false)
+        })
+        return
+      }
 
       if (panelId === 'toolbar-top') {
         entry.dockedWidth = targetWidth
@@ -372,23 +399,34 @@ export class PanelManager {
     this.deliverShow(panelId, message)
   }
 
-  close(panelId: PanelId): void {
+  close(panelId: PanelId, options: PanelCloseOptions = {}): void {
     const entry = this.entries.get(panelId)
-    if (!entry || !entry.isOpen || entry.isClosing) return
+    if (!entry || !entry.isOpen) return
+    if (entry.isClosing) {
+      if (!options.immediate) return
+      this.cancelBoundsAnimation(panelId)
+      entry.isClosing = false
+    }
 
     if (entry.options.mode === 'docked') {
+      const immediate = options.immediate === true
       this.cancelBoundsAnimation(panelId)
       entry.isClosing = true
-      this.sendTransition(panelId, true)
+      if (immediate) entry.immediateNextOpen = true
+      if (!immediate) this.sendTransition(panelId, true)
 
       if (!entry.view.webContents.isDestroyed()) {
         entry.view.webContents.send('panel:hide')
       }
 
-      this.animateDockedWidth(panelId, 0, () => {
+      const finishClose = (): void => {
         entry.isClosing = false
         entry.isOpen = false
+        entry.dockedWidth = 0
         entry.view.setVisible(false)
+        if (isSlidingDockedPanel(panelId)) {
+          entry.view.setBounds({ x: 0, y: 0, width: 0, height: 0 })
+        }
         this.sendTransition(panelId, false)
 
         const mainWindow = this.mainWindow
@@ -396,7 +434,17 @@ export class PanelManager {
           mainWindow.webContents.send('panel:closed', panelId)
           this.notifyToolbar('panel:closed', panelId)
         }
-      })
+      }
+
+      if (immediate) {
+        finishClose()
+      } else if (isSlidingDockedPanel(panelId)) {
+        // The renderer owns the slide-out. Keep the native view fixed until
+        // the content has finished leaving the viewport.
+        this.animateDockedTransition(panelId, finishClose)
+      } else {
+        this.animateDockedWidth(panelId, 0, finishClose)
+      }
       return
     }
 
@@ -482,6 +530,12 @@ export class PanelManager {
     entry.view.webContents.send('panel:show', message)
     entry.hasShown = true
     entry.pendingShow = null
+    if (entry.options.mode === 'docked') {
+      entry.view.webContents.send('panel:transition', {
+        panelId,
+        transitioning: entry.transitioning
+      })
+    }
   }
 
   private deliverShow(panelId: PanelId, message: PanelShowMessage): void {
@@ -501,6 +555,14 @@ export class PanelManager {
   }
 
   private sendTransition(panelId: PanelId, transitioning: boolean): void {
+    const entry = this.entries.get(panelId)
+    if (entry) {
+      entry.transitioning = transitioning
+      if (!entry.view.webContents.isDestroyed()) {
+        entry.view.webContents.send('panel:transition', { panelId, transitioning })
+      }
+    }
+
     const mainWindow = this.mainWindow
     if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
     mainWindow.webContents.send('panel:transition', { panelId, transitioning })
@@ -554,6 +616,19 @@ export class PanelManager {
         this.applyDockedBounds(panelId, targetWidth)
         onComplete?.()
       }
+    }, 16)
+  }
+
+  private animateDockedTransition(panelId: PanelId, onComplete?: () => void): void {
+    const entry = this.entries.get(panelId)
+    if (!entry) return
+
+    this.cancelBoundsAnimation(panelId)
+    const startTime = Date.now()
+    entry.boundsAnimationTimer = setInterval(() => {
+      if (Date.now() - startTime < SIDEBAR_TRANSITION_MS) return
+      this.cancelBoundsAnimation(panelId)
+      onComplete?.()
     }, 16)
   }
 
@@ -668,6 +743,8 @@ export class PanelManager {
       lastShow: null,
       dockedWidth: 0,
       boundsAnimationTimer: null,
+      transitioning: false,
+      immediateNextOpen: false,
       closeFallbackTimer: null,
       mounted: false,
       ready: Promise.resolve()

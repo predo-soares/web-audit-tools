@@ -1,7 +1,9 @@
 import { PANEL_VIEW_REGISTRY } from '@renderer/components/panel/panel-registry'
 import type { PanelShowState } from '@renderer/components/panel/types'
 import { PanelChrome } from '@renderer/components/ui/panel'
+import { getDockedPanelTransform } from '../../../shared/panel-animation'
 import { getPanelFixedSize } from '../../../shared/panel-types'
+import { SIDEBAR_TRANSITION_MS, SIDEBAR_WIDTH_PX } from '../../../shared/sidebar'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 function prefersReducedMotion(): boolean {
@@ -12,17 +14,14 @@ export function PanelHost(): React.JSX.Element | null {
   const containerRef = useRef<HTMLDivElement>(null)
   const [panel, setPanel] = useState<PanelShowState | null>(null)
   const [visible, setVisible] = useState(false)
+  const [isTransitioning, setIsTransitioning] = useState(false)
   const [resolvedPlacement, setResolvedPlacement] = useState<PanelShowState['placement'] | null>(
     null
   )
-  const reducedMotion = useRef(prefersReducedMotion())
+  const [reducedMotion] = useState(prefersReducedMotion)
   const panelModeRef = useRef<PanelShowState['mode'] | null>(null)
 
   const activePlacement = resolvedPlacement ?? panel?.placement ?? 'bottom'
-
-  useEffect(() => {
-    window.panelApi.reportReady()
-  }, [])
 
   const finishExit = useCallback((): void => {
     window.panelApi.reportExitComplete()
@@ -40,12 +39,10 @@ export function PanelHost(): React.JSX.Element | null {
         resolvedPlacement: message.resolvedPlacement
       })
       setResolvedPlacement(message.resolvedPlacement ?? null)
-      setVisible(message.mode === 'docked' ? true : false)
+      const showImmediately = message.immediate === true || reducedMotion
+      setVisible(showImmediately)
 
-      if (message.mode === 'docked' || reducedMotion.current) {
-        setVisible(true)
-        return
-      }
+      if (showImmediately) return
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -55,10 +52,13 @@ export function PanelHost(): React.JSX.Element | null {
     })
 
     const unsubscribeHide = window.panelApi.onHide(() => {
-      if (panelModeRef.current === 'docked') return
+      if (panelModeRef.current === 'docked') {
+        setVisible(false)
+        return
+      }
       setVisible(false)
 
-      if (reducedMotion.current) {
+      if (reducedMotion) {
         finishExit()
       }
     })
@@ -66,13 +66,19 @@ export function PanelHost(): React.JSX.Element | null {
     const unsubscribePlacement = window.panelApi.onPlacement((placement) => {
       setResolvedPlacement(placement)
     })
+    const unsubscribeTransition = window.panelApi.onTransition((state) => {
+      setIsTransitioning(state.transitioning)
+    })
+
+    window.panelApi.reportReady()
 
     return () => {
       unsubscribeShow()
       unsubscribeHide()
       unsubscribePlacement()
+      unsubscribeTransition()
     }
-  }, [finishExit])
+  }, [finishExit, reducedMotion])
 
   useEffect(() => {
     if (!panel || panel.mode === 'docked') return
@@ -122,8 +128,28 @@ export function PanelHost(): React.JSX.Element | null {
   if (!PanelView) return null
 
   if (panel.mode === 'docked') {
+    const isSlidingPanel = panel.panelId === 'sidebar-left' || panel.panelId === 'diagnostics-right'
+
     return (
-      <div ref={containerRef} className="h-screen min-h-screen w-full bg-transparent p-0">
+      <div
+        ref={containerRef}
+        className="h-screen min-h-screen overflow-hidden bg-transparent p-0"
+        data-panel-transitioning={isTransitioning ? 'true' : 'false'}
+        style={{
+          width: panel.panelId === 'sidebar-left' ? SIDEBAR_WIDTH_PX : '100%',
+          transform: isSlidingPanel
+            ? getDockedPanelTransform(
+                panel.panelId === 'diagnostics-right' ? 'right' : 'left',
+                visible
+              )
+            : undefined,
+          transition:
+            isSlidingPanel && !reducedMotion
+              ? `transform ${SIDEBAR_TRANSITION_MS}ms var(--ease-out-strong)`
+              : undefined,
+          willChange: isSlidingPanel ? 'transform' : undefined
+        }}
+      >
         <PanelView
           payload={panel.payload}
           onAction={(action) => window.panelApi.sendAction(action)}

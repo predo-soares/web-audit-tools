@@ -59,6 +59,10 @@ export interface PanelOpenOptions {
   width?: number
 }
 
+export interface PanelCloseOptions {
+  immediate?: boolean
+}
+
 export interface PanelShowMessage {
   panelId: PanelId
   mode: PanelMode
@@ -67,6 +71,7 @@ export interface PanelShowMessage {
   align?: PanelAlign
   resolvedPlacement?: PanelPlacement
   edge?: PanelEdge
+  immediate?: boolean
 }
 
 export type PanelAction =

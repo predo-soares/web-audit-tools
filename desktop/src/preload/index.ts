@@ -1,6 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { HistoryEntry } from '../shared/history'
-import type { PanelAction, PanelId, PanelOpenOptions } from '../shared/panel-types'
+import type {
+  PanelAction,
+  PanelCloseOptions,
+  PanelId,
+  PanelOpenOptions
+} from '../shared/panel-types'
 import type { NewProjectInput, Project } from '../shared/project'
 import type { MirrorFailureLog } from '../shared/element-mirror'
 import type { RuntimeEvidenceSnapshot } from '../shared/runtime-evidence'
@@ -54,7 +59,7 @@ export interface PreviewApi {
   deleteHistoryEntry: (url: string) => Promise<void>
   clearHistory: () => Promise<void>
   openPanel: (options: PanelOpenOptions) => Promise<void>
-  closePanel: (panelId: PanelId) => Promise<void>
+  closePanel: (panelId: PanelId, options?: PanelCloseOptions) => Promise<void>
   getOpenPanels: () => Promise<PanelId[]>
   onPanelAction: (callback: (action: PanelAction) => void) => () => void
   onPanelClosed: (callback: (panelId: PanelId) => void) => () => void
@@ -157,7 +162,7 @@ const api: PreviewApi = {
   deleteHistoryEntry: (url) => ipcRenderer.invoke('history:delete', url),
   clearHistory: () => ipcRenderer.invoke('history:clear'),
   openPanel: (options) => ipcRenderer.invoke('panel:open', options),
-  closePanel: (panelId) => ipcRenderer.invoke('panel:close', panelId),
+  closePanel: (panelId, options) => ipcRenderer.invoke('panel:close', panelId, options),
   getOpenPanels: () => ipcRenderer.invoke('panel:get-open'),
   onPanelAction: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, action: PanelAction): void =>

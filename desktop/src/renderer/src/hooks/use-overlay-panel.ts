@@ -1,5 +1,6 @@
 import type {
   PanelAlign,
+  PanelCloseOptions,
   PanelId,
   PanelMode,
   PanelPayload,
@@ -18,6 +19,7 @@ interface UseOverlayPanelOptions {
   payload?: PanelPayload
   edge?: 'left' | 'right' | 'top' | 'bottom'
   width?: number
+  immediateClose?: boolean
   onOpenChange?: (open: boolean) => void
 }
 
@@ -45,7 +47,10 @@ export function useOverlayPanel(
   }, [])
 
   const close = useCallback(async () => {
-    await window.panelApi.closePanel(panelId)
+    const options: PanelCloseOptions | undefined = optionsRef.current.immediateClose
+      ? { immediate: true }
+      : undefined
+    await window.panelApi.closePanel(panelId, options)
     setOpen(false)
   }, [panelId, setOpen])
 
@@ -59,11 +64,12 @@ export function useOverlayPanel(
   }, [panelId, setOpen])
 
   useEffect(() => {
-    const { open, mode, placement, align, payload, edge, width } = optionsRef.current
+    const { open, mode, placement, align, payload, edge, width, immediateClose } =
+      optionsRef.current
 
     if (!open) {
       if (isOpenRef.current) {
-        void window.panelApi.closePanel(panelId)
+        void window.panelApi.closePanel(panelId, immediateClose ? { immediate: true } : undefined)
         setOpen(false)
       }
       return
@@ -76,9 +82,7 @@ export function useOverlayPanel(
     void window.panelApi.openPanel({
       panelId,
       mode,
-      anchor: rect
-        ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
-        : undefined,
+      anchor: rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : undefined,
       placement,
       align,
       payload,
@@ -94,6 +98,7 @@ export function useOverlayPanel(
     options.align,
     options.edge,
     options.width,
+    options.immediateClose,
     options.mode,
     panelId,
     setOpen

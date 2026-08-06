@@ -2,7 +2,12 @@ import { BrowserWindow, ipcMain } from 'electron'
 import { normalizeUrl } from '../shared/url'
 import type { ElementFingerprint } from '../shared/element-mirror'
 import type { NewProjectInput } from '../shared/project'
-import type { PanelAction, PanelId, PanelOpenOptions } from '../shared/panel-types'
+import type {
+  PanelAction,
+  PanelCloseOptions,
+  PanelId,
+  PanelOpenOptions
+} from '../shared/panel-types'
 import type { MediaFeatureState, PaneMount, PaneId, Size, ThemePreference } from '../shared/types'
 import type { MirroredKey } from './engine/engine-view'
 import type { PaneManager } from './panes/pane-manager'
@@ -423,8 +428,8 @@ export function registerIpcHandlers(
     await panelManager.open(options)
   })
 
-  ipcMain.handle('panel:close', (_event, panelId: PanelId) => {
-    panelManager.close(panelId)
+  ipcMain.handle('panel:close', (_event, panelId: PanelId, options?: PanelCloseOptions) => {
+    panelManager.close(panelId, options)
   })
 
   ipcMain.handle('panel:get-open', () => {

@@ -126,6 +126,8 @@ export function ToolbarPanel(): React.JSX.Element {
     pageTitle: '',
     faviconUrl: null as string | null
   })
+  const isBrowserView = workspaceView === 'browser'
+  const diagnosticsVisible = diagnosticsOpen && isBrowserView
 
   const { isOpen: isZoomOpen } = useOverlayPanel(
     'zoom',
@@ -143,10 +145,14 @@ export function ToolbarPanel(): React.JSX.Element {
 
   useOverlayPanel('diagnostics-right', {
     mode: 'docked',
-    open: diagnosticsOpen,
+    open: diagnosticsVisible,
     edge: 'right',
     width: diagnosticsWidth,
-    onOpenChange: setDiagnosticsOpen
+    immediateClose: !isBrowserView,
+    onOpenChange: (open) => {
+      if (!open && !isBrowserView) return
+      setDiagnosticsOpen(open)
+    }
   })
 
   useEffect(() => {
@@ -184,7 +190,7 @@ export function ToolbarPanel(): React.JSX.Element {
     urlBarRef
   )
 
-  const showProblemBadge = !diagnosticsOpen && problemCount > 0
+  const showProblemBadge = !diagnosticsVisible && problemCount > 0
 
   const anyPaneLoading = Object.values(loadingStates).some(Boolean)
   const isLoading = navigating || anyPaneLoading
@@ -256,9 +262,6 @@ export function ToolbarPanel(): React.JSX.Element {
     const unsubscribeClosed = window.panelApi.onPanelClosed((panelId) => {
       if (panelId === 'sidebar-left') {
         setSidebarOpen(false)
-      }
-      if (panelId === 'diagnostics-right') {
-        setDiagnosticsOpen(false)
       }
     })
     const unsubscribeSettled = window.panelApi.onPanelLayoutSettled((panelId) => {
@@ -366,8 +369,9 @@ export function ToolbarPanel(): React.JSX.Element {
   }, [])
 
   const toggleDiagnostics = useCallback((): void => {
+    if (!isBrowserView) return
     setDiagnosticsOpen((current) => !current)
-  }, [])
+  }, [isBrowserView])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
@@ -442,8 +446,6 @@ export function ToolbarPanel(): React.JSX.Element {
   // The URL bar and page-scoped controls (zoom, theme, diagnostics) only apply to
   // the device canvas; full-screen views (SEO, Lighthouse, Devices, Settings)
   // replace it, so hide that chrome there.
-  const isBrowserView = workspaceView === 'browser'
-
   return (
     <header
       className="relative box-border flex h-full w-full items-center justify-between gap-3 bg-transparent px-3"
@@ -584,13 +586,13 @@ export function ToolbarPanel(): React.JSX.Element {
           data-testid="diagnostics-toggle"
           className="relative"
           aria-label={
-            diagnosticsOpen
+            diagnosticsVisible
               ? 'Close diagnostics drawer'
               : problemCount > 0
                 ? `Open diagnostics drawer, ${problemCount} problems`
                 : 'Open diagnostics drawer'
           }
-          aria-expanded={diagnosticsOpen}
+          aria-expanded={diagnosticsVisible}
           aria-controls="diagnostics-drawer"
           aria-keyshortcuts="Meta+J"
           onClick={toggleDiagnostics}
