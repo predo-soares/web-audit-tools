@@ -42,6 +42,9 @@ export function DevicesView({
   const { isOpen: sidebarOpen, isTransitioning: sidebarTransitioning } = useSidebar()
   const sidebarOffset = sidebarOpen || sidebarTransitioning ? SIDEBAR_WIDTH_PX : 0
   const visibleCount = Object.keys(selectedPresets).length
+  const activeEntries = DEVICE_CATALOG.filter(
+    (entry) => selectedPresets[entry.paneId] === entry.presetId
+  )
 
   return (
     <div
@@ -63,6 +66,20 @@ export function DevicesView({
               Select the viewports you want to keep visible. Changes apply immediately to the
               preview canvas.
             </p>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-white/65">
+                {visibleCount} active {visibleCount === 1 ? 'device' : 'devices'}
+              </span>
+              {activeEntries.map((entry) => (
+                <span
+                  key={entry.presetId}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-white/50"
+                >
+                  <CategoryIcon category={entry.category} />
+                  {entry.name}
+                </span>
+              ))}
+            </div>
           </div>
           <button
             type="button"
