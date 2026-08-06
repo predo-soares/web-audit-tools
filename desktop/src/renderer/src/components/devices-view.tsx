@@ -63,8 +63,9 @@ export function DevicesView({
             </p>
             <h1 className="text-xl font-medium tracking-tight text-white">Choose devices</h1>
             <p className="mt-2 max-w-lg text-sm leading-relaxed text-white/50">
-              Select the viewports you want to keep visible. Changes apply immediately to the
-              preview canvas.
+              Select the viewports you want to keep visible. Choose one preset per device type;
+              selecting another replaces the current one. Changes apply immediately to the preview
+              canvas.
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <span className="text-xs font-medium text-white/65">
