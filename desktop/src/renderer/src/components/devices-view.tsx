@@ -112,6 +112,22 @@ export function DevicesView({
                       type="button"
                       data-testid={`device-tab-${entry.presetId}`}
                       aria-pressed={thisActive}
+                      aria-label={
+                        thisActive
+                          ? `${entry.name}, selected`
+                          : paneActive
+                            ? `Switch to ${entry.name}`
+                            : `Add ${entry.name}`
+                      }
+                      title={
+                        thisActive
+                          ? isLastVisible
+                            ? 'Keep at least one device active'
+                            : `Remove ${entry.name}`
+                          : paneActive
+                            ? `Switch to ${entry.name}`
+                            : `Add ${entry.name}`
+                      }
                       disabled={isLastVisible}
                       onClick={() => onTogglePreset(entry.presetId)}
                       className={cn(
