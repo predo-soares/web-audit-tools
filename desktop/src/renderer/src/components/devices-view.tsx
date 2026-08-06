@@ -95,7 +95,7 @@ export function DevicesView({
                       className={cn(
                         'flex items-center gap-3 rounded-lg border px-4 py-3 text-left transition-colors',
                         thisActive
-                          ? 'border-white/25 bg-white/15 text-white'
+                          ? 'border-white/40 bg-white/15 text-white'
                           : paneActive
                             ? 'border-white/10 bg-transparent text-white/30 hover:bg-white/5 hover:text-white/50'
                             : 'border-white/10 bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70',
@@ -109,6 +109,17 @@ export function DevicesView({
                           {entry.width}×{entry.height}
                         </span>
                       </div>
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          'flex size-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold leading-none',
+                          thisActive
+                            ? 'bg-white text-black'
+                            : 'border border-white/15 text-transparent'
+                        )}
+                      >
+                        ✓
+                      </span>
                     </button>
                   )
                 })}
