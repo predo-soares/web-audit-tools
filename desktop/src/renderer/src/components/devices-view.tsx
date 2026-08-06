@@ -37,7 +37,7 @@ const BRAND_GROUPS = groupByBrand(DEVICE_CATALOG)
 export function DevicesView({
   selectedPresets,
   onTogglePreset,
-  onClose,
+  onClose
 }: DevicesViewProps): React.JSX.Element {
   const { isOpen: sidebarOpen, isTransitioning: sidebarTransitioning } = useSidebar()
   const sidebarOffset = sidebarOpen || sidebarTransitioning ? SIDEBAR_WIDTH_PX : 0
