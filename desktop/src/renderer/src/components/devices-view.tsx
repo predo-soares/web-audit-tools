@@ -84,6 +84,7 @@ export function DevicesView({
                   const paneActive = selectedPresets[entry.paneId] !== undefined
                   const thisActive = selectedPresets[entry.paneId] === entry.presetId
                   const isLastVisible = thisActive && visibleCount === 1
+                  const orientation = entry.width > entry.height ? 'Landscape' : 'Portrait'
                   return (
                     <button
                       key={entry.presetId}
@@ -105,8 +106,9 @@ export function DevicesView({
                       <CategoryIcon category={entry.category} />
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className="text-sm font-medium leading-tight">{entry.name}</span>
-                        <span className="text-[11px] tabular-nums leading-tight text-white/35">
-                          {entry.width}×{entry.height}
+                        <span className="text-[11px] leading-tight text-white/45">
+                          {entry.width}×{entry.height} · {entry.deviceScaleFactor}× ·{' '}
+                          {entry.touch ? 'Touch' : 'Pointer'} · {orientation}
                         </span>
                       </div>
                       <span
