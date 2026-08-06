@@ -40,7 +40,7 @@ export function HistoryRow({
   return (
     <div
       className={cn(
-        'group/history-row relative flex min-w-0 items-stretch rounded-md',
+        'group/history-row relative flex w-full min-w-0 items-stretch rounded-md',
         isActive && 'bg-white/10',
         !isActive && 'hover:bg-white/10 focus-within:bg-white/10'
       )}

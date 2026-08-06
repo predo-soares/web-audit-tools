@@ -47,7 +47,7 @@ const sidebarSectionTriggerClassName = cn(
   '**:data-[slot=accordion-trigger-icon]:group-focus-visible/accordion-trigger:opacity-100'
 )
 
-const sidebarListClassName = 'flex flex-col gap-0.5'
+const sidebarListClassName = 'flex flex-col gap-0.5 w-full'
 const sidebarSectionContentClassName = 'pb-0 px-2 [&>div]:pb-0'
 
 export function SidebarPanel({
@@ -324,7 +324,7 @@ export function SidebarPanel({
                     <>
                       <ul data-sidebar-list className={sidebarListClassName}>
                         {(historyExpanded ? history : history.slice(0, HISTORY_PAGE_SIZE)).map((entry, index) => (
-                          <li key={entry.url}>
+                          <li key={entry.url} className='w-full'>
                             <HistoryRow
                               entry={entry}
                               isActive={entry.url === committedUrl}
