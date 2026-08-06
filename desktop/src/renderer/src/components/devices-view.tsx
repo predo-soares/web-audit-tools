@@ -116,8 +116,8 @@ export function DevicesView({
                         thisActive
                           ? 'border-white/40 bg-white/15 text-white'
                           : paneActive
-                            ? 'border-white/10 bg-transparent text-white/30 hover:bg-white/5 hover:text-white/50'
-                            : 'border-white/10 bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70',
+                            ? 'border-white/10 bg-transparent text-white/50 hover:bg-white/5 hover:text-white/80'
+                            : 'border-white/10 bg-white/5 text-white/65 hover:bg-white/10 hover:text-white/90',
                         isLastVisible && 'cursor-not-allowed opacity-40'
                       )}
                     >
