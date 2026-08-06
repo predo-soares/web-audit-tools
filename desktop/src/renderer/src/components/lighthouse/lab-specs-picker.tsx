@@ -9,7 +9,14 @@ import {
   LIGHTHOUSE_MOBILE_DEVICES,
   LIGHTHOUSE_NETWORK_PRESETS
 } from '../../../../shared/lighthouse'
-import { cn } from '@renderer/lib/utils'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@renderer/components/ui/select'
+import { Separator } from '@renderer/components/ui/separator'
 
 function LabSpecSelect({
   label,
@@ -29,23 +36,24 @@ function LabSpecSelect({
       <span className="text-[10px] font-medium uppercase tracking-wider text-white/35">
         {label}
       </span>
-      <select
+      <Select
         value={value}
         disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-        className={cn(
-          'h-8 rounded-lg border border-white/10 bg-black/40 px-2 text-xs text-white/85 outline-none',
-          'transition-[border-color,box-shadow] duration-150',
-          'focus-visible:ring-2 focus-visible:ring-sky-400/40',
-          'disabled:opacity-40'
-        )}
+        onValueChange={(nextValue) => {
+          if (nextValue !== null) onChange(nextValue)
+        }}
       >
-        {options.map((option) => (
-          <option key={option.id} value={option.id}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger size="sm" aria-label={label} className="h-8 w-full text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent align="start">
+          {options.map((option) => (
+            <SelectItem key={option.id} value={option.id}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </label>
   )
 }
@@ -60,12 +68,12 @@ export function LabSpecsPicker({
   onChange: (next: LighthouseLabSelection) => void
 }): React.JSX.Element {
   return (
-    <div data-testid="lighthouse-lab-picker" className="grid gap-3 sm:w-[26rem] sm:grid-cols-2">
-      <div className="rounded-lg border border-white/10 bg-black/25 p-3">
+    <div data-testid="lighthouse-lab-picker" className="grid gap-3 sm:w-[20rem]">
+      <div>
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/40">
           Mobile lab
         </p>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col gap-2">
           <LabSpecSelect
             label="Device"
             value={selection.mobileDeviceId}
@@ -98,11 +106,12 @@ export function LabSpecsPicker({
           />
         </div>
       </div>
-      <div className="rounded-lg border border-white/10 bg-black/25 p-3">
+      <Separator />
+      <div>
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/40">
           Desktop lab
         </p>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col gap-2">
           <LabSpecSelect
             label="Device"
             value={selection.desktopDeviceId}

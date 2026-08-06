@@ -24,7 +24,7 @@ export function LabSpecsPopover({
         className="flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-none border-y-0 border-r-0 border-l border-l-input bg-transparent px-3 text-sm text-foreground outline-none transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50 data-[popup-open]:bg-white/5"
       >
         Lab specs
-        <Icon aria-hidden icon={UnfoldMoreIcon} className="size-4 text-muted-foreground" />
+        <Icon aria-hidden icon={UnfoldMoreIcon} size={12} className="text-muted-foreground" />
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Positioner
