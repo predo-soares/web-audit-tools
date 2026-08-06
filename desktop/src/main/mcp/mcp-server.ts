@@ -53,7 +53,7 @@ function readJsonBody(req: http.IncomingMessage): Promise<unknown> {
 }
 
 /**
- * Start a loopback-only Streamable HTTP MCP endpoint hosting the Audit Screens
+ * Start a loopback-only Streamable HTTP MCP endpoint hosting Audit Web Tools
  * tools. Intentionally thin: it owns the transport lifecycle and a loopback gate,
  * and delegates all behaviour to the tool layer behind {@link McpToolPort}.
  *
@@ -63,7 +63,7 @@ function readJsonBody(req: http.IncomingMessage): Promise<unknown> {
 export function startMcpServer(deps: StartMcpServerDeps): Promise<McpServerHandle> {
   const toolPort = deps.port
   const httpPort = deps.httpPort ?? MCP_DEFAULT_PORT
-  const serverInfo = deps.serverInfo ?? { name: 'audit-screens', version: '1.0.0' }
+  const serverInfo = deps.serverInfo ?? { name: 'audit-web-tools', version: '1.0.0' }
 
   async function handle(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
     // Loopback gate — defence in depth on top of binding to 127.0.0.1. Every

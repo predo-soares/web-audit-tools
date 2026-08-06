@@ -1,4 +1,4 @@
-# audit-screens
+# Audit Web Tools
 
 A macOS desktop tool for previewing a website across multiple device viewports simultaneously, with synchronized scrolling. Competes with Sizzy/Responsively. Long-term direction is **agentic-first**: the product will audit pages and package findings (console errors, failed requests, Lighthouse results) into prompts/context for the user's coding agent (Claude Code, Cursor) — see Future features in the PRD; none of that is in the current milestone.
 

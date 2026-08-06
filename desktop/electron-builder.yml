@@ -1,6 +1,6 @@
 appId: com.audit-screens
-productName: Audit Screens
-copyright: Copyright © 2026
+productName: Audit Web Tools
+copyright: Copyright © 2026 Pedro Soares
 directories:
   buildResources: build
 files:
@@ -13,7 +13,7 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: audit-screens
+  executableName: audit-web-tools
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
@@ -24,13 +24,13 @@ mac:
     - dmg
     - zip
   category: public.app-category.developer-tools
-  identity: "Pedro Soares (V658BJYP75)"
+  identity: 'Pedro Soares (V658BJYP75)'
   hardenedRuntime: true
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.inherit.plist
   extendInfo:
-    - NSDocumentsFolderUsageDescription: Audit Screens needs access to your Documents folder to save exports and screenshots.
-    - NSDownloadsFolderUsageDescription: Audit Screens needs access to your Downloads folder to save exports and screenshots.
+    - NSDocumentsFolderUsageDescription: Audit Web Tools needs access to your Documents folder to save exports and screenshots.
+    - NSDownloadsFolderUsageDescription: Audit Web Tools needs access to your Downloads folder to save exports and screenshots.
   notarize: true
 dmg:
   artifactName: ${name}-${version}.${ext}
@@ -39,7 +39,7 @@ linux:
     - AppImage
     - snap
     - deb
-  maintainer: audit-screens
+  maintainer: Pedro Soares
   category: Development
 appImage:
   artifactName: ${name}-${version}.${ext}

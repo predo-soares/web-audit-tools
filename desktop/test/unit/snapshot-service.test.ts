@@ -135,7 +135,7 @@ describe('captureSnapshot', () => {
     await captureSnapshot(makePort(), deps)
 
     const { data } = deps.writeMdCalls[0]
-    expect(data).toContain('# Audit Screens Capture')
+    expect(data).toContain('# Audit Web Tools Capture')
     expect(data).toContain('Captured: 2026-07-09T04:43:00.000Z')
     expect(data).toContain('## Project Context')
     expect(data).toContain('## Active Pane: iPhone 16 Pro (393x852 @3x, touch)')
@@ -423,7 +423,7 @@ describe('captureSnapshot', () => {
     await captureSnapshot(makePort(), deps)
 
     expect(deps.clipboardTexts[0]).toBe(
-      'Read this audit-screens capture and use it to diagnose the issue I am seeing:\n~/.audit-screens/captures/2026-07-09T04-43-00-000Z/context.md'
+      'Read this Audit Web Tools capture and use it to diagnose the issue I am seeing:\n~/.audit-screens/captures/2026-07-09T04-43-00-000Z/context.md'
     )
   })
 

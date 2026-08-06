@@ -65,7 +65,7 @@ test('snapshot bundle is created with context.md and screenshot after capturing 
     expect(existsSync(contextMdPath)).toBe(true)
 
     const contextMd = readFileSync(contextMdPath, 'utf-8')
-    expect(contextMd).toContain('# Audit Screens Capture')
+    expect(contextMd).toContain('# Audit Web Tools Capture')
     expect(contextMd).toContain(`URL: ${fixtureUrl(fixturePort, '/runtime-evidence')}`)
     expect(contextMd).toContain('fixture-runtime-error')
     expect(contextMd).toContain('/runtime-evidence/api/missing')

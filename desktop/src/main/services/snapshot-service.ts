@@ -111,7 +111,7 @@ function buildContextMd(options: {
 
   const lines: string[] = []
 
-  lines.push('# Audit Screens Capture')
+  lines.push('# Audit Web Tools Capture')
   lines.push(`Captured: ${capturedAt.toISOString()}`)
   lines.push('')
   lines.push('## Project Context')
@@ -261,7 +261,7 @@ export async function captureSnapshot(
     return { ok: false, reason: `write-failed: ${String(error)}` }
   }
 
-  const clipboardText = `Read this audit-screens capture and use it to diagnose the issue I am seeing:\n~/.audit-screens/captures/${timestamp}/context.md`
+  const clipboardText = `Read this Audit Web Tools capture and use it to diagnose the issue I am seeing:\n~/.audit-screens/captures/${timestamp}/context.md`
   writeClipboardText(clipboardText)
 
   return { ok: true, warningCount }

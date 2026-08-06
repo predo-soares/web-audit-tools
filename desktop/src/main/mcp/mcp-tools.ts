@@ -170,7 +170,7 @@ export function registerMcpTools(server: McpServer, port: McpToolPort): void {
     {
       title: 'Navigate all device panes',
       description:
-        'Load a URL across every device pane in Audit Screens, exactly like typing it in the URL bar. Drives all linked panes and the active pane identically to human navigation.',
+        'Load a URL across every device pane in Audit Web Tools, exactly like typing it in the URL bar. Drives all linked panes and the active pane identically to human navigation.',
       inputSchema: {
         url: z
           .string()

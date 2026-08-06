@@ -51,7 +51,7 @@ Timestamp uses `-` as separator (colons are invalid in macOS filenames), e.g. `2
 
 **`context.md` structure:**
 ```md
-# Audit Screens Capture
+# Audit Web Tools Capture
 Captured: <ISO timestamp>
 
 ## Project Context
@@ -87,7 +87,7 @@ Appended when `isLocalhostUrl(activeUrl)` is true. Resolved from `process.cwd()`
 
 On success, copies to clipboard:
 ```
-Read this audit-screens capture and use it to diagnose the issue I am seeing:
+Read this Audit Web Tools capture and use it to diagnose the issue I am seeing:
 ~/.audit-screens/captures/<timestamp>/context.md
 ```
 

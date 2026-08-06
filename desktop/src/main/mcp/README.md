@@ -1,6 +1,6 @@
-# Audit Screens MCP server
+# Audit Web Tools MCP server
 
-Audit Screens exposes a local [Model Context Protocol](https://modelcontextprotocol.io)
+Audit Web Tools exposes a local [Model Context Protocol](https://modelcontextprotocol.io)
 server so an MCP-aware agent (Claude Code, Cursor, Windsurf, VS Code MCP
 extensions) can drive the running app's live device panes and read the current
 observed context — without the human copy-pasting capture bundles.
@@ -17,7 +17,7 @@ A checked-in `.mcp.json` at the repo root already registers the server:
 ```json
 {
   "mcpServers": {
-    "audit-screens": {
+    "audit-web-tools": {
       "type": "http",
       "url": "http://127.0.0.1:4319/mcp"
     }
@@ -25,7 +25,7 @@ A checked-in `.mcp.json` at the repo root already registers the server:
 }
 ```
 
-Launch Audit Screens, then start Claude Code in the repo — it picks up the
+Launch Audit Web Tools, then start Claude Code in the repo — it picks up the
 server from `.mcp.json`. For other clients, point them at
 `http://127.0.0.1:4319/mcp` (`type: http`).
 

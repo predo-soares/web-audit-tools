@@ -1,10 +1,18 @@
 {
-  "name": "audit-screens",
+  "name": "audit-web-tools",
   "version": "1.0.0",
-  "description": "Multi-device website preview for macOS",
+  "description": "Preview and audit websites across multiple device sizes with synchronized interactions and agent handoff.",
   "main": "./out/main/index.js",
-  "author": "example.com",
-  "homepage": "https://electron-vite.org",
+  "author": "Pedro Soares",
+  "homepage": "https://github.com/predo-soares/audit-screens",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/predo-soares/audit-screens.git"
+  },
+  "bugs": {
+    "url": "https://github.com/predo-soares/audit-screens/issues"
+  },
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
@@ -20,7 +28,7 @@
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
-    "build:mac": "electron-vite build && env APPLE_KEYCHAIN_PROFILE=audit-screens-notary electron-builder --mac",
+    "build:mac": "pnpm run build && env APPLE_KEYCHAIN_PROFILE=audit-screens-notary electron-builder --mac",
     "build:linux": "electron-vite build && electron-builder --linux"
   },
   "dependencies": {

@@ -1,4 +1,4 @@
-# Audit Screens (Desktop)
+# Audit Web Tools (Desktop)
 
 An Electron app that previews a URL simultaneously across several device sizes and helps audit the pages (SEO, Lighthouse, runtime evidence), including sharing that evidence with an AI agent.
 
