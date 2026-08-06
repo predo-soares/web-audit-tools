@@ -62,7 +62,7 @@ export function MotionTabs<T extends string>({
               {isActive ? (
                 <motion.div
                   layoutId={layoutId}
-                  className="absolute inset-0 rounded-lg border border-white/10 bg-white/10"
+                  className="absolute inset-0 rounded-lg border border-white/5 bg-white/10"
                 />
               ) : null}
               <span className="relative">{item.label}</span>
