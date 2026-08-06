@@ -81,6 +81,9 @@ export function DevicesView({
                 </span>
               ))}
             </div>
+            {visibleCount === 1 && (
+              <p className="mt-2 text-[11px] text-white/40">Keep at least one device active.</p>
+            )}
           </div>
           <button
             type="button"
