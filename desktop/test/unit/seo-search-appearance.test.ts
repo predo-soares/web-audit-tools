@@ -43,7 +43,15 @@ function rendered(overrides: Partial<RenderedAuditSnapshot> = {}): RenderedAudit
   }
 }
 
-function context(searchAppearance: SearchAppearanceResult) {
+function context(searchAppearance: SearchAppearanceResult): {
+  rendered: RenderedAuditSnapshot
+  delivered: DeliveredEvidence
+  accessContext: { authenticated: false }
+  indexingIntent: 'indexable'
+  searchAppearance: SearchAppearanceResult
+  indexability: ReturnType<typeof unavailableIndexability>
+  socialSharing: ReturnType<typeof unavailableSocialSharing>
+} {
   return {
     rendered: rendered(),
     delivered: delivered(),

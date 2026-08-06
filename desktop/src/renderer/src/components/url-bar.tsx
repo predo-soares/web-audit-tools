@@ -61,10 +61,10 @@ export function UrlBar({
   containerRef,
   className
 }: UrlBarProps): React.JSX.Element {
-  const [faviconFailed, setFaviconFailed] = useState(false)
+  const [failedFaviconUrl, setFailedFaviconUrl] = useState<string | null>(null)
+  const faviconFailed = failedFaviconUrl === faviconUrl
 
   useEffect(() => {
-    setFaviconFailed(false)
     if (faviconUrl) {
       console.debug('[favicon]', JSON.stringify({ action: 'url-bar:render', faviconUrl }))
     }
@@ -128,7 +128,7 @@ export function UrlBar({
                     hint: 'img failed to load'
                   })
                 )
-                setFaviconFailed(true)
+                setFailedFaviconUrl(faviconUrl)
               }}
             />
           ) : (

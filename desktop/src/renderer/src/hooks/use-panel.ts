@@ -34,8 +34,11 @@ export function usePanel(
 ): { isOpen: boolean } {
   const [isOpen, setIsOpen] = useState(false)
   const optionsRef = useRef(options)
-  optionsRef.current = options
   const isOpenRef = useRef(false)
+
+  useEffect(() => {
+    optionsRef.current = options
+  }, [options])
 
   const setOpen = useCallback((open: boolean) => {
     if (isOpenRef.current === open) return

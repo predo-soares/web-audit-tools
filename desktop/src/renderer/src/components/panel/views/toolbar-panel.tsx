@@ -30,7 +30,7 @@ import {
 import type { IconSvgElement } from '@hugeicons/react'
 import { Icon } from '@renderer/components/ui/icon'
 import { cn } from '@renderer/lib/utils'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SnapshotResult } from '../../../../../shared/snapshot'
 import type { HistoryEntry } from '../../../../../shared/history'
 import { matchesAppShortcut } from '../../../../../shared/shortcuts'
@@ -208,7 +208,7 @@ export function ToolbarPanel(): React.JSX.Element {
       faviconUrl
     }
     committedSnapshotRef.current = nextSnapshot
-    setSavedPageSnapshot(nextSnapshot)
+    startTransition(() => setSavedPageSnapshot(nextSnapshot))
   }, [anyPaneLoading, committedUrl, faviconUrl, navigating, pageTitle])
 
   useEffect(() => {

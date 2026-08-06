@@ -13,7 +13,7 @@ import {
 async function dumpDiagnostics(
   window: Awaited<ReturnType<typeof launchApp>>['window'],
   label: string
-) {
+): Promise<void> {
   const trace = await getSyncTraceLogs(window)
   const mirror = await getMirrorFailureLogs(window)
   console.log(`\n========== SYNC TRACE: ${label} ==========\n`)

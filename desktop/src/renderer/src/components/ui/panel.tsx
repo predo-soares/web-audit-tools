@@ -6,7 +6,7 @@ import {
   PANEL_EXIT_MS
 } from '../../../../shared/panel-animation'
 import type { PanelAlign, PanelId, PanelPlacement } from '../../../../shared/panel-types'
-import { useRef } from 'react'
+import { useState } from 'react'
 
 const PANEL_SIZE_CLASS: Record<PanelId, string> = {
   zoom: 'h-[224px] w-36',
@@ -44,7 +44,7 @@ export function PanelChrome({
   onTransitionEnd,
   children
 }: PanelChromeProps): React.JSX.Element {
-  const reducedMotion = useRef(prefersReducedMotion())
+  const [reducedMotion] = useState(prefersReducedMotion)
   const transformOrigin = getPanelTransformOrigin(placement, align)
   const enterTransform = getPanelEnterTransform(placement)
   const durationMs = visible ? PANEL_ENTER_MS : PANEL_EXIT_MS
@@ -65,7 +65,7 @@ export function PanelChrome({
         transformOrigin,
         opacity: visible ? 1 : 0,
         transform: visible ? 'scale(1) translate(0, 0)' : enterTransform,
-        transition: reducedMotion.current
+        transition: reducedMotion
           ? `opacity ${durationMs}ms var(--ease-out-strong)`
           : `opacity ${durationMs}ms var(--ease-out-strong), transform ${durationMs}ms var(--ease-out-strong)`
       }}

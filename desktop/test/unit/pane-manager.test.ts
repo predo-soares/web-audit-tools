@@ -1,11 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { BrowserWindow, Input } from 'electron'
 import type { ElementFingerprint } from '../../src/shared/element-mirror'
 import { PaneManager } from '../../src/main/panes/pane-manager'
 import { createRuntimeEvidenceBuffer } from '../../src/main/evidence/runtime-evidence-buffer'
 import { RUNTIME_EVIDENCE_EMIT_WINDOW_MS } from '../../src/shared/runtime-evidence'
+import type { EngineView } from '../../src/main/engine/engine-view'
+import type { PaneId } from '../../src/shared/types'
 import { FakeEngine } from '../support/fake-engine'
 
-function createDeferred<T>() {
+function createDeferred<T>(): {
+  promise: Promise<T>
+  resolve: (value: T | PromiseLike<T>) => void
+} {
   let resolve!: (value: T | PromiseLike<T>) => void
   const promise = new Promise<T>((res) => {
     resolve = res
@@ -13,7 +19,14 @@ function createDeferred<T>() {
   return { promise, resolve }
 }
 
-function createMockEngine() {
+function createMockEngine(): ReturnType<typeof createMockEngineShape> {
+  return createMockEngineShape()
+}
+
+// The mock shape is intentionally inferred so Vitest preserves each mock's
+// call signatures; the public factory below is the typed test entry point.
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+function createMockEngineShape() {
   return {
     resolveClickPoint:
       vi.fn<
@@ -69,30 +82,61 @@ function createToggleFingerprint(checkedState: boolean): ElementFingerprint {
   return { ...createFingerprint(), checkedState }
 }
 
-function createPaneManagerWithEngines() {
+type PaneManagerTestAccess = {
+  engines: Map<PaneId, EngineView>
+  runtimeEvidence: Map<PaneId, ReturnType<typeof createRuntimeEvidenceBuffer>>
+  pendingProgrammaticNavigation: Set<PaneId>
+  tracker: { didFocus: (paneId: PaneId) => void }
+  mainWindow: BrowserWindow | null
+  bumpPaneInteractionEpoch: (paneId: PaneId) => void
+  attachNavigationListeners: (engine: EngineView, paneId: PaneId) => void
+  attachLoadingListeners: (engine: EngineView, paneId: PaneId) => void
+  notifyRuntimeEvidenceChanged: (paneId: PaneId) => void
+  createEngine: (
+    paneId: PaneId,
+    mainWindow: BrowserWindow,
+    restoreUrl: string | null
+  ) => Promise<void>
+}
+
+function getPaneManagerTestAccess(paneManager: PaneManager): PaneManagerTestAccess {
+  return paneManager as unknown as PaneManagerTestAccess
+}
+
+function createPaneManagerWithEngines(): {
+  paneManager: PaneManager
+  iphone: ReturnType<typeof createMockEngine>
+  ipad: ReturnType<typeof createMockEngine>
+  desktop: ReturnType<typeof createMockEngine>
+} {
   const paneManager = new PaneManager()
   const iphone = createMockEngine()
   const ipad = createMockEngine()
   const desktop = createMockEngine()
 
-  ;(paneManager as any).engines.set('iphone', iphone)
-  ;(paneManager as any).engines.set('ipad', ipad)
-  ;(paneManager as any).engines.set('desktop', desktop)
+  getPaneManagerTestAccess(paneManager).engines.set('iphone', iphone)
+  getPaneManagerTestAccess(paneManager).engines.set('ipad', ipad)
+  getPaneManagerTestAccess(paneManager).engines.set('desktop', desktop)
 
   return { paneManager, iphone, ipad, desktop }
 }
 
 // Injects real FakeEngine adapters instead of Electron-internal mocks — the
 // tracer proving PaneManager runs against the EngineView seam, not webContents.
-function createPaneManagerWithFakeEngines() {
+function createPaneManagerWithFakeEngines(): {
+  paneManager: PaneManager
+  iphone: FakeEngine
+  ipad: FakeEngine
+  desktop: FakeEngine
+} {
   const paneManager = new PaneManager()
   const iphone = new FakeEngine('iphone')
   const ipad = new FakeEngine('ipad')
   const desktop = new FakeEngine('desktop')
 
-  ;(paneManager as any).engines.set('iphone', iphone)
-  ;(paneManager as any).engines.set('ipad', ipad)
-  ;(paneManager as any).engines.set('desktop', desktop)
+  getPaneManagerTestAccess(paneManager).engines.set('iphone', iphone)
+  getPaneManagerTestAccess(paneManager).engines.set('ipad', ipad)
+  getPaneManagerTestAccess(paneManager).engines.set('desktop', desktop)
 
   return { paneManager, iphone, ipad, desktop }
 }
@@ -107,8 +151,8 @@ describe('PaneManager syncClick stale guards', () => {
     const sync = paneManager.syncClick('iphone', createFingerprint())
 
     const replacementIpad = createMockEngine()
-    ;(paneManager as any).engines.set('ipad', replacementIpad)
-    ;(paneManager as any).bumpPaneInteractionEpoch('ipad')
+    getPaneManagerTestAccess(paneManager).engines.set('ipad', replacementIpad)
+    getPaneManagerTestAccess(paneManager).bumpPaneInteractionEpoch('ipad')
 
     deferred.resolve({ dispatched: true })
     await sync
@@ -125,7 +169,7 @@ describe('PaneManager syncClick stale guards', () => {
 
     const sync = paneManager.syncClick('iphone', createFingerprint())
 
-    ;(paneManager as any).bumpPaneInteractionEpoch('ipad')
+    getPaneManagerTestAccess(paneManager).bumpPaneInteractionEpoch('ipad')
 
     deferred.resolve({ dispatched: true })
     await sync
@@ -275,7 +319,7 @@ describe('PaneManager scroll sync', () => {
   })
 
   it('does not broadcast source-pane scroll while a mirrored click is in flight', async () => {
-    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithEngines()
+    const { paneManager, ipad, desktop } = createPaneManagerWithEngines()
     const deferred = createDeferred<{ dispatched: true } | null>()
     ipad.resolveClickPoint.mockReturnValue(deferred.promise)
     desktop.resolveClickPoint.mockResolvedValue(null)
@@ -292,7 +336,7 @@ describe('PaneManager scroll sync', () => {
   })
 
   it('navigates mirrored navigation links on target panes without dispatching a click', async () => {
-    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithEngines()
+    const { paneManager, ipad, desktop } = createPaneManagerWithEngines()
     const url = 'http://127.0.0.1:4173/semantic-destination'
     ipad.resolveClickPoint.mockResolvedValue({
       skipDispatch: true,
@@ -422,7 +466,7 @@ describe('PaneManager value/select/submit stale guards', () => {
     const { paneManager, ipad, desktop } = createPaneManagerWithFakeEngines()
     const fingerprint = createFingerprint()
     ipad.onApplyValue = async () => {
-      ;(paneManager as any).engines.set('ipad', new FakeEngine('ipad'))
+      getPaneManagerTestAccess(paneManager).engines.set('ipad', new FakeEngine('ipad'))
     }
 
     await paneManager.syncValue('iphone', fingerprint, 'hello')
@@ -437,7 +481,7 @@ describe('PaneManager value/select/submit stale guards', () => {
     const { paneManager, ipad, desktop } = createPaneManagerWithFakeEngines()
     const fingerprint = createFingerprint()
     ipad.onApplyValue = async () => {
-      ;(paneManager as any).bumpPaneInteractionEpoch('ipad')
+      getPaneManagerTestAccess(paneManager).bumpPaneInteractionEpoch('ipad')
     }
 
     await paneManager.syncValue('iphone', fingerprint, 'hello')
@@ -450,7 +494,7 @@ describe('PaneManager value/select/submit stale guards', () => {
     const { paneManager, ipad, desktop } = createPaneManagerWithFakeEngines()
     const fingerprint = createFingerprint()
     ipad.onApplyValue = async () => {
-      ;(paneManager as any).bumpPaneInteractionEpoch('ipad')
+      getPaneManagerTestAccess(paneManager).bumpPaneInteractionEpoch('ipad')
     }
 
     await paneManager.syncSelectValue('iphone', fingerprint, 'us', 1)
@@ -478,12 +522,14 @@ describe('PaneManager value/select/submit stale guards', () => {
     const { paneManager, ipad, desktop } = createPaneManagerWithFakeEngines()
     const fingerprint = createFingerprint()
     ipad.onSubmitForm = async () => {
-      ;(paneManager as any).engines.set('ipad', new FakeEngine('ipad'))
+      getPaneManagerTestAccess(paneManager).engines.set('ipad', new FakeEngine('ipad'))
     }
 
     await paneManager.syncSubmit('iphone', fingerprint)
 
-    expect((paneManager as any).pendingProgrammaticNavigation.has('ipad')).toBe(false)
+    expect(getPaneManagerTestAccess(paneManager).pendingProgrammaticNavigation.has('ipad')).toBe(
+      false
+    )
 
     // ipad reports a real submit → must mirror to desktop, not be suppressed.
     await paneManager.syncSubmit('ipad', fingerprint)
@@ -495,14 +541,16 @@ describe('PaneManager value/select/submit stale guards', () => {
     const fingerprint = createFingerprint()
     // A successful submit navigates: simulate the epoch bump a real load causes.
     ipad.onSubmitForm = async () => {
-      ;(paneManager as any).bumpPaneInteractionEpoch('ipad')
+      getPaneManagerTestAccess(paneManager).bumpPaneInteractionEpoch('ipad')
     }
 
     await paneManager.syncSubmit('iphone', fingerprint)
 
     // The pending-navigation marker must survive so the resulting navigation is
     // not cascaded back as a user action, and the echo reservation must remain.
-    expect((paneManager as any).pendingProgrammaticNavigation.has('ipad')).toBe(true)
+    expect(getPaneManagerTestAccess(paneManager).pendingProgrammaticNavigation.has('ipad')).toBe(
+      true
+    )
 
     ipad.onSubmitForm = null
     await paneManager.syncSubmit('ipad', fingerprint)
@@ -516,7 +564,7 @@ describe('PaneManager value/select/submit stale guards', () => {
 describe('PaneManager navigation history through the seam', () => {
   it('goes back on the active pane and updates its current URL', async () => {
     const { paneManager, desktop } = createPaneManagerWithFakeEngines()
-    ;(paneManager as any).tracker.didFocus('desktop')
+    getPaneManagerTestAccess(paneManager).tracker.didFocus('desktop')
 
     await desktop.navigate('https://example.com/one')
     await desktop.navigate('https://example.com/two')
@@ -529,7 +577,7 @@ describe('PaneManager navigation history through the seam', () => {
 
   it('does not go back when the pane has no back entry', async () => {
     const { paneManager, desktop } = createPaneManagerWithFakeEngines()
-    ;(paneManager as any).tracker.didFocus('desktop')
+    getPaneManagerTestAccess(paneManager).tracker.didFocus('desktop')
 
     await paneManager.goBack()
 
@@ -538,7 +586,7 @@ describe('PaneManager navigation history through the seam', () => {
 
   it('goes forward after going back', async () => {
     const { paneManager, desktop } = createPaneManagerWithFakeEngines()
-    ;(paneManager as any).tracker.didFocus('desktop')
+    getPaneManagerTestAccess(paneManager).tracker.didFocus('desktop')
 
     await desktop.navigate('https://example.com/one')
     await desktop.navigate('https://example.com/two')
@@ -552,7 +600,7 @@ describe('PaneManager navigation history through the seam', () => {
 
   it('reports navigation capabilities from the active pane, skipping the initial about:blank entry', async () => {
     const { paneManager, desktop } = createPaneManagerWithFakeEngines()
-    ;(paneManager as any).tracker.didFocus('desktop')
+    getPaneManagerTestAccess(paneManager).tracker.didFocus('desktop')
 
     // Only the initial about:blank → first real page: canGoBack must be false
     // because the sole previous entry is the blank initial entry.
@@ -623,16 +671,16 @@ describe('PaneManager presentation through the seam', () => {
 
   it('detaches each pane through the seam on recreateAll', async () => {
     const { paneManager, iphone, ipad, desktop } = createPaneManagerWithFakeEngines()
-    const fakeWindow = { isDestroyed: () => false } as any
-    ;(paneManager as any).mainWindow = fakeWindow
+    const fakeWindow = { isDestroyed: () => false } as unknown as BrowserWindow
+    getPaneManagerTestAccess(paneManager).mainWindow = fakeWindow
     // webContents is still a raw path in recreateAll (removed in issue 04); give
     // the fakes a minimal id so the webContentsToPane cleanup does not throw.
     for (const [i, engine] of [iphone, ipad, desktop].entries()) {
-      ;(engine as any).webContents = { id: 1000 + i }
+      Object.assign(engine, { webContents: { id: 1000 + i } })
     }
     // Make createEngine a no-op so recreateAll only exercises the detach path
     // (real engine construction needs Electron).
-    ;(paneManager as any).createEngine = vi.fn(async () => {})
+    getPaneManagerTestAccess(paneManager).createEngine = vi.fn(async () => {})
 
     await paneManager.recreateAll()
 
@@ -644,11 +692,13 @@ describe('PaneManager presentation through the seam', () => {
 
   it('detaches and destroys each pane through the seam on destroy', () => {
     const { paneManager, iphone, ipad, desktop } = createPaneManagerWithFakeEngines()
-    ;(paneManager as any).mainWindow = { isDestroyed: () => false } as any
+    getPaneManagerTestAccess(paneManager).mainWindow = {
+      isDestroyed: () => false
+    } as unknown as BrowserWindow
 
-    iphone.attach({} as any)
-    ipad.attach({} as any)
-    desktop.attach({} as any)
+    iphone.attach({} as BrowserWindow)
+    ipad.attach({} as BrowserWindow)
+    desktop.attach({} as BrowserWindow)
 
     paneManager.destroy()
 
@@ -673,13 +723,19 @@ describe('PaneManager presentation through the seam', () => {
 // FakeEngine events (via emit helpers) instead of hand-rolling a webContents
 // listener recorder. attachNavigationListeners now subscribes via engine.on().
 describe('PaneManager evidence clear on navigation', () => {
-  function setupNavListeners() {
+  function setupNavListeners(): {
+    paneManager: PaneManager
+    buffer: ReturnType<typeof createRuntimeEvidenceBuffer>
+    iphone: FakeEngine
+    ipad: FakeEngine
+    desktop: FakeEngine
+  } {
     const { paneManager, iphone, ipad, desktop } = createPaneManagerWithFakeEngines()
     const buffer = createRuntimeEvidenceBuffer()
 
-    ;(paneManager as any).runtimeEvidence.set('desktop', buffer)
-    ;(paneManager as any).tracker.didFocus('desktop')
-    ;(paneManager as any).attachNavigationListeners(desktop, 'desktop')
+    getPaneManagerTestAccess(paneManager).runtimeEvidence.set('desktop', buffer)
+    getPaneManagerTestAccess(paneManager).tracker.didFocus('desktop')
+    getPaneManagerTestAccess(paneManager).attachNavigationListeners(desktop, 'desktop')
 
     return { paneManager, buffer, iphone, ipad, desktop }
   }
@@ -713,9 +769,9 @@ describe('PaneManager evidence clear on navigation', () => {
     const iphoneBuffer = createRuntimeEvidenceBuffer()
     const desktopBuffer = createRuntimeEvidenceBuffer()
 
-    ;(paneManager as any).runtimeEvidence.set('iphone', iphoneBuffer)
-    ;(paneManager as any).runtimeEvidence.set('desktop', desktopBuffer)
-    ;(paneManager as any).attachNavigationListeners(desktop, 'desktop')
+    getPaneManagerTestAccess(paneManager).runtimeEvidence.set('iphone', iphoneBuffer)
+    getPaneManagerTestAccess(paneManager).runtimeEvidence.set('desktop', desktopBuffer)
+    getPaneManagerTestAccess(paneManager).attachNavigationListeners(desktop, 'desktop')
 
     iphoneBuffer.pushConsole({ level: 'warn', message: 'iphone log' })
     desktopBuffer.pushConsole({ level: 'error', message: 'desktop error' })
@@ -732,7 +788,7 @@ describe('PaneManager evidence clear on navigation', () => {
 describe('PaneManager pane-engine events through the seam', () => {
   it('sets pane loading state from emitted loading events', () => {
     const { paneManager, desktop } = createPaneManagerWithFakeEngines()
-    ;(paneManager as any).attachLoadingListeners(desktop, 'desktop')
+    getPaneManagerTestAccess(paneManager).attachLoadingListeners(desktop, 'desktop')
 
     desktop.emitDidStartLoading()
     expect(paneManager.getLoadingStates().desktop).toBe(true)
@@ -745,7 +801,7 @@ describe('PaneManager pane-engine events through the seam', () => {
 
   it('clears pane loading state on a failed load', () => {
     const { paneManager, desktop } = createPaneManagerWithFakeEngines()
-    ;(paneManager as any).attachLoadingListeners(desktop, 'desktop')
+    getPaneManagerTestAccess(paneManager).attachLoadingListeners(desktop, 'desktop')
 
     desktop.emitDidStartLoading()
     expect(paneManager.getLoadingStates().desktop).toBe(true)
@@ -756,7 +812,7 @@ describe('PaneManager pane-engine events through the seam', () => {
 
   it('marks the focused pane active from an emitted focus event', () => {
     const { paneManager, ipad } = createPaneManagerWithFakeEngines()
-    ;(paneManager as any).attachNavigationListeners(ipad, 'ipad')
+    getPaneManagerTestAccess(paneManager).attachNavigationListeners(ipad, 'ipad')
 
     ipad.emitFocus()
 
@@ -775,7 +831,7 @@ describe('PaneManager pane-engine events through the seam', () => {
     })
 
     const preventDefault = vi.fn()
-    desktop.emitBeforeInput({ type: 'keyDown', key: 'j' } as any, preventDefault)
+    desktop.emitBeforeInput({ type: 'keyDown', key: 'j' } as Input, preventDefault)
 
     expect(received).toEqual([{ key: 'j', prevented: true }])
     expect(preventDefault).toHaveBeenCalledTimes(1)
@@ -856,12 +912,19 @@ describe('PaneManager runtime evidence broadcasts', () => {
     vi.useRealTimers()
   })
 
-  function createPaneManagerWithEvidence() {
+  function createPaneManagerWithEvidence(): {
+    paneManager: PaneManager
+    buffer: ReturnType<typeof createRuntimeEvidenceBuffer>
+    overlayEvents: Array<{ channel: string; payload: unknown }>
+    shellSend: ReturnType<typeof vi.fn>
+    sinkSnapshots: unknown[]
+    setDiagnosticsOpen: (open: boolean) => void
+  } {
     const paneManager = new PaneManager()
     const buffer = createRuntimeEvidenceBuffer()
 
-    ;(paneManager as any).runtimeEvidence.set('desktop', buffer)
-    ;(paneManager as any).tracker.didFocus('desktop')
+    getPaneManagerTestAccess(paneManager).runtimeEvidence.set('desktop', buffer)
+    getPaneManagerTestAccess(paneManager).tracker.didFocus('desktop')
 
     const overlayEvents: { channel: string; payload: unknown }[] = []
     paneManager.setOverlayBroadcast((channel, ...args) => {
@@ -878,7 +941,7 @@ describe('PaneManager runtime evidence broadcasts', () => {
     })
 
     const shellSend = vi.fn()
-    ;(paneManager as any).mainWindow = {
+    getPaneManagerTestAccess(paneManager).mainWindow = {
       isDestroyed: () => false,
       webContents: { isDestroyed: () => false, send: shellSend }
     }
@@ -906,7 +969,7 @@ describe('PaneManager runtime evidence broadcasts', () => {
       status: 404,
       failed: true
     })
-    ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+    getPaneManagerTestAccess(paneManager).notifyRuntimeEvidenceChanged('desktop')
 
     const countEvents = overlayEvents.filter((e) => e.channel === 'runtime-evidence:problem-count')
     expect(countEvents).toHaveLength(1)
@@ -921,12 +984,12 @@ describe('PaneManager runtime evidence broadcasts', () => {
       createPaneManagerWithEvidence()
 
     buffer.pushConsole({ level: 'error', message: 'while closed' })
-    ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+    getPaneManagerTestAccess(paneManager).notifyRuntimeEvidenceChanged('desktop')
     expect(sinkSnapshots).toEqual([])
 
     setDiagnosticsOpen(true)
     buffer.pushConsole({ level: 'error', message: 'while open' })
-    ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+    getPaneManagerTestAccess(paneManager).notifyRuntimeEvidenceChanged('desktop')
     vi.advanceTimersByTime(RUNTIME_EVIDENCE_EMIT_WINDOW_MS)
 
     expect(sinkSnapshots).toHaveLength(1)
@@ -938,7 +1001,7 @@ describe('PaneManager runtime evidence broadcasts', () => {
     const snapshotSpy = vi.spyOn(buffer, 'snapshot')
 
     buffer.pushConsole({ level: 'error', message: 'boom' })
-    ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+    getPaneManagerTestAccess(paneManager).notifyRuntimeEvidenceChanged('desktop')
 
     expect(snapshotSpy).not.toHaveBeenCalled()
   })
@@ -947,7 +1010,7 @@ describe('PaneManager runtime evidence broadcasts', () => {
     const { paneManager, buffer, shellSend } = createPaneManagerWithEvidence()
 
     buffer.pushConsole({ level: 'error', message: 'boom' })
-    ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+    getPaneManagerTestAccess(paneManager).notifyRuntimeEvidenceChanged('desktop')
     paneManager.clearRuntimeEvidence('console')
 
     const evidenceChannels = shellSend.mock.calls.filter(([channel]) =>
@@ -959,10 +1022,10 @@ describe('PaneManager runtime evidence broadcasts', () => {
   it('does not emit for evidence on an inactive pane', () => {
     const { paneManager, overlayEvents } = createPaneManagerWithEvidence()
     const iphoneBuffer = createRuntimeEvidenceBuffer()
-    ;(paneManager as any).runtimeEvidence.set('iphone', iphoneBuffer)
+    getPaneManagerTestAccess(paneManager).runtimeEvidence.set('iphone', iphoneBuffer)
 
     iphoneBuffer.pushConsole({ level: 'error', message: 'inactive pane' })
-    ;(paneManager as any).notifyRuntimeEvidenceChanged('iphone')
+    getPaneManagerTestAccess(paneManager).notifyRuntimeEvidenceChanged('iphone')
 
     expect(overlayEvents).toEqual([])
   })
@@ -983,10 +1046,10 @@ describe('PaneManager runtime evidence broadcasts', () => {
 
     for (let i = 0; i < 50; i += 1) {
       buffer.pushConsole({ level: 'error', message: `burst ${i}` })
-      ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+      getPaneManagerTestAccess(paneManager).notifyRuntimeEvidenceChanged('desktop')
     }
 
-    const countEvents = () =>
+    const countEvents = (): Array<{ channel: string; payload: unknown }> =>
       overlayEvents.filter((e) => e.channel === 'runtime-evidence:problem-count')
 
     expect(countEvents()).toHaveLength(1)
@@ -1002,13 +1065,13 @@ describe('PaneManager runtime evidence broadcasts', () => {
     const { paneManager, buffer, overlayEvents } = createPaneManagerWithEvidence()
 
     buffer.pushConsole({ level: 'error', message: 'first' })
-    ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+    getPaneManagerTestAccess(paneManager).notifyRuntimeEvidenceChanged('desktop')
     expect(overlayEvents).toHaveLength(1)
 
     vi.advanceTimersByTime(RUNTIME_EVIDENCE_EMIT_WINDOW_MS * 2)
 
     buffer.pushConsole({ level: 'error', message: 'second' })
-    ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+    getPaneManagerTestAccess(paneManager).notifyRuntimeEvidenceChanged('desktop')
     expect(overlayEvents).toHaveLength(2)
     expect(overlayEvents[1].payload).toEqual({ paneId: 'desktop', problemCount: 2 })
   })
@@ -1017,9 +1080,9 @@ describe('PaneManager runtime evidence broadcasts', () => {
     const { paneManager, buffer } = createPaneManagerWithEvidence()
 
     buffer.pushConsole({ level: 'error', message: 'boom' })
-    ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+    getPaneManagerTestAccess(paneManager).notifyRuntimeEvidenceChanged('desktop')
     buffer.pushConsole({ level: 'error', message: 'pending burst' })
-    ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+    getPaneManagerTestAccess(paneManager).notifyRuntimeEvidenceChanged('desktop')
 
     const cleared = paneManager.clearRuntimeEvidence('console')
 
@@ -1031,9 +1094,9 @@ describe('PaneManager runtime evidence broadcasts', () => {
     const { paneManager, buffer } = createPaneManagerWithEvidence()
 
     buffer.pushConsole({ level: 'error', message: 'first' })
-    ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+    getPaneManagerTestAccess(paneManager).notifyRuntimeEvidenceChanged('desktop')
     buffer.pushConsole({ level: 'error', message: 'second (still pending)' })
-    ;(paneManager as any).notifyRuntimeEvidenceChanged('desktop')
+    getPaneManagerTestAccess(paneManager).notifyRuntimeEvidenceChanged('desktop')
 
     expect(paneManager.getRuntimeEvidenceSnapshot().console).toHaveLength(2)
   })

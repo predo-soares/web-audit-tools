@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { startTransition, useEffect, useState } from 'react'
 import type {
   LighthouseAssessmentState,
   LighthouseLabSelection,
@@ -74,13 +74,15 @@ export function LighthouseView({
     }
   }, [])
 
-  useEffect(() => {
-    if (state.phase === 'running') {
-      setViewProfile(state.activeProfile)
-    }
-  }, [state.phase === 'running' ? state.activeProfile : null])
-
   const running = state.phase === 'running'
+  const runningProfile = state.phase === 'running' ? state.activeProfile : null
+
+  useEffect(() => {
+    if (runningProfile) {
+      startTransition(() => setViewProfile(runningProfile))
+    }
+  }, [runningProfile])
+
   const auditable = isAuditableUrl(url)
   const result = state.results[viewProfile]
   const hasResults = hasAnyLighthouseResult(state.results)

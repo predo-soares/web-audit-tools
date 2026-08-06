@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { createEchoLedger } from '../../src/main/panes/echo-ledger'
 
-function createFakeClock(start = 1_000_000) {
+function createFakeClock(start = 1_000_000): {
+  now: () => number
+  advance: (ms: number) => void
+} {
   let now = start
   return {
     now: () => now,

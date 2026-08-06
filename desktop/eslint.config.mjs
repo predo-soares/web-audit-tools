@@ -25,7 +25,29 @@ export default defineConfig(
     },
     rules: {
       ...eslintPluginReactHooks.configs.recommended.rules,
-      ...eslintPluginReactRefresh.configs.vite.rules
+      ...eslintPluginReactRefresh.configs.vite.rules,
+      'react-refresh/only-export-components': [
+        'error',
+        {
+          allowConstantExport: true,
+          allowExportNames: [
+            'useDiagnostics',
+            'useSidebar',
+            'badgeVariants',
+            'buttonVariants',
+            'tabsListVariants',
+            'toggleVariants'
+          ]
+        }
+      ]
+    }
+  },
+  {
+    // JavaScript modules cannot express TypeScript return annotations; keep
+    // explicit return-type enforcement focused on typed source files.
+    files: ['**/*.mjs'],
+    rules: {
+      '@typescript-eslint/explicit-function-return-type': 'off'
     }
   },
   eslintConfigPrettier,

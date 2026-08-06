@@ -107,7 +107,15 @@ describe('social sharing rules', () => {
   async function context(
     social: { property: string; value: string }[],
     transport: FetchTransport = async () => response(200)
-  ) {
+  ): Promise<{
+    rendered: RenderedAuditSnapshot
+    delivered: DeliveredEvidence
+    accessContext: { authenticated: false }
+    indexingIntent: 'indexable'
+    searchAppearance: ReturnType<typeof resolveSearchAppearance>
+    indexability: ReturnType<typeof unavailableIndexability>
+    socialSharing: ReturnType<typeof resolveSocialSharing>
+  }> {
     const d = delivered(social)
     const r = rendered(social)
     const socialSharing = await resolveSocialSharing('https://site.test/page', r, d, transport)

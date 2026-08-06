@@ -126,7 +126,15 @@ describe('indexability rules', () => {
       sitemapStatus?: number
       authenticated?: boolean
     } = {}
-  ) {
+  ): Promise<{
+    rendered: RenderedAuditSnapshot
+    delivered: DeliveredEvidence
+    accessContext: { authenticated: false }
+    indexingIntent: 'indexable'
+    searchAppearance: ReturnType<typeof resolveSearchAppearance>
+    indexability: ReturnType<typeof unavailableIndexability>
+    socialSharing: ReturnType<typeof unavailableSocialSharing>
+  }> {
     const d = delivered({
       headers: options.headerRobots ? { 'x-robots-tag': options.headerRobots } : {},
       robots: options.metaRobots ?? [],

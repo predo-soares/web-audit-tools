@@ -372,6 +372,8 @@ function SafariChromeApp(): React.JSX.Element {
   return <IphoneSafariChrome state={state} />
 }
 
+export { SafariChromeApp }
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <SafariChromeApp />

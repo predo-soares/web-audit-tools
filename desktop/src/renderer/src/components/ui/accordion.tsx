@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { Accordion as AccordionPrimitive } from '@base-ui/react/accordion'
 import { motion, useReducedMotion } from 'motion/react'
 import { ArrowDown01Icon, ArrowUp01Icon } from '@hugeicons/core-free-icons'
@@ -28,7 +29,7 @@ const accordionContentOpacityTransition = {
   }
 }
 
-function Accordion({ className, ...props }: AccordionPrimitive.Root.Props) {
+function Accordion({ className, ...props }: AccordionPrimitive.Root.Props): React.JSX.Element {
   return (
     <AccordionPrimitive.Root
       data-slot="accordion"
@@ -38,7 +39,7 @@ function Accordion({ className, ...props }: AccordionPrimitive.Root.Props) {
   )
 }
 
-function AccordionItem({ className, ...props }: AccordionPrimitive.Item.Props) {
+function AccordionItem({ className, ...props }: AccordionPrimitive.Item.Props): React.JSX.Element {
   return (
     <AccordionPrimitive.Item data-slot="accordion-item" className={cn('', className)} {...props} />
   )
@@ -115,19 +116,15 @@ function AccordionContentBody({
     return () => observer.disconnect()
   }, [state.open, measure])
 
-  const {
-    style: _panelStyle,
-    className: panelClassName,
-    hidden: _hidden,
-    ...restPanelProps
-  } = panelProps
+  const { style: panelStyle, className: panelClassName, hidden, ...restPanelProps } = panelProps
 
   return (
     <div
       {...restPanelProps}
       data-slot="accordion-content"
       className={cn('overflow-hidden text-sm', panelClassName)}
-      style={{ overflow: 'hidden' }}
+      hidden={hidden}
+      style={{ ...panelStyle, overflow: 'hidden' }}
     >
       <motion.div
         initial={false}
@@ -174,7 +171,7 @@ function AccordionContent({
   children,
   keepMounted = true,
   ...props
-}: AccordionPrimitive.Panel.Props) {
+}: AccordionPrimitive.Panel.Props): React.JSX.Element {
   const shouldReduceMotion = useReducedMotion()
 
   return (

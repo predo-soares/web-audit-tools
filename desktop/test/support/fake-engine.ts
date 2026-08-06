@@ -215,12 +215,14 @@ export class FakeEngine implements EngineView {
 
   // Takes a window for interface parity with the real engine; the FakeEngine
   // only records that it was attached/detached. Safe to call in any order.
-  attach(_window: BrowserWindow): void {
+  attach(window: BrowserWindow): void {
+    void window
     this.calls.attach += 1
     this.attached = true
   }
 
-  detach(_window: BrowserWindow): void {
+  detach(window: BrowserWindow): void {
+    void window
     this.calls.detach += 1
     this.attached = false
   }

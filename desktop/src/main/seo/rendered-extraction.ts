@@ -32,7 +32,7 @@ export const RENDERED_EXTRACTION_EXPRESSION = `(() => {
   const sitemapLinks = Array.from(document.querySelectorAll('link[rel]'))
     .filter((el) => (el.getAttribute('rel') || '').toLowerCase().split(/\\s+/).includes('sitemap'))
     .map((el) => el.getAttribute('href') ?? '');
-  const hreflang = Array.from(document.querySelectorAll('link[rel][hreflang]')).filter((el) => (el.getAttribute('rel') || '').toLowerCase().split(/\s+/).includes('alternate')).map((el, sourceIndex) => ({ hreflang: el.getAttribute('hreflang') || '', href: el.getAttribute('href') || '', resolvedHref: el.href || null, sourceIndex }));
+  const hreflang = Array.from(document.querySelectorAll('link[rel][hreflang]')).filter((el) => (el.getAttribute('rel') || '').toLowerCase().split(/\\s+/).includes('alternate')).map((el, sourceIndex) => ({ hreflang: el.getAttribute('hreflang') || '', href: el.getAttribute('href') || '', resolvedHref: el.href || null, sourceIndex }));
   const localeMetadata = Array.from(document.querySelectorAll('meta[http-equiv], meta[name]')).filter((el) => ['content-language', 'language', 'locale'].includes((el.getAttribute('http-equiv') || el.getAttribute('name') || '').toLowerCase())).map((el) => el.getAttribute('content') || '');
   const social = Array.from(document.querySelectorAll('meta[property], meta[name]'))
     .map((el) => ({
