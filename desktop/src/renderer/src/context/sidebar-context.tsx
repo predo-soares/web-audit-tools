@@ -1,11 +1,4 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode
-} from 'react'
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { SIDEBAR_STORAGE_KEY, SIDEBAR_WIDTH_PX } from '../../../shared/sidebar'
 import { matchesAppShortcut } from '../../../shared/shortcuts'
 import { usePanel } from '@renderer/hooks/use-panel'

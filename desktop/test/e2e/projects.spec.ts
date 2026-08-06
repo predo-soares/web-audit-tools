@@ -53,14 +53,18 @@ test('projects survive app restart', async ({ fixturePort }) => {
     const firstToolbar = await getToolbarPage(firstLaunch.window)
     await firstToolbar.getByTestId('save-project').click()
     const firstSidebar = await getSidebarPage(firstLaunch.window)
-    await expect(firstSidebar.locator('[data-testid^="project-row-"]').getByText(firstUrl)).toBeVisible()
+    await expect(
+      firstSidebar.locator('[data-testid^="project-row-"]').getByText(firstUrl)
+    ).toBeVisible()
 
     await firstLaunch.close({ deleteUserData: false })
 
     const secondLaunch = await launchApp(firstLaunch.userDataDir)
     try {
       const secondSidebar = await getSidebarPage(secondLaunch.window)
-      await expect(secondSidebar.locator('[data-testid^="project-row-"]').getByText(firstUrl)).toBeVisible({
+      await expect(
+        secondSidebar.locator('[data-testid^="project-row-"]').getByText(firstUrl)
+      ).toBeVisible({
         timeout: 15_000
       })
     } finally {
@@ -98,7 +102,9 @@ test('save uses last committed page while navigation is loading', async ({ fixtu
   }
 })
 
-test('save-project toggles the current project and keeps only one saved row per site', async ({ fixturePort }) => {
+test('save-project toggles the current project and keeps only one saved row per site', async ({
+  fixturePort
+}) => {
   const { window, close } = await launchApp()
 
   try {

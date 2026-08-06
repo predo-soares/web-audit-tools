@@ -102,8 +102,7 @@ function IphoneSafariChrome({ state }: { state: SafariChromeState }): React.JSX.
         height: '100%',
         position: 'relative',
         pointerEvents: 'none',
-        fontFamily:
-          '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif'
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif'
       }}
     >
       <StatusCluster />
@@ -163,7 +162,12 @@ function IphoneSafariChrome({ state }: { state: SafariChromeState }): React.JSX.
           }}
         >
           <svg width="18" height="12" viewBox="0 0 18 12" fill="none" aria-hidden>
-            <path d="M1 11h10M1 6h15M1 1h15" stroke="#1B1B1B" strokeWidth="1.8" strokeLinecap="round" />
+            <path
+              d="M1 11h10M1 6h15M1 1h15"
+              stroke="#1B1B1B"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
           </svg>
           <span
             style={{
@@ -203,7 +207,15 @@ function IphoneSafariChrome({ state }: { state: SafariChromeState }): React.JSX.
           }}
         >
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-            <rect x="1.5" y="3.5" width="11" height="11" rx="2" stroke="#1B1B1B" strokeWidth="1.6" />
+            <rect
+              x="1.5"
+              y="3.5"
+              width="11"
+              height="11"
+              rx="2"
+              stroke="#1B1B1B"
+              strokeWidth="1.6"
+            />
             <path
               d="M5.5 1.5h9A2 2 0 0 1 16.5 3.5v9"
               stroke="#1B1B1B"
@@ -228,8 +240,7 @@ function IpadSafariChrome({ state }: { state: SafariChromeState }): React.JSX.El
         height: '100%',
         position: 'relative',
         pointerEvents: 'none',
-        fontFamily:
-          '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif'
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif'
       }}
     >
       <div
@@ -286,8 +297,7 @@ function DesktopSafariChrome({ state }: { state: SafariChromeState }): React.JSX
         height: '100%',
         position: 'relative',
         pointerEvents: 'none',
-        fontFamily:
-          '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif'
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif'
       }}
     >
       <div

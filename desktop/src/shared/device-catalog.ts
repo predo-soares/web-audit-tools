@@ -30,31 +30,218 @@ const DESKTOP_UA =
 
 export const DEVICE_CATALOG: CatalogEntry[] = [
   // Apple — Mobile
-  { presetId: 'iphone-se', paneId: 'iphone', brand: 'Apple', category: 'mobile', name: 'iPhone SE', width: 375, height: 667, deviceScaleFactor: 2, touch: true, userAgent: APPLE_MOBILE_UA },
-  { presetId: 'iphone-16', paneId: 'iphone', brand: 'Apple', category: 'mobile', name: 'iPhone 16', width: 390, height: 844, deviceScaleFactor: 3, touch: true, userAgent: APPLE_MOBILE_UA },
-  { presetId: 'iphone-16-pro', paneId: 'iphone', brand: 'Apple', category: 'mobile', name: 'iPhone 16 Pro', width: 393, height: 852, deviceScaleFactor: 3, touch: true, userAgent: APPLE_MOBILE_UA },
-  { presetId: 'iphone-16-pro-max', paneId: 'iphone', brand: 'Apple', category: 'mobile', name: 'iPhone 16 Pro Max', width: 430, height: 932, deviceScaleFactor: 3, touch: true, userAgent: APPLE_MOBILE_UA },
+  {
+    presetId: 'iphone-se',
+    paneId: 'iphone',
+    brand: 'Apple',
+    category: 'mobile',
+    name: 'iPhone SE',
+    width: 375,
+    height: 667,
+    deviceScaleFactor: 2,
+    touch: true,
+    userAgent: APPLE_MOBILE_UA
+  },
+  {
+    presetId: 'iphone-16',
+    paneId: 'iphone',
+    brand: 'Apple',
+    category: 'mobile',
+    name: 'iPhone 16',
+    width: 390,
+    height: 844,
+    deviceScaleFactor: 3,
+    touch: true,
+    userAgent: APPLE_MOBILE_UA
+  },
+  {
+    presetId: 'iphone-16-pro',
+    paneId: 'iphone',
+    brand: 'Apple',
+    category: 'mobile',
+    name: 'iPhone 16 Pro',
+    width: 393,
+    height: 852,
+    deviceScaleFactor: 3,
+    touch: true,
+    userAgent: APPLE_MOBILE_UA
+  },
+  {
+    presetId: 'iphone-16-pro-max',
+    paneId: 'iphone',
+    brand: 'Apple',
+    category: 'mobile',
+    name: 'iPhone 16 Pro Max',
+    width: 430,
+    height: 932,
+    deviceScaleFactor: 3,
+    touch: true,
+    userAgent: APPLE_MOBILE_UA
+  },
 
   // Apple — Tablet
-  { presetId: 'ipad-mini', paneId: 'ipad', brand: 'Apple', category: 'tablet', name: 'iPad mini', width: 744, height: 1133, deviceScaleFactor: 2, touch: true, userAgent: APPLE_TABLET_UA },
-  { presetId: 'ipad-air-11', paneId: 'ipad', brand: 'Apple', category: 'tablet', name: 'iPad Air 11"', width: 820, height: 1180, deviceScaleFactor: 2, touch: true, userAgent: APPLE_TABLET_UA },
-  { presetId: 'ipad-pro-11', paneId: 'ipad', brand: 'Apple', category: 'tablet', name: 'iPad Pro 11"', width: 834, height: 1210, deviceScaleFactor: 2, touch: true, userAgent: APPLE_TABLET_UA },
-  { presetId: 'ipad-pro-13', paneId: 'ipad', brand: 'Apple', category: 'tablet', name: 'iPad Pro 13"', width: 1032, height: 1376, deviceScaleFactor: 2, touch: true, userAgent: APPLE_TABLET_UA },
+  {
+    presetId: 'ipad-mini',
+    paneId: 'ipad',
+    brand: 'Apple',
+    category: 'tablet',
+    name: 'iPad mini',
+    width: 744,
+    height: 1133,
+    deviceScaleFactor: 2,
+    touch: true,
+    userAgent: APPLE_TABLET_UA
+  },
+  {
+    presetId: 'ipad-air-11',
+    paneId: 'ipad',
+    brand: 'Apple',
+    category: 'tablet',
+    name: 'iPad Air 11"',
+    width: 820,
+    height: 1180,
+    deviceScaleFactor: 2,
+    touch: true,
+    userAgent: APPLE_TABLET_UA
+  },
+  {
+    presetId: 'ipad-pro-11',
+    paneId: 'ipad',
+    brand: 'Apple',
+    category: 'tablet',
+    name: 'iPad Pro 11"',
+    width: 834,
+    height: 1210,
+    deviceScaleFactor: 2,
+    touch: true,
+    userAgent: APPLE_TABLET_UA
+  },
+  {
+    presetId: 'ipad-pro-13',
+    paneId: 'ipad',
+    brand: 'Apple',
+    category: 'tablet',
+    name: 'iPad Pro 13"',
+    width: 1032,
+    height: 1376,
+    deviceScaleFactor: 2,
+    touch: true,
+    userAgent: APPLE_TABLET_UA
+  },
 
   // Samsung — Mobile
-  { presetId: 'galaxy-s24', paneId: 'iphone', brand: 'Samsung', category: 'mobile', name: 'Galaxy S24', width: 360, height: 780, deviceScaleFactor: 3, touch: true, userAgent: SAMSUNG_MOBILE_UA },
-  { presetId: 'galaxy-s24-ultra', paneId: 'iphone', brand: 'Samsung', category: 'mobile', name: 'Galaxy S24 Ultra', width: 412, height: 892, deviceScaleFactor: 3.5, touch: true, userAgent: SAMSUNG_MOBILE_UA },
-  { presetId: 'galaxy-z-fold6', paneId: 'iphone', brand: 'Samsung', category: 'mobile', name: 'Galaxy Z Fold 6', width: 480, height: 924, deviceScaleFactor: 2.625, touch: true, userAgent: SAMSUNG_MOBILE_UA },
+  {
+    presetId: 'galaxy-s24',
+    paneId: 'iphone',
+    brand: 'Samsung',
+    category: 'mobile',
+    name: 'Galaxy S24',
+    width: 360,
+    height: 780,
+    deviceScaleFactor: 3,
+    touch: true,
+    userAgent: SAMSUNG_MOBILE_UA
+  },
+  {
+    presetId: 'galaxy-s24-ultra',
+    paneId: 'iphone',
+    brand: 'Samsung',
+    category: 'mobile',
+    name: 'Galaxy S24 Ultra',
+    width: 412,
+    height: 892,
+    deviceScaleFactor: 3.5,
+    touch: true,
+    userAgent: SAMSUNG_MOBILE_UA
+  },
+  {
+    presetId: 'galaxy-z-fold6',
+    paneId: 'iphone',
+    brand: 'Samsung',
+    category: 'mobile',
+    name: 'Galaxy Z Fold 6',
+    width: 480,
+    height: 924,
+    deviceScaleFactor: 2.625,
+    touch: true,
+    userAgent: SAMSUNG_MOBILE_UA
+  },
 
   // Samsung — Tablet
-  { presetId: 'galaxy-tab-s9', paneId: 'ipad', brand: 'Samsung', category: 'tablet', name: 'Galaxy Tab S9', width: 800, height: 1280, deviceScaleFactor: 2, touch: true, userAgent: SAMSUNG_TABLET_UA },
-  { presetId: 'galaxy-tab-s9-ultra', paneId: 'ipad', brand: 'Samsung', category: 'tablet', name: 'Galaxy Tab S9 Ultra', width: 1280, height: 800, deviceScaleFactor: 2, touch: true, userAgent: SAMSUNG_TABLET_UA },
+  {
+    presetId: 'galaxy-tab-s9',
+    paneId: 'ipad',
+    brand: 'Samsung',
+    category: 'tablet',
+    name: 'Galaxy Tab S9',
+    width: 800,
+    height: 1280,
+    deviceScaleFactor: 2,
+    touch: true,
+    userAgent: SAMSUNG_TABLET_UA
+  },
+  {
+    presetId: 'galaxy-tab-s9-ultra',
+    paneId: 'ipad',
+    brand: 'Samsung',
+    category: 'tablet',
+    name: 'Galaxy Tab S9 Ultra',
+    width: 1280,
+    height: 800,
+    deviceScaleFactor: 2,
+    touch: true,
+    userAgent: SAMSUNG_TABLET_UA
+  },
 
   // Desktop
-  { presetId: 'laptop-13', paneId: 'desktop', brand: 'Generic', category: 'desktop', name: 'Laptop 13"', width: 1280, height: 832, deviceScaleFactor: 2, touch: false, userAgent: DESKTOP_UA },
-  { presetId: 'desktop-1440', paneId: 'desktop', brand: 'Generic', category: 'desktop', name: 'Desktop 1440', width: 1440, height: 900, deviceScaleFactor: 2, touch: false, userAgent: DESKTOP_UA },
-  { presetId: 'desktop-fhd', paneId: 'desktop', brand: 'Generic', category: 'desktop', name: 'Desktop FHD', width: 1920, height: 1080, deviceScaleFactor: 1, touch: false, userAgent: DESKTOP_UA },
-  { presetId: 'desktop-qhd', paneId: 'desktop', brand: 'Generic', category: 'desktop', name: 'Desktop QHD', width: 2560, height: 1440, deviceScaleFactor: 1, touch: false, userAgent: DESKTOP_UA },
+  {
+    presetId: 'laptop-13',
+    paneId: 'desktop',
+    brand: 'Generic',
+    category: 'desktop',
+    name: 'Laptop 13"',
+    width: 1280,
+    height: 832,
+    deviceScaleFactor: 2,
+    touch: false,
+    userAgent: DESKTOP_UA
+  },
+  {
+    presetId: 'desktop-1440',
+    paneId: 'desktop',
+    brand: 'Generic',
+    category: 'desktop',
+    name: 'Desktop 1440',
+    width: 1440,
+    height: 900,
+    deviceScaleFactor: 2,
+    touch: false,
+    userAgent: DESKTOP_UA
+  },
+  {
+    presetId: 'desktop-fhd',
+    paneId: 'desktop',
+    brand: 'Generic',
+    category: 'desktop',
+    name: 'Desktop FHD',
+    width: 1920,
+    height: 1080,
+    deviceScaleFactor: 1,
+    touch: false,
+    userAgent: DESKTOP_UA
+  },
+  {
+    presetId: 'desktop-qhd',
+    paneId: 'desktop',
+    brand: 'Generic',
+    category: 'desktop',
+    name: 'Desktop QHD',
+    width: 2560,
+    height: 1440,
+    deviceScaleFactor: 1,
+    touch: false,
+    userAgent: DESKTOP_UA
+  }
 ]
 
 export const CATALOG_BY_PRESET: Record<string, CatalogEntry> = Object.fromEntries(
@@ -64,5 +251,5 @@ export const CATALOG_BY_PRESET: Record<string, CatalogEntry> = Object.fromEntrie
 export const DEFAULT_PRESET_IDS: Record<PaneId, string> = {
   iphone: 'iphone-16-pro',
   ipad: 'ipad-pro-11',
-  desktop: 'desktop-1440',
+  desktop: 'desktop-1440'
 }

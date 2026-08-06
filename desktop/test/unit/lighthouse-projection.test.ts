@@ -66,7 +66,9 @@ describe('Lighthouse result projection', () => {
 
   it('rejects non-image final screenshot data', () => {
     const result = projectLighthouseResult(
-      { audits: { 'final-screenshot': { details: { data: 'data:text/html;base64,PHNjcmlwdD4=' } } } },
+      {
+        audits: { 'final-screenshot': { details: { data: 'data:text/html;base64,PHNjcmlwdD4=' } } }
+      },
       {
         id: 'lh-2',
         paneId: 'desktop',
@@ -100,8 +102,8 @@ describe('Lighthouse result projection', () => {
   })
 
   it('sanitizes sensitive failure text', () => {
-    expect(sanitizeLighthouseError(new Error('failed /Users/me/secret Cookie:token'))).not.toContain(
-      '/Users/me/secret'
-    )
+    expect(
+      sanitizeLighthouseError(new Error('failed /Users/me/secret Cookie:token'))
+    ).not.toContain('/Users/me/secret')
   })
 })

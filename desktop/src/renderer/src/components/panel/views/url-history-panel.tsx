@@ -67,7 +67,9 @@ function HistoryItem({
         <Icon aria-hidden icon={Globe02Icon} className="size-4 shrink-0 text-muted-foreground" />
       )}
       <span className="min-w-0 shrink-0 max-w-[50%] truncate font-medium">{displayTitle}</span>
-      <span className="min-w-0 flex-1 truncate text-right text-xs text-muted-foreground">{url}</span>
+      <span className="min-w-0 flex-1 truncate text-right text-xs text-muted-foreground">
+        {url}
+      </span>
     </button>
   )
 }

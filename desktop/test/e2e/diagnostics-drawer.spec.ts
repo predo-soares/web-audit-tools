@@ -78,7 +78,6 @@ test('diagnostics console filter narrows visible output without changing the bad
     await selectComboboxOption(drawer, 'diagnostics-console-level-filter', 'Errors')
     await expect(drawer.getByText('fixture-filter-hide')).toBeVisible()
     await expect(drawer.getByText('fixture-filter-keep')).toHaveCount(0)
-
   } finally {
     await close()
   }
@@ -154,7 +153,6 @@ test('diagnostics network toolbar filters requests and contains the clear action
       drawer.getByTestId('diagnostics-network-path').filter({ hasText: '/api/missing' })
     ).toBeVisible()
     await expect(drawer.getByTestId('diagnostics-network-entry')).toHaveCount(1)
-
   } finally {
     await close()
   }

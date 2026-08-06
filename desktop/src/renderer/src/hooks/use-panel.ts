@@ -76,9 +76,7 @@ export function usePanel(
     void window.api.openPanel({
       panelId,
       mode,
-      anchor: rect
-        ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
-        : undefined,
+      anchor: rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : undefined,
       placement,
       align,
       payload,

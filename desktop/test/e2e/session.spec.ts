@@ -1,11 +1,5 @@
 import { test, expect } from './fixtures'
-import {
-  evaluateInPane,
-  fixtureUrl,
-  launchApp,
-  navigateTo,
-  waitForAllPanes
-} from './helpers'
+import { evaluateInPane, fixtureUrl, launchApp, navigateTo, waitForAllPanes } from './helpers'
 
 test('strict-header fixture loads in all panes', async ({ fixturePort }) => {
   const { window, close } = await launchApp()
@@ -32,11 +26,7 @@ test('login in one pane is reflected in the others after reload', async ({ fixtu
     await navigateTo(window, fixtureUrl(fixturePort, '/login'))
     await waitForAllPanes(window)
 
-    await evaluateInPane(
-      window,
-      'iphone',
-      `document.getElementById('login-btn')?.click()`
-    )
+    await evaluateInPane(window, 'iphone', `document.getElementById('login-btn')?.click()`)
     await waitForAllPanes(window)
 
     await navigateTo(window, fixtureUrl(fixturePort, '/auth-check'))

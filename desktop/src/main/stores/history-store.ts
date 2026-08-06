@@ -45,7 +45,10 @@ export class HistoryStore {
     const next = refreshHistoryMetadata(this.entries, url, title, faviconUrl)
     if (next === this.entries) return
 
-    console.debug('[favicon]', JSON.stringify({ action: 'history:refreshMetadata', url, faviconUrl }))
+    console.debug(
+      '[favicon]',
+      JSON.stringify({ action: 'history:refreshMetadata', url, faviconUrl })
+    )
     this.entries = next
     this.store.set('entries', this.entries)
     this.onChange?.(this.list())

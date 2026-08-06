@@ -1,11 +1,5 @@
 import { test, expect } from './fixtures'
-import {
-  evaluateInPane,
-  fixtureUrl,
-  launchApp,
-  navigateTo,
-  waitForAllPanes
-} from './helpers'
+import { evaluateInPane, fixtureUrl, launchApp, navigateTo, waitForAllPanes } from './helpers'
 
 test('navigates a single URL into the preview pane', async ({ fixturePort }) => {
   const { window, close } = await launchApp()

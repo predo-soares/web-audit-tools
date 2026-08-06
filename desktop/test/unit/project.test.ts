@@ -153,9 +153,7 @@ describe('normalizeProjectUrl', () => {
     expect(normalizeProjectUrl('https://example.com')).toBe('https://example.com/')
     expect(normalizeProjectUrl('https://example.com/')).toBe('https://example.com/')
     expect(normalizeProjectUrl('https://example.com/path/')).toBe('https://example.com/path')
-    expect(normalizeProjectUrl('https://example.com/path?a=1')).toBe(
-      'https://example.com/path?a=1'
-    )
+    expect(normalizeProjectUrl('https://example.com/path?a=1')).toBe('https://example.com/path?a=1')
   })
 })
 

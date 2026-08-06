@@ -46,11 +46,7 @@ test('snapshot bundle is created with context.md and screenshot after capturing 
       'desktop',
       `document.getElementById('emit-console-error')?.click()`
     )
-    await evaluateInPane(
-      window,
-      'desktop',
-      `document.getElementById('emit-fetch-404')?.click()`
-    )
+    await evaluateInPane(window, 'desktop', `document.getElementById('emit-fetch-404')?.click()`)
     await window.waitForTimeout(500)
 
     const beforeMs = Date.now()

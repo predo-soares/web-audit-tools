@@ -14,10 +14,7 @@ export interface NewProjectInput {
   faviconUrl: string | null
 }
 
-export function suggestProjectName(
-  pageTitle: string,
-  url: string
-): string {
+export function suggestProjectName(pageTitle: string, url: string): string {
   const trimmedTitle = pageTitle.trim()
   if (trimmedTitle) return trimmedTitle
 
@@ -31,11 +28,7 @@ export function suggestProjectName(
   return url.trim()
 }
 
-export function resolveProjectName(
-  editedName: string,
-  pageTitle: string,
-  url: string
-): string {
+export function resolveProjectName(editedName: string, pageTitle: string, url: string): string {
   const trimmed = editedName.trim()
   if (trimmed) return trimmed
   return suggestProjectName(pageTitle, url)

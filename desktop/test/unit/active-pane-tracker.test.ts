@@ -32,7 +32,10 @@ describe('createActivePaneTracker', () => {
       tracker.didTitleUpdate('iphone', 'Example')
       tracker.didFaviconUpdate('iphone', 'https://example.com/favicon.ico')
 
-      tracker.didNavigate('iphone', 'https://example.com/page', { inPage: false, isProgrammatic: false })
+      tracker.didNavigate('iphone', 'https://example.com/page', {
+        inPage: false,
+        isProgrammatic: false
+      })
       // The previous page's title/favicon are shown until the new page fires its own updates.
       expect(tracker.getSnapshot().pageTitle).toBe('Example')
       expect(tracker.getSnapshot().faviconUrl).toBe('https://example.com/favicon.ico')

@@ -160,7 +160,6 @@ export function UrlBar({
               {pageTitle}
             </span>
           ) : null}
-
         </div>
         <button type="submit" data-testid="url-submit" className="sr-only" disabled={disabled}>
           Go

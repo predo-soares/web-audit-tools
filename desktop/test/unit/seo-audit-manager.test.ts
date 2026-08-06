@@ -136,7 +136,9 @@ describe('AuditManager lifecycle', () => {
 
     expect(run.ok).toBe(true)
     if (!run.ok) return
-    const titleFinding = run.result.findings.find((finding) => finding.ruleId === titlePresenceRule.id)
+    const titleFinding = run.result.findings.find(
+      (finding) => finding.ruleId === titlePresenceRule.id
+    )
     expect(titleFinding?.outcome).toBe('error')
   })
 

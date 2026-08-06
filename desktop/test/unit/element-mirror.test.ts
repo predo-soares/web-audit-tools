@@ -300,8 +300,16 @@ describe('element fingerprint', () => {
 
   it('clicking Nth duplicate button captures indexAmongMatches', () => {
     const candidates: ElementDescriptor[] = [
-      { tagName: 'button', visibleText: 'Add to cart', structuralPath: 'div > button:nth-child(1)' },
-      { tagName: 'button', visibleText: 'Add to cart', structuralPath: 'div > button:nth-child(2)' },
+      {
+        tagName: 'button',
+        visibleText: 'Add to cart',
+        structuralPath: 'div > button:nth-child(1)'
+      },
+      {
+        tagName: 'button',
+        visibleText: 'Add to cart',
+        structuralPath: 'div > button:nth-child(2)'
+      },
       { tagName: 'button', visibleText: 'Add to cart', structuralPath: 'div > button:nth-child(3)' }
     ]
 
@@ -314,8 +322,16 @@ describe('element fingerprint', () => {
 
   it('resolves Nth duplicate button using indexAmongMatches', () => {
     const sourceCandidates: ElementDescriptor[] = [
-      { tagName: 'button', visibleText: 'Add to cart', structuralPath: 'div > button:nth-child(1)' },
-      { tagName: 'button', visibleText: 'Add to cart', structuralPath: 'div > button:nth-child(2)' },
+      {
+        tagName: 'button',
+        visibleText: 'Add to cart',
+        structuralPath: 'div > button:nth-child(1)'
+      },
+      {
+        tagName: 'button',
+        visibleText: 'Add to cart',
+        structuralPath: 'div > button:nth-child(2)'
+      },
       { tagName: 'button', visibleText: 'Add to cart', structuralPath: 'div > button:nth-child(3)' }
     ]
 
@@ -324,8 +340,16 @@ describe('element fingerprint', () => {
 
     // Target pane has the same buttons
     const targetCandidates: ElementDescriptor[] = [
-      { tagName: 'button', visibleText: 'Add to cart', structuralPath: 'div > button:nth-child(1)' },
-      { tagName: 'button', visibleText: 'Add to cart', structuralPath: 'div > button:nth-child(2)' },
+      {
+        tagName: 'button',
+        visibleText: 'Add to cart',
+        structuralPath: 'div > button:nth-child(1)'
+      },
+      {
+        tagName: 'button',
+        visibleText: 'Add to cart',
+        structuralPath: 'div > button:nth-child(2)'
+      },
       { tagName: 'button', visibleText: 'Add to cart', structuralPath: 'div > button:nth-child(3)' }
     ]
 
@@ -336,8 +360,16 @@ describe('element fingerprint', () => {
 
   it('resolves 0th and 2nd duplicate buttons correctly', () => {
     const candidates: ElementDescriptor[] = [
-      { tagName: 'button', visibleText: 'Add to cart', structuralPath: 'div > button:nth-child(1)' },
-      { tagName: 'button', visibleText: 'Add to cart', structuralPath: 'div > button:nth-child(2)' },
+      {
+        tagName: 'button',
+        visibleText: 'Add to cart',
+        structuralPath: 'div > button:nth-child(1)'
+      },
+      {
+        tagName: 'button',
+        visibleText: 'Add to cart',
+        structuralPath: 'div > button:nth-child(2)'
+      },
       { tagName: 'button', visibleText: 'Add to cart', structuralPath: 'div > button:nth-child(3)' }
     ]
 

@@ -1,11 +1,8 @@
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode
-} from 'react'
-import { readStoredDiagnosticsWidth, writeStoredDiagnosticsWidth } from '../../../shared/diagnostics-width'
+  readStoredDiagnosticsWidth,
+  writeStoredDiagnosticsWidth
+} from '../../../shared/diagnostics-width'
 import { DIAGNOSTICS_DRAWER_WIDTH_PX } from '../../../shared/runtime-evidence'
 import { LAYOUT_SETTLED_EVENT } from '@renderer/context/sidebar-context'
 

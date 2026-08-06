@@ -89,7 +89,10 @@ describe('element mirror in-page interface', () => {
       </section>
     `)
 
-    const match = mirror.resolveFingerprint(fingerprint!, Array.from(document.querySelectorAll('form')))
+    const match = mirror.resolveFingerprint(
+      fingerprint!,
+      Array.from(document.querySelectorAll('form'))
+    )
     expect(match.element).not.toBeNull()
     expect((match.element as HTMLFormElement).getAttribute('name')).toBe('site-search')
   })

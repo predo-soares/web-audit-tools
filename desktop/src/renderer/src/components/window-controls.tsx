@@ -32,10 +32,7 @@ export function WindowControls({
       <button
         type="button"
         data-testid="window-close"
-        className={cn(
-          controlBase,
-          focused ? 'bg-[#FF0B18]' : 'bg-[#cecece] dark:bg-[#5c5c5c]'
-        )}
+        className={cn(controlBase, focused ? 'bg-[#FF0B18]' : 'bg-[#cecece] dark:bg-[#5c5c5c]')}
         aria-label="Close window"
         onClick={() => void windowApi.closeWindow()}
       >
@@ -46,10 +43,7 @@ export function WindowControls({
       <button
         type="button"
         data-testid="window-minimize"
-        className={cn(
-          controlBase,
-          focused ? 'bg-[#FFC700]' : 'bg-[#cecece] dark:bg-[#5c5c5c]'
-        )}
+        className={cn(controlBase, focused ? 'bg-[#FFC700]' : 'bg-[#cecece] dark:bg-[#5c5c5c]')}
         aria-label="Minimize window"
         onClick={() => void windowApi.minimizeWindow()}
       >
@@ -60,10 +54,7 @@ export function WindowControls({
       <button
         type="button"
         data-testid="window-expand"
-        className={cn(
-          controlBase,
-          focused ? 'bg-[#00C847]' : 'bg-[#cecece] dark:bg-[#5c5c5c]'
-        )}
+        className={cn(controlBase, focused ? 'bg-[#00C847]' : 'bg-[#cecece] dark:bg-[#5c5c5c]')}
         aria-label={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
         onClick={() => void windowApi.toggleMaximizeWindow()}
       >

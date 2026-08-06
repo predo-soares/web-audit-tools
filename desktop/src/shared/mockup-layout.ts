@@ -60,7 +60,10 @@ export interface MockupDimensions {
   screenCornerRadius: number
 }
 
-export function getMockupDimensions(paneId: PaneId, profileOverride?: Pick<DeviceProfile, 'width' | 'height'>): MockupDimensions {
+export function getMockupDimensions(
+  paneId: PaneId,
+  profileOverride?: Pick<DeviceProfile, 'width' | 'height'>
+): MockupDimensions {
   const profile = profileOverride ?? DEVICE_PRESETS[paneId]
   const chrome = MOCKUP_CHROME[paneId]
   const screenHeight = profile.height - chrome.screenHeightReduction
@@ -105,4 +108,3 @@ export function computeFitZoom(viewportWidth: number, viewportHeight: number): n
 
   return clampZoom(Math.min(zoomX, zoomY))
 }
-

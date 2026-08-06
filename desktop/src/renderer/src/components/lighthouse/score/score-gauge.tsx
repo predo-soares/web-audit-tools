@@ -27,12 +27,7 @@ export function ScoreGauge({
       data-testid="lighthouse-score"
       className={cn(
         'flex flex-col items-center gap-2',
-        !large &&
-          !centered &&
-          cn(
-            'rounded-xl ',
-            small ? 'px-2 py-3' : ''
-          )
+        !large && !centered && cn('rounded-xl ', small ? 'px-2 py-3' : '')
       )}
     >
       <div className="relative" style={{ width: box, height: box }}>

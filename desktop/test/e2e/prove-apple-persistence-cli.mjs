@@ -16,9 +16,13 @@ function setDefault(value) {
 
 function readDefault() {
   try {
-    return execFileSync('defaults', ['read', 'com.github.Electron', 'ApplePersistenceIgnoreState'], {
-      encoding: 'utf8'
-    }).trim()
+    return execFileSync(
+      'defaults',
+      ['read', 'com.github.Electron', 'ApplePersistenceIgnoreState'],
+      {
+        encoding: 'utf8'
+      }
+    ).trim()
   } catch {
     return null
   }

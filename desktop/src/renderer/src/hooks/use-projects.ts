@@ -19,12 +19,7 @@ export function useProjects(): {
   }, [])
 
   const toggleProject = useCallback(
-    async (input: {
-      name: string
-      url: string
-      faviconUrl: string | null
-      pageTitle: string
-    }) => {
+    async (input: { name: string; url: string; faviconUrl: string | null; pageTitle: string }) => {
       const nextProjects = await window.api.toggleProject(input)
       setProjects(nextProjects)
       return nextProjects

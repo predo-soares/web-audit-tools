@@ -38,10 +38,7 @@ export interface LighthouseDualRunInput {
   labSelection?: LighthouseLabSelection
 }
 
-export type LighthouseProgressReporter = (
-  phase: LighthouseProgressPhase,
-  label: string
-) => void
+export type LighthouseProgressReporter = (phase: LighthouseProgressPhase, label: string) => void
 
 export type LighthouseRunner = (
   input: LighthouseRunInput,

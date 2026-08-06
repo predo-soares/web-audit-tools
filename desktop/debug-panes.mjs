@@ -75,21 +75,23 @@ try {
   writeFileSync('/tmp/audit-iphone-pane.png', Buffer.from(paneShot, 'base64'))
 
   // OS-level screenshot: the only capture that includes composited child views.
-  const native = await app.evaluate(async ({ BrowserWindow, desktopCapturer, systemPreferences }) => {
-    const status = systemPreferences.getMediaAccessStatus('screen')
-    if (status !== 'granted') return { status }
+  const native = await app.evaluate(
+    async ({ BrowserWindow, desktopCapturer, systemPreferences }) => {
+      const status = systemPreferences.getMediaAccessStatus('screen')
+      if (status !== 'granted') return { status }
 
-    const win = BrowserWindow.getAllWindows()[0]
-    win.show()
-    await new Promise((r) => setTimeout(r, 800))
-    const sources = await desktopCapturer.getSources({
-      types: ['window'],
-      thumbnailSize: { width: 1440, height: 900 }
-    })
-    const source = sources.find((s) => s.id === win.getMediaSourceId())
-    if (!source) return { status, found: false, ids: sources.map((s) => s.name) }
-    return { status, found: true, png: source.thumbnail.toPNG().toString('base64') }
-  })
+      const win = BrowserWindow.getAllWindows()[0]
+      win.show()
+      await new Promise((r) => setTimeout(r, 800))
+      const sources = await desktopCapturer.getSources({
+        types: ['window'],
+        thumbnailSize: { width: 1440, height: 900 }
+      })
+      const source = sources.find((s) => s.id === win.getMediaSourceId())
+      if (!source) return { status, found: false, ids: sources.map((s) => s.name) }
+      return { status, found: true, png: source.thumbnail.toPNG().toString('base64') }
+    }
+  )
 
   if (native.png) {
     writeFileSync('/tmp/audit-native.png', Buffer.from(native.png, 'base64'))

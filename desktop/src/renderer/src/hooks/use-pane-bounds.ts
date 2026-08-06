@@ -86,7 +86,14 @@ export function usePaneBounds(
   useLayoutEffect(() => {
     if (!enabled) return
     scheduleReport()
-  }, [enabled, scheduleReport, sidebarOpen, sidebarTransitioning, diagnosticsOpen, diagnosticsTransitioning])
+  }, [
+    enabled,
+    scheduleReport,
+    sidebarOpen,
+    sidebarTransitioning,
+    diagnosticsOpen,
+    diagnosticsTransitioning
+  ])
 
   useEffect(() => {
     if (!enabled || !layoutTransitioning) return

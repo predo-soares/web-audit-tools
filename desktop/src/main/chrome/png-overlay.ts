@@ -22,16 +22,7 @@ export function overlayPng(
   const overlayPixels = overlay.toBitmap()
   const { width: overlayWidth, height: overlayHeight } = overlay.getSize()
 
-  overlayBitmap(
-    baseBitmap,
-    width,
-    height,
-    overlayPixels,
-    overlayWidth,
-    overlayHeight,
-    destX,
-    destY
-  )
+  overlayBitmap(baseBitmap, width, height, overlayPixels, overlayWidth, overlayHeight, destX, destY)
 
   return nativeImage.createFromBitmap(baseBitmap, { width, height }).toPNG()
 }

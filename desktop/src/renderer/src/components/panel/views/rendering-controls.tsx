@@ -12,7 +12,11 @@ import {
   SelectValue
 } from '@renderer/components/ui/select'
 import { DEFAULT_MEDIA_FEATURES } from '../../../../../shared/types'
-import type { MediaFeatureState, ThemePreference, VisionDeficiency } from '../../../../../shared/types'
+import type {
+  MediaFeatureState,
+  ThemePreference,
+  VisionDeficiency
+} from '../../../../../shared/types'
 
 const THEME_STORAGE_KEY = 'audit-screens-theme-preference'
 const MEDIA_FEATURES_STORAGE_KEY = 'audit-screens-media-features'

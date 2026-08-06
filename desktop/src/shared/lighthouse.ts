@@ -17,7 +17,8 @@ export {
 } from './lighthouse-lab'
 
 export type LighthouseProfile = 'mobile' | 'desktop'
-export type LighthouseProgressPhase = 'launching' | 'loading' | 'auditing' | 'projecting' | 'cleanup'
+export type LighthouseProgressPhase =
+  'launching' | 'loading' | 'auditing' | 'projecting' | 'cleanup'
 
 export const LIGHTHOUSE_PROFILES: LighthouseProfile[] = ['mobile', 'desktop']
 

@@ -1,11 +1,5 @@
 import { test, expect } from './fixtures'
-import {
-  evaluateInPane,
-  fixtureUrl,
-  launchApp,
-  navigateTo,
-  waitForAllPanes
-} from './helpers'
+import { evaluateInPane, fixtureUrl, launchApp, navigateTo, waitForAllPanes } from './helpers'
 
 test('defaults scheme to https and uses http for localhost', async ({ fixturePort }) => {
   const { window, close } = await launchApp()
@@ -39,7 +33,10 @@ test('navigating while a previous load is in flight settles on the new URL', asy
   const { window, close } = await launchApp()
   try {
     await navigateTo(window, fixtureUrl(fixturePort, '/long-scroll'))
-    await window.getByTestId('pane-loading-iphone').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
+    await window
+      .getByTestId('pane-loading-iphone')
+      .waitFor({ state: 'visible', timeout: 5000 })
+      .catch(() => {})
     await navigateTo(window, fixtureUrl(fixturePort, '/'))
     await waitForAllPanes(window)
 

@@ -43,7 +43,9 @@ export function ZoomPanel({
             }),
             'w-full justify-start'
           )}
-          onClick={() => onAction({ type: 'set-zoom', zoom: clampZoom(Number.parseInt(option, 10) / 100) })}
+          onClick={() =>
+            onAction({ type: 'set-zoom', zoom: clampZoom(Number.parseInt(option, 10) / 100) })
+          }
         >
           {option}
         </button>

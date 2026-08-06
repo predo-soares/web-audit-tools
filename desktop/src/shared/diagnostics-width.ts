@@ -1,7 +1,4 @@
-import {
-  clampDiagnosticsDrawerWidth,
-  DIAGNOSTICS_DRAWER_WIDTH_PX
-} from './runtime-evidence'
+import { clampDiagnosticsDrawerWidth, DIAGNOSTICS_DRAWER_WIDTH_PX } from './runtime-evidence'
 
 export const DIAGNOSTICS_WIDTH_STORAGE_KEY = 'audit-screens-diagnostics-width'
 

@@ -104,7 +104,6 @@ export function HistoryRow({
             variant="destructive"
             data-testid={`${historyRowTestId(entry.url)}-delete`}
             onClick={() => onDelete(entry)}
-
           >
             <Icon icon={Delete02Icon} />
             Delete

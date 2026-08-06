@@ -52,9 +52,7 @@ function finalizeEntry(
   overrides?: Partial<Pick<NetworkEvidenceEntry, 'failed' | 'status' | 'timestamp'>>
 ): void {
   const status = overrides?.status ?? pending.status
-  const failed =
-    overrides?.failed ??
-    isNetworkProblem({ failed: false, status })
+  const failed = overrides?.failed ?? isNetworkProblem({ failed: false, status })
 
   push({
     timestamp: overrides?.timestamp ?? Date.now(),
@@ -85,7 +83,8 @@ export async function enableNetworkEvidenceCapture(
       const requestId = String(params.requestId)
       const request = params.request as { url?: string; method?: string; headers?: unknown }
       const url = request.url ?? ''
-      const startedAtCdp = typeof params.timestamp === 'number' ? params.timestamp : Date.now() / 1000
+      const startedAtCdp =
+        typeof params.timestamp === 'number' ? params.timestamp : Date.now() / 1000
       pending.set(requestId, {
         startedAtCdp,
         method: request.method ?? 'GET',
@@ -111,7 +110,8 @@ export async function enableNetworkEvidenceCapture(
       const entry = pending.get(requestId)
       if (!entry) return
       pending.delete(requestId)
-      const finishedAtCdp = typeof params.timestamp === 'number' ? params.timestamp : Date.now() / 1000
+      const finishedAtCdp =
+        typeof params.timestamp === 'number' ? params.timestamp : Date.now() / 1000
       const durationMs = Math.max(0, Math.round((finishedAtCdp - entry.startedAtCdp) * 1000))
       finalizeEntry(entry, durationMs, push)
       return

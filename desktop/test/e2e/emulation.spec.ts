@@ -1,11 +1,5 @@
 import { test, expect } from './fixtures'
-import {
-  evaluateInPane,
-  fixtureUrl,
-  launchApp,
-  navigateTo,
-  waitForAllPanes
-} from './helpers'
+import { evaluateInPane, fixtureUrl, launchApp, navigateTo, waitForAllPanes } from './helpers'
 
 test.describe('device emulation', () => {
   test('ua-sniffing fixture shows mobile markup in iPhone and desktop in desktop pane', async ({

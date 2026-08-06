@@ -147,10 +147,7 @@ export class SafariChromeManager {
     }
   }
 
-  async captureComposited(
-    paneId: PaneId,
-    capturePage: () => Promise<Buffer>
-  ): Promise<Buffer> {
+  async captureComposited(paneId: PaneId, capturePage: () => Promise<Buffer>): Promise<Buffer> {
     if (!this.enabled || !this.panesVisible || !CHROME_PANE_IDS.includes(paneId)) {
       return capturePage()
     }
