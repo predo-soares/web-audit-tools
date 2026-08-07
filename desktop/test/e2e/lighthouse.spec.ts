@@ -14,7 +14,9 @@ import {
 async function openLighthouseView(window: Page): Promise<Page> {
   const sidebar = await getSidebarPage(window)
   await sidebar.getByTestId('sidebar-lighthouse-view').click()
-  await expect(window.getByTestId('lighthouse-view')).toBeVisible()
+  const lighthouseView = window.getByTestId('lighthouse-view')
+  await expect(lighthouseView).toBeVisible()
+  await expect(lighthouseView).toHaveCSS('position', 'relative')
   return window
 }
 
@@ -73,6 +75,22 @@ test('renders the final Lighthouse screenshot in the results summary', async ({ 
     const panel = await openLighthouseView(window)
     const runButton = panel.getByTestId('lighthouse-run')
     await runButton.click()
+    const progress = panel.getByTestId('lighthouse-progress')
+    await expect(progress).toBeVisible({ timeout: 5000 })
+    await expect(progress).toHaveCSS('position', 'fixed')
+    await expect
+      .poll(() =>
+        progress.evaluate((element) => {
+          const { left, top, width } = element.getBoundingClientRect()
+          return (
+            Math.round(left) === 0 &&
+            Math.round(top) === 0 &&
+            Math.round(width) === document.documentElement.clientWidth
+          )
+        })
+      )
+      .toBe(true)
+    await expect(progress.getByRole('progressbar')).toHaveAttribute('aria-valuenow')
     await expect(runButton).toBeEnabled({ timeout: 120_000 })
 
     const screenshot = panel.getByTestId('lighthouse-final-screenshot')
@@ -81,6 +99,11 @@ test('renders the final Lighthouse screenshot in the results summary', async ({ 
     await expect
       .poll(() => screenshot.evaluate((image: HTMLImageElement) => image.naturalWidth))
       .toBeGreaterThan(0)
+
+    const specs = panel.getByTestId('lighthouse-specs')
+    await expect(specs).toBeVisible()
+    await expect(specs).toHaveAttribute('aria-label', 'Lighthouse lab specs')
+    await expect(specs).toHaveCSS('position', 'sticky')
 
     const performance = panel.getByTestId('lighthouse-performance-overview')
     await performance.hover()

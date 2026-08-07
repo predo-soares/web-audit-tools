@@ -23,7 +23,8 @@ import { TargetUrlBar } from '@renderer/components/target-url-bar'
 import { CARD } from '@renderer/components/seo/lib/styles'
 import { LabSpecsPopover } from './lab-specs-popover'
 import { ProfileReport } from './profile-report'
-import { ProgressPanel } from './progress-panel'
+import { ProgressBar } from './progress-bar'
+import { SpecsBar } from './specs-bar'
 
 const LIGHTHOUSE_URL_BAR_TEST_IDS = {
   input: 'lighthouse-target-url',
@@ -105,98 +106,113 @@ export function LighthouseView({
   )
 
   return (
-    <div
-      data-testid="lighthouse-view"
-      className={cn(
-        'absolute inset-0 z-10 box-border overflow-y-auto text-foreground',
-        CANVAS_GLASS_SURFACE_CLASS
-      )}
-      style={{ paddingTop: TOOLBAR_HEIGHT_PX, paddingLeft: sidebarOffset }}
-    >
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-8 py-8">
-        <header>
-          <h1 className="text-lg font-semibold tracking-tight text-white">
-            Diagnose performance issues
-          </h1>
-          <p className="mt-1 text-xs text-white/45">
-            Runs Lighthouse for both Mobile and Desktop with the lab specs below.
-          </p>
-        </header>
+    <>
+      <div
+        data-testid="lighthouse-view"
+        className={cn(
+          'relative z-10 box-border h-screen overflow-y-auto text-foreground',
+          CANVAS_GLASS_SURFACE_CLASS
+        )}
+        style={{ paddingTop: TOOLBAR_HEIGHT_PX, paddingLeft: sidebarOffset }}
+      >
+        <div className="mx-auto flex w-full flex-col gap-5 px-8 py-8">
+          <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
+            <header>
+              <h1 className="text-lg font-semibold tracking-tight text-white">
+                Diagnose performance issues
+              </h1>
+              <p className="mt-1 text-xs text-white/45">
+                Runs Lighthouse for both Mobile and Desktop with configurable lab specs.
+              </p>
+            </header>
 
-        <section className={cn(CARD, 'relative z-20 px-3 py-3')}>
-          <TargetUrlBar
-            url={url}
-            history={history}
-            running={running}
-            runLabel="Analyze page"
-            runDisabled={!auditable}
-            onNavigate={(target) => {
-              onTargetNavigate()
-              void window.api.navigate(target)
-            }}
-            onRun={() => void window.api.runLighthouse(labSelection)}
-            onCancel={() => void window.api.cancelLighthouse()}
-            testIds={LIGHTHOUSE_URL_BAR_TEST_IDS}
-            middleSlot={
-              <LabSpecsPopover
-                selection={labSelection}
-                disabled={running}
-                onChange={setLabSelection}
+            <section className={cn(CARD, 'relative z-20 px-3 py-3')}>
+              <TargetUrlBar
+                url={url}
+                history={history}
+                running={running}
+                runLabel="Analyze page"
+                runDisabled={!auditable}
+                onNavigate={(target) => {
+                  onTargetNavigate()
+                  void window.api.navigate(target)
+                }}
+                onRun={() => void window.api.runLighthouse(labSelection)}
+                onCancel={() => void window.api.cancelLighthouse()}
+                testIds={LIGHTHOUSE_URL_BAR_TEST_IDS}
+                middleSlot={
+                  <LabSpecsPopover
+                    selection={labSelection}
+                    disabled={running}
+                    onChange={setLabSelection}
+                  />
+                }
               />
-            }
-          />
-        </section>
+            </section>
 
-        <MotionTabs
-          items={profileTabs}
-          value={viewProfile}
-          onChange={setViewProfile}
-          layoutId="lighthouse-profile-indicator"
-          ariaLabel="Device profile"
-        />
+            <MotionTabs
+              items={profileTabs}
+              value={viewProfile}
+              onChange={setViewProfile}
+              layoutId="lighthouse-profile-indicator"
+              ariaLabel="Device profile"
+            />
 
-        {running && state.progress ? (
-          <ProgressPanel
-            profile={state.progress.profile}
-            phase={state.progress.phase}
-            label={state.progress.label}
-          />
-        ) : null}
+            {state.phase === 'failed' ? (
+              <p
+                role="alert"
+                className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive backdrop-blur-md"
+              >
+                {state.error}
+              </p>
+            ) : null}
 
-        {state.phase === 'failed' ? (
-          <p
-            role="alert"
-            className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive backdrop-blur-md"
-          >
-            {state.error}
-          </p>
-        ) : null}
+            {state.phase === 'cancelled' ? (
+              <p
+                role="status"
+                className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400 backdrop-blur-md"
+              >
+                Lighthouse run cancelled.
+              </p>
+            ) : null}
+          </div>
 
-        {state.phase === 'cancelled' ? (
-          <p
-            role="status"
-            className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400 backdrop-blur-md"
-          >
-            Lighthouse run cancelled.
-          </p>
-        ) : null}
+          {result ? (
+            <div className="relative w-full">
+              <main className="mx-auto min-w-0 max-w-4xl">
+                <ProfileReport result={result} />
+              </main>
+              <div className="mx-auto mt-5 w-full max-w-4xl lg:absolute lg:inset-y-0 lg:-right-8 lg:mt-0 lg:w-52 lg:max-w-none">
+                <SpecsBar spec={result.labSpec} />
+              </div>
+            </div>
+          ) : (
+            <div className="w-full max-w-4xl">
+              {!running && !hasResults ? (
+                <p className="rounded-xl border border-white/10 bg-black/30 px-6 py-16 text-center text-sm text-white/40 backdrop-blur-md">
+                  Analyze the page to generate Mobile and Desktop Lighthouse reports.
+                </p>
+              ) : null}
 
-        {result ? <ProfileReport result={result} /> : null}
-
-        {!result && !running && !hasResults ? (
-          <p className="rounded-xl border border-white/10 bg-black/30 px-6 py-16 text-center text-sm text-white/40 backdrop-blur-md">
-            Analyze the page to generate Mobile and Desktop Lighthouse reports.
-          </p>
-        ) : null}
-
-        {!result && (running || hasResults) ? (
-          <p className="rounded-xl border border-white/10 bg-black/30 px-6 py-12 text-center text-sm text-white/40 backdrop-blur-md">
-            {running
-              ? `Waiting for ${viewProfile} results…`
-              : `No ${viewProfile} report yet. Run Analyze page again.`}
-          </p>
-        ) : null}
+              {running || hasResults ? (
+                <p className="rounded-xl border border-white/10 bg-black/30 px-6 py-12 text-center text-sm text-white/40 backdrop-blur-md">
+                  {running
+                    ? `Waiting for ${viewProfile} results…`
+                    : `No ${viewProfile} report yet. Run Analyze page again.`}
+                </p>
+              ) : null}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+
+      {running && state.progress ? (
+        <ProgressBar
+          profile={state.progress.profile}
+          phase={state.progress.phase}
+          label={state.progress.label}
+        />
+      ) : null}
+    </>
   )
 }

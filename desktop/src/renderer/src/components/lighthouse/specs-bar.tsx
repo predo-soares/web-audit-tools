@@ -1,53 +1,54 @@
-import {
-  BrowserIcon,
-  Calendar03Icon,
-  CpuIcon,
-  SmartPhone01Icon,
-  Timer02Icon,
-  Wifi01Icon
-} from '@hugeicons/core-free-icons'
 import type { LighthouseLabSpecSnapshot } from '../../../../shared/lighthouse'
-import { Icon } from '@renderer/components/ui/icon'
+import { TOOLBAR_HEIGHT_PX } from '../../../../shared/sidebar'
 
 export function SpecsBar({ spec }: { spec: LighthouseLabSpecSnapshot }): React.JSX.Element {
   const items = [
     {
-      icon: Calendar03Icon,
-      label: new Date(spec.completedAt).toLocaleString()
+      label: 'Profile',
+      value: spec.formFactor
     },
     {
-      icon: SmartPhone01Icon,
-      label: `Emulated ${spec.deviceLabel}`
+      label: 'Device',
+      value: spec.deviceLabel
     },
     {
-      icon: Wifi01Icon,
-      label: spec.networkLabel
+      label: 'Network',
+      value: spec.networkLabel
     },
     {
-      icon: Timer02Icon,
-      label: 'Single page load'
+      label: 'CPU',
+      value: spec.cpuLabel
     },
     {
-      icon: CpuIcon,
-      label: spec.cpuLabel
+      label: 'Browser',
+      value: `${spec.browserLabel} · Lighthouse ${spec.lighthouseVersion}`
     },
     {
-      icon: BrowserIcon,
-      label: `${spec.browserLabel} · Lighthouse ${spec.lighthouseVersion}`
+      label: 'Completed',
+      value: new Date(spec.completedAt).toLocaleString()
     }
   ]
 
   return (
-    <div
+    <aside
       data-testid="lighthouse-specs"
-      className="grid gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 sm:grid-cols-3"
+      aria-label="Lighthouse lab specs"
+      className="min-w-0 text-white/65 lg:sticky"
+      style={{ top: TOOLBAR_HEIGHT_PX + 16 }}
     >
-      {items.map((item) => (
-        <div key={item.label} className="flex items-center gap-2 text-xs text-white/55">
-          <Icon icon={item.icon} size={14} className="shrink-0 text-white/35" />
-          <span className="min-w-0 leading-snug">{item.label}</span>
-        </div>
-      ))}
-    </div>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/40">
+        Lab specs
+      </p>
+      <dl className="mt-3 space-y-2.5">
+        {items.map((item) => (
+          <div key={item.label}>
+            <dt className="text-[10px] font-medium uppercase tracking-wide text-white/30">
+              {item.label}
+            </dt>
+            <dd className="mt-0.5 break-words text-xs leading-snug text-white/65">{item.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </aside>
   )
 }

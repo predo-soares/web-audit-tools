@@ -5,7 +5,6 @@ import { DimensionAudits } from './audits/dimension-audits'
 import { MetricsGrid } from './audits/metrics-grid'
 import { ScoreGauge } from './score/score-gauge'
 import { PerformanceOverview } from './score/performance-overview'
-import { SpecsBar } from './specs-bar'
 import { EASE_OUT } from './lib/styles'
 
 export function ProfileReport({
@@ -16,20 +15,6 @@ export function ProfileReport({
   const performance = result.categories.find((category) => category.id === 'performance')
   return (
     <div data-testid="lighthouse-result" className="space-y-4">
-      <div className="flex items-center justify-between gap-3 px-0.5">
-        <p className="text-xs text-white/40">Lab data · {result.deviceMode}</p>
-        <span
-          className={cn(
-            'rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide',
-            result.stale ? 'bg-amber-500/15 text-amber-400' : 'bg-emerald-500/15 text-emerald-400'
-          )}
-        >
-          {result.stale ? 'Stale' : 'Current'}
-        </span>
-      </div>
-
-      <SpecsBar spec={result.labSpec} />
-
       <section
         data-testid="lighthouse-result-summary"
         className="rounded-xl border border-white/10 bg-black/40 px-5 py-5 backdrop-blur-md"
