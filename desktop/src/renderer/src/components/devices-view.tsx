@@ -10,6 +10,13 @@ import type { CatalogEntry } from '../../../shared/device-catalog'
 import type { PaneId } from '../../../shared/types'
 import { useSidebar } from '@renderer/context/sidebar-context'
 import { DeviceFrame } from '@renderer/components/device-frame'
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious
+} from '@renderer/components/ui/carousel'
 import { CANVAS_GLASS_SURFACE_CLASS } from '@renderer/lib/glass-surface'
 import { cn } from '@renderer/lib/utils'
 import { Icon } from '@renderer/components/ui/icon'
@@ -207,19 +214,26 @@ export function DevicesView({
                 )}
               </div>
 
-              <div className="-mx-8 min-w-0 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <div className="flex min-w-max items-start gap-5 px-8">
+              <Carousel
+                aria-label={`${DEVICE_TYPE_LABELS[category]} device presets`}
+                opts={{ align: 'start', dragFree: true }}
+                className="-mx-8 px-8"
+              >
+                <CarouselContent className="-ml-5">
                   {entries.map((entry) => (
-                    <DevicePresetCard
-                      key={entry.presetId}
-                      entry={entry}
-                      selectedPresets={selectedPresets}
-                      visibleCount={visibleCount}
-                      onTogglePreset={onTogglePreset}
-                    />
+                    <CarouselItem key={entry.presetId} className="basis-auto pl-5">
+                      <DevicePresetCard
+                        entry={entry}
+                        selectedPresets={selectedPresets}
+                        visibleCount={visibleCount}
+                        onTogglePreset={onTogglePreset}
+                      />
+                    </CarouselItem>
                   ))}
-                </div>
-              </div>
+                </CarouselContent>
+                <CarouselPrevious />
+                <CarouselNext />
+              </Carousel>
             </section>
           )
         })}
