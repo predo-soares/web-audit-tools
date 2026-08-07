@@ -10,7 +10,13 @@ import type { CatalogEntry } from '../../../shared/device-catalog'
 import type { PaneId } from '../../../shared/types'
 import { useSidebar } from '@renderer/context/sidebar-context'
 import { DeviceFrame } from '@renderer/components/device-frame'
-import { Carousel, CarouselContent, CarouselItem } from '@renderer/components/ui/carousel'
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious
+} from '@renderer/components/ui/carousel'
 import { CANVAS_GLASS_SURFACE_CLASS } from '@renderer/lib/glass-surface'
 import { cn } from '@renderer/lib/utils'
 import { Icon } from '@renderer/components/ui/icon'
@@ -32,7 +38,7 @@ const DEVICE_TYPE_LABELS: Record<CatalogEntry['category'], string> = {
 function CategoryIcon({ category }: { category: CatalogEntry['category'] }): React.JSX.Element {
   const icon =
     category === 'mobile' ? SmartPhone01Icon : category === 'tablet' ? Tablet01Icon : LaptopIcon
-  return <Icon icon={icon} size={17} strokeWidth={1.5} className="shrink-0 opacity-70" />
+  return <Icon icon={icon} size={15} strokeWidth={2} className="shrink-0 opacity-70" />
 }
 
 function groupByCategory(
@@ -100,7 +106,7 @@ function DevicePresetCard({
       onClick={() => onTogglePreset(entry.presetId)}
       className={cn(
         'group flex shrink-0 flex-col items-start gap-3 rounded-xl  p-3 text-left transition-[transform,background-color,border-color,box-shadow,opacity] duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
-        thisActive && 'border-white/45 bg-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]',
+        thisActive && ' bg-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]',
         isLastVisible && 'cursor-not-allowed opacity-45'
       )}
     >
@@ -110,16 +116,16 @@ function DevicePresetCard({
         scale={0.25}
         showDynamicIsland={entry.paneId === 'iphone'}
       >
-        <div className="h-full w-full bg-gradient-to-b from-zinc-800/60 via-zinc-950 to-black" />
+        <div className="h-full w-full bg-linear-to-b from-zinc-800/60 via-zinc-950 to-black" />
       </DeviceFrame>
 
       <div className="flex w-full min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-white/90">{entry.name}</p>
+          <p className="truncate text-sm font-medium tracking-[-0.04em] text-white/90">{entry.name}</p>
           <p className="mt-1 whitespace-nowrap text-[10px] leading-tight text-white/45">
             {getDeviceDetails(entry)}
           </p>
-          <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/30">
+          <p className="mt-1 text-[10px] font-semibold uppercase tracking-[-0.04em] text-white/30">
             {entry.brand}
           </p>
         </div>
@@ -175,31 +181,40 @@ export function DevicesView({
 
           return (
             <section key={category} aria-labelledby={`device-type-${category}`}>
-              <div className="mb-5 flex items-center justify-between gap-4 border-b border-white/10 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <CategoryIcon category={category} />
-                  <h2
-                    id={`device-type-${category}`}
-                    className="text-sm font-semibold uppercase tracking-[0.18em] text-white/75"
-                  >
-                    {DEVICE_TYPE_LABELS[category]}
-                  </h2>
-                </div>
-                {activeEntry ? (
-                  <span className="inline-flex max-w-[50%] items-center gap-2 truncate rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs text-white/70">
-                    <span className="size-1.5 shrink-0 rounded-full bg-white" />
-                    <span className="truncate">{activeEntry.name}</span>
-                  </span>
-                ) : (
-                  <span className="text-xs text-white/30">Not active</span>
-                )}
-              </div>
-
               <Carousel
                 aria-label={`${DEVICE_TYPE_LABELS[category]} device presets`}
                 opts={{ align: 'start', dragFree: true }}
                 className="-mx-8 px-8"
               >
+                <div className="mb-5 flex items-center justify-between gap-4 ">
+                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <CategoryIcon category={category} />
+                    <h2
+                      id={`device-type-${category}`}
+                      className="text-sm font-medium  tracking-[-0.04em] text-white/75"
+                    >
+                      {DEVICE_TYPE_LABELS[category]}
+                    </h2>
+
+                    </div>
+                    {activeEntry && (
+                      <span className="inline-flex  items-center gap-2 truncate rounded-full border border-white/2 bg-white/6 px-2.5 py-1 text-xs text-white/70">
+                        <span className="size-1.5 shrink-0 rounded-full bg-white" />
+                        <span className="truncate">{activeEntry.name}</span>
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex min-w-0 items-center gap-2">
+
+                    <div className="flex shrink-0 items-center gap-1">
+                      <CarouselPrevious className="static inset-auto m-0" />
+                      <CarouselNext className="static inset-auto m-0" />
+                    </div>
+                  </div>
+                </div>
+
                 <CarouselContent className="-ml-5">
                   {entries.map((entry) => (
                     <CarouselItem key={entry.presetId} className="basis-auto pl-5">
