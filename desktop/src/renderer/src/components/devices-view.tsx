@@ -105,8 +105,8 @@ function DevicePresetCard({
       disabled={isLastVisible}
       onClick={() => onTogglePreset(entry.presetId)}
       className={cn(
-        'group flex shrink-0 flex-col items-start gap-3 rounded-xl  p-3 text-left transition-[transform,background-color,border-color,box-shadow,opacity] duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
-        thisActive && ' bg-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]',
+        'group flex shrink-0 flex-col items-start gap-3 rounded-sm  p-3 text-left transition-opacity duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
+        thisActive ? '' : 'opacity-30 hover:opacity-100',
         isLastVisible && 'cursor-not-allowed opacity-45'
       )}
     >
@@ -150,7 +150,7 @@ export function DevicesView({
         'absolute inset-0 z-10 box-border overflow-y-auto overflow-x-hidden text-foreground',
         CANVAS_GLASS_SURFACE_CLASS
       )}
-      style={{ paddingLeft: sidebarOffset }}
+      style={{ paddingLeft: sidebarOffset, scrollbarGutter: 'stable' }}
     >
       <nav
         aria-label="Breadcrumb"
@@ -184,10 +184,11 @@ export function DevicesView({
               <Carousel
                 aria-label={`${DEVICE_TYPE_LABELS[category]} device presets`}
                 opts={{ align: 'start', dragFree: true }}
+                wheelGestures
                 className="-mx-8 px-8"
               >
                 <div className="mb-5 flex items-center justify-between gap-4 ">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2.5">
                   <div className="flex items-center gap-2">
                     <CategoryIcon category={category} />
                     <h2
@@ -199,8 +200,8 @@ export function DevicesView({
 
                     </div>
                     {activeEntry && (
-                      <span className="inline-flex  items-center gap-2 truncate rounded-full border border-white/2 bg-white/6 px-2.5 py-1 text-xs text-white/70">
-                        <span className="size-1.5 shrink-0 rounded-full bg-white" />
+                      <span className="inline-flex  items-center gap-2.5 truncate rounded-full  bg-transparent font-medium  tracking-[-0.04em] py-1 text-sm text-white/70">
+                        <span className="size-2 shrink-0 rounded-full bg-white" />
                         <span className="truncate">{activeEntry.name}</span>
                       </span>
                     )}

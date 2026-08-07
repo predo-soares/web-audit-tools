@@ -59,7 +59,11 @@ export function SeoView({
           'absolute inset-0 z-10 box-border overflow-y-auto text-foreground',
           CANVAS_GLASS_SURFACE_CLASS
         )}
-        style={{ paddingTop: TOOLBAR_HEIGHT_PX, paddingLeft: sidebarOffset }}
+        style={{
+          paddingTop: TOOLBAR_HEIGHT_PX,
+          paddingLeft: sidebarOffset,
+          scrollbarGutter: 'stable'
+        }}
       >
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-8 py-8">
           <header>

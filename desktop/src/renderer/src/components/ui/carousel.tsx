@@ -15,6 +15,7 @@ type CarouselProps = {
   plugins?: CarouselPlugin
   orientation?: 'horizontal' | 'vertical'
   setApi?: (api: CarouselApi) => void
+  wheelGestures?: boolean
 }
 
 type CarouselContextProps = {
@@ -43,6 +44,7 @@ function Carousel({
   opts,
   setApi,
   plugins,
+  wheelGestures = false,
   className,
   children,
   ...props
@@ -112,7 +114,8 @@ function Carousel({
         scrollPrev,
         scrollNext,
         canScrollPrev,
-        canScrollNext
+        canScrollNext,
+        wheelGestures
       }}
     >
       <div
@@ -129,11 +132,55 @@ function Carousel({
   )
 }
 
-function CarouselContent({ className, ...props }: React.ComponentProps<'div'>): React.JSX.Element {
-  const { carouselRef, orientation } = useCarousel()
+function CarouselContent({
+  className,
+  onWheel,
+  ...props
+}: React.ComponentProps<'div'>): React.JSX.Element {
+  const {
+    carouselRef,
+    orientation,
+    wheelGestures,
+    scrollPrev,
+    scrollNext,
+    canScrollPrev,
+    canScrollNext
+  } = useCarousel()
+
+  const handleWheel = React.useCallback(
+    (event: React.WheelEvent<HTMLDivElement>) => {
+      onWheel?.(event)
+      if (!wheelGestures || orientation !== 'horizontal' || event.defaultPrevented) return
+
+      const delta =
+        Math.abs(event.deltaX) >= Math.abs(event.deltaY)
+          ? event.deltaX
+          : event.shiftKey
+            ? event.deltaY
+            : 0
+
+      if (!delta) return
+
+      const canScroll = delta > 0 ? canScrollNext : canScrollPrev
+      if (!canScroll) return
+
+      event.preventDefault()
+      if (delta > 0) {
+        scrollNext()
+      } else {
+        scrollPrev()
+      }
+    },
+    [canScrollNext, canScrollPrev, onWheel, orientation, scrollNext, scrollPrev, wheelGestures]
+  )
 
   return (
-    <div ref={carouselRef} className="overflo-visible" data-slot="carousel-content">
+    <div
+      ref={carouselRef}
+      onWheel={handleWheel}
+      className="overflo-visible"
+      data-slot="carousel-content"
+    >
       <div
         className={cn('flex', orientation === 'horizontal' ? '-ml-4' : '-mt-4 flex-col', className)}
         {...props}
