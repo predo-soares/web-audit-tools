@@ -152,70 +152,75 @@ export function DevicesView({
   return (
     <div
       data-testid="devices-view"
-      className={cn('absolute inset-0 z-10 box-border overflow-y-auto', CANVAS_GLASS_SURFACE_CLASS)}
+      className={cn(
+        'absolute inset-0 z-10 box-border overflow-y-auto text-foreground',
+        CANVAS_GLASS_SURFACE_CLASS
+      )}
       style={{ paddingTop: TOOLBAR_HEIGHT_PX, paddingLeft: sidebarOffset }}
     >
-      <div className="w-full px-8 py-8">
-        <nav aria-label="Breadcrumb" className="mb-10">
-          <button
-            type="button"
-            onClick={onClose}
-            className="group inline-flex items-center gap-2 rounded-md px-1 py-1 text-sm text-white/55 transition-[color,background-color] duration-150 ease-out hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
-          >
-            <Icon
-              icon={ArrowLeft01Icon}
-              size={16}
-              className="transition-transform duration-150 ease-out group-hover:-translate-x-0.5"
-            />
-            <span>Preview</span>
-            <span className="text-white/20">/</span>
-            <span className="text-white/90">Devices</span>
-          </button>
-        </nav>
+      <nav
+        aria-label="Breadcrumb"
+        className="absolute z-20"
+        style={{ top: TOOLBAR_HEIGHT_PX + 24, left: sidebarOffset + 24 }}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          className="group inline-flex items-center gap-2 rounded-md px-1 py-1 text-sm text-white/55 transition-[color,background-color] duration-150 ease-out hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
+        >
+          <Icon
+            icon={ArrowLeft01Icon}
+            size={16}
+            className="transition-transform duration-150 ease-out group-hover:-translate-x-0.5"
+          />
+          <span>Preview</span>
+          <span className="text-white/20">/</span>
+          <span className="text-white/90">Devices</span>
+        </button>
+      </nav>
 
-        <div className="flex flex-col gap-12">
-          {DEVICE_GROUPS.map(({ category, entries }) => {
-            const activeEntry = entries.find(
-              (entry) => selectedPresets[entry.paneId] === entry.presetId
-            )
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-12 px-8 pb-8 pt-24">
+        {DEVICE_GROUPS.map(({ category, entries }) => {
+          const activeEntry = entries.find(
+            (entry) => selectedPresets[entry.paneId] === entry.presetId
+          )
 
-            return (
-              <section key={category} aria-labelledby={`device-type-${category}`}>
-                <div className="mb-5 flex items-center justify-between gap-4 border-b border-white/10 pb-3">
-                  <div className="flex items-center gap-2.5">
-                    <CategoryIcon category={category} />
-                    <h2
-                      id={`device-type-${category}`}
-                      className="text-sm font-semibold uppercase tracking-[0.18em] text-white/75"
-                    >
-                      {DEVICE_TYPE_LABELS[category]}
-                    </h2>
-                  </div>
-                  {activeEntry ? (
-                    <span className="inline-flex max-w-[50%] items-center gap-2 truncate rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs text-white/70">
-                      <span className="size-1.5 shrink-0 rounded-full bg-white" />
-                      <span className="truncate">{activeEntry.name}</span>
-                    </span>
-                  ) : (
-                    <span className="text-xs text-white/30">Not active</span>
-                  )}
+          return (
+            <section key={category} aria-labelledby={`device-type-${category}`}>
+              <div className="mb-5 flex items-center justify-between gap-4 border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <CategoryIcon category={category} />
+                  <h2
+                    id={`device-type-${category}`}
+                    className="text-sm font-semibold uppercase tracking-[0.18em] text-white/75"
+                  >
+                    {DEVICE_TYPE_LABELS[category]}
+                  </h2>
                 </div>
+                {activeEntry ? (
+                  <span className="inline-flex max-w-[50%] items-center gap-2 truncate rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs text-white/70">
+                    <span className="size-1.5 shrink-0 rounded-full bg-white" />
+                    <span className="truncate">{activeEntry.name}</span>
+                  </span>
+                ) : (
+                  <span className="text-xs text-white/30">Not active</span>
+                )}
+              </div>
 
-                <div className="flex items-start gap-5 overflow-x-auto pb-3">
-                  {entries.map((entry) => (
-                    <DevicePresetCard
-                      key={entry.presetId}
-                      entry={entry}
-                      selectedPresets={selectedPresets}
-                      visibleCount={visibleCount}
-                      onTogglePreset={onTogglePreset}
-                    />
-                  ))}
-                </div>
-              </section>
-            )
-          })}
-        </div>
+              <div className="flex items-start gap-5 overflow-x-auto pb-3">
+                {entries.map((entry) => (
+                  <DevicePresetCard
+                    key={entry.presetId}
+                    entry={entry}
+                    selectedPresets={selectedPresets}
+                    visibleCount={visibleCount}
+                    onTogglePreset={onTogglePreset}
+                  />
+                ))}
+              </div>
+            </section>
+          )
+        })}
       </div>
     </div>
   )
