@@ -622,7 +622,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
                     </div>
                     <Button
                       type="button"
-                      variant="secondary"
+                      variant="soft"
                       size="tiny"
                       className="h-7 px-2 text-xs"
                       onClick={() => void window.panelApi.reload()}
@@ -637,7 +637,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
                     </p>
                     <Button
                       type="button"
-                      variant="secondary"
+                      variant="soft"
                       size="tiny"
                       className="h-7 px-2 text-xs"
                       onClick={clearActiveFilter}
@@ -780,7 +780,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
                   </div>
                   <Button
                     type="button"
-                    variant="secondary"
+                    variant="soft"
                     size="tiny"
                     className="h-7 px-2 text-xs"
                     onClick={() => void window.panelApi.reload()}
@@ -795,7 +795,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
                   </p>
                   <Button
                     type="button"
-                    variant="secondary"
+                    variant="soft"
                     size="tiny"
                     className="h-7 px-2 text-xs"
                     onClick={clearActiveFilter}
