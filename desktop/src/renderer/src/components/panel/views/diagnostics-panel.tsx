@@ -38,6 +38,8 @@ import { RenderingControls } from './rendering-controls'
 type DiagnosticsTab = RuntimeEvidenceChannel | 'rendering'
 type ConsoleLevelFilter = 'all' | 'errors' | 'warnings' | 'info'
 type NetworkOutcomeFilter = 'all' | 'failed' | '4xx' | '5xx'
+type NetworkDurationFilter = 'all' | '100' | '500' | '1000' | '3000'
+type NetworkSort = 'newest' | 'duration' | 'status'
 
 const SCROLL_TAIL_THRESHOLD_PX = 24
 
@@ -135,6 +137,25 @@ function matchesNetworkOutcome(entry: NetworkEvidenceEntry, filter: NetworkOutco
   return entry.status !== undefined && entry.status >= 500
 }
 
+function matchesNetworkDuration(
+  entry: NetworkEvidenceEntry,
+  filter: NetworkDurationFilter
+): boolean {
+  if (filter === 'all') return true
+  return entry.durationMs !== undefined && entry.durationMs >= Number(filter)
+}
+
+function sortNetworkEntries(
+  entries: NetworkEvidenceEntry[],
+  sort: NetworkSort
+): NetworkEvidenceEntry[] {
+  return [...entries].sort((a, b) => {
+    if (sort === 'duration') return (b.durationMs ?? -1) - (a.durationMs ?? -1)
+    if (sort === 'status') return (b.status ?? 0) - (a.status ?? 0)
+    return b.timestamp - a.timestamp
+  })
+}
+
 export function DiagnosticsPanel(): React.JSX.Element {
   const listRef = useRef<HTMLDivElement>(null)
   const stickToBottomRef = useRef(true)
@@ -146,6 +167,8 @@ export function DiagnosticsPanel(): React.JSX.Element {
   const [networkFilter, setNetworkFilter] = useState('')
   const [consoleLevelFilter, setConsoleLevelFilter] = useState<ConsoleLevelFilter>('all')
   const [networkOutcomeFilter, setNetworkOutcomeFilter] = useState<NetworkOutcomeFilter>('all')
+  const [networkDurationFilter, setNetworkDurationFilter] = useState<NetworkDurationFilter>('all')
+  const [networkSort, setNetworkSort] = useState<NetworkSort>('newest')
   const [capturePaused, setCapturePaused] = useState(false)
   const [hasPendingEvidence, setHasPendingEvidence] = useState(false)
   const [isAtLatest, setIsAtLatest] = useState(true)
@@ -170,23 +193,27 @@ export function DiagnosticsPanel(): React.JSX.Element {
   const visibleNetworkEntries = useMemo(() => {
     const entries = evidence?.network ?? []
     const query = networkFilter.trim().toLocaleLowerCase()
-    return entries.filter(
-      (entry) =>
-        matchesNetworkOutcome(entry, networkOutcomeFilter) &&
-        (!query ||
-          [
-            entry.status,
-            entry.method,
-            entry.path,
-            entry.durationMs,
-            entry.failed ? 'failed' : undefined,
-            formatHeaders(entry.requestHeaders),
-            formatHeaders(entry.responseHeaders)
-          ]
-            .filter((value) => value !== undefined)
-            .some((value) => String(value).toLocaleLowerCase().includes(query)))
+    return sortNetworkEntries(
+      entries.filter(
+        (entry) =>
+          matchesNetworkOutcome(entry, networkOutcomeFilter) &&
+          matchesNetworkDuration(entry, networkDurationFilter) &&
+          (!query ||
+            [
+              entry.status,
+              entry.method,
+              entry.path,
+              entry.durationMs,
+              entry.failed ? 'failed' : undefined,
+              formatHeaders(entry.requestHeaders),
+              formatHeaders(entry.responseHeaders)
+            ]
+              .filter((value) => value !== undefined)
+              .some((value) => String(value).toLocaleLowerCase().includes(query)))
+      ),
+      networkSort
     )
-  }, [evidence?.network, networkFilter, networkOutcomeFilter])
+  }, [evidence?.network, networkDurationFilter, networkFilter, networkOutcomeFilter, networkSort])
 
   useEffect(() => {
     void window.panelApi.getDiagnosticsWidth().then((width) => {
@@ -465,25 +492,65 @@ export function DiagnosticsPanel(): React.JSX.Element {
                   </SelectContent>
                 </Select>
               ) : (
-                <Select
-                  value={networkOutcomeFilter}
-                  onValueChange={(v) => setNetworkOutcomeFilter(v as NetworkOutcomeFilter)}
-                >
-                  <SelectTrigger
-                    size="sm"
-                    data-testid="diagnostics-network-outcome-filter"
-                    aria-label="Filter network by outcome"
-                    className="h-7 shrink-0 w-auto font-sans text-xs"
+                <>
+                  <Select
+                    value={networkOutcomeFilter}
+                    onValueChange={(v) => setNetworkOutcomeFilter(v as NetworkOutcomeFilter)}
                   >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent side="bottom" alignItemWithTrigger={false}>
-                    <SelectItem value="all">All outcomes</SelectItem>
-                    <SelectItem value="failed">Failed</SelectItem>
-                    <SelectItem value="4xx">4xx</SelectItem>
-                    <SelectItem value="5xx">5xx</SelectItem>
-                  </SelectContent>
-                </Select>
+                    <SelectTrigger
+                      size="sm"
+                      data-testid="diagnostics-network-outcome-filter"
+                      aria-label="Filter network by outcome"
+                      className="h-7 shrink-0 w-auto font-sans text-xs"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent side="bottom" alignItemWithTrigger={false}>
+                      <SelectItem value="all">All outcomes</SelectItem>
+                      <SelectItem value="failed">Failed</SelectItem>
+                      <SelectItem value="4xx">4xx</SelectItem>
+                      <SelectItem value="5xx">5xx</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={networkDurationFilter}
+                    onValueChange={(v) => setNetworkDurationFilter(v as NetworkDurationFilter)}
+                  >
+                    <SelectTrigger
+                      size="sm"
+                      data-testid="diagnostics-network-duration-filter"
+                      aria-label="Filter network by duration"
+                      className="h-7 shrink-0 w-auto font-sans text-xs"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent side="bottom" alignItemWithTrigger={false}>
+                      <SelectItem value="all">Any duration</SelectItem>
+                      <SelectItem value="100">100ms+</SelectItem>
+                      <SelectItem value="500">500ms+</SelectItem>
+                      <SelectItem value="1000">1s+</SelectItem>
+                      <SelectItem value="3000">3s+</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={networkSort}
+                    onValueChange={(v) => setNetworkSort(v as NetworkSort)}
+                  >
+                    <SelectTrigger
+                      size="sm"
+                      data-testid="diagnostics-network-sort"
+                      aria-label="Sort network requests"
+                      className="h-7 shrink-0 w-auto font-sans text-xs"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent side="bottom" alignItemWithTrigger={false}>
+                      <SelectItem value="newest">Newest</SelectItem>
+                      <SelectItem value="duration">Slowest</SelectItem>
+                      <SelectItem value="status">Status</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </>
               )}
               <Button
                 type="button"
