@@ -1,9 +1,15 @@
-import { LaptopIcon, SmartPhone01Icon, Tablet01Icon } from '@hugeicons/core-free-icons'
+import {
+  ArrowLeft01Icon,
+  LaptopIcon,
+  SmartPhone01Icon,
+  Tablet01Icon
+} from '@hugeicons/core-free-icons'
 import { SIDEBAR_WIDTH_PX, TOOLBAR_HEIGHT_PX } from '../../../shared/sidebar'
 import { DEVICE_CATALOG } from '../../../shared/device-catalog'
 import type { CatalogEntry } from '../../../shared/device-catalog'
 import type { PaneId } from '../../../shared/types'
 import { useSidebar } from '@renderer/context/sidebar-context'
+import { DeviceFrame } from '@renderer/components/device-frame'
 import { CANVAS_GLASS_SURFACE_CLASS } from '@renderer/lib/glass-surface'
 import { cn } from '@renderer/lib/utils'
 import { Icon } from '@renderer/components/ui/icon'
@@ -14,25 +20,125 @@ interface DevicesViewProps {
   onClose: () => void
 }
 
+const DEVICE_TYPE_ORDER: CatalogEntry['category'][] = ['mobile', 'tablet', 'desktop']
+
+const DEVICE_TYPE_LABELS: Record<CatalogEntry['category'], string> = {
+  mobile: 'Mobile',
+  tablet: 'Tablet',
+  desktop: 'Desktop'
+}
+
 function CategoryIcon({ category }: { category: CatalogEntry['category'] }): React.JSX.Element {
   const icon =
     category === 'mobile' ? SmartPhone01Icon : category === 'tablet' ? Tablet01Icon : LaptopIcon
-  return <Icon icon={icon} size={15} strokeWidth={1.5} className="shrink-0 opacity-70" />
+  return <Icon icon={icon} size={17} strokeWidth={1.5} className="shrink-0 opacity-70" />
 }
 
-const BRAND_ORDER = ['Apple', 'Samsung', 'Generic']
-
-function groupByBrand(entries: CatalogEntry[]): Array<{ brand: string; entries: CatalogEntry[] }> {
-  const map = new Map<string, CatalogEntry[]>()
+function groupByCategory(
+  entries: CatalogEntry[]
+): Array<{ category: CatalogEntry['category']; entries: CatalogEntry[] }> {
+  const map = new Map<CatalogEntry['category'], CatalogEntry[]>()
   for (const entry of entries) {
-    const list = map.get(entry.brand) ?? []
+    const list = map.get(entry.category) ?? []
     list.push(entry)
-    map.set(entry.brand, list)
+    map.set(entry.category, list)
   }
-  return BRAND_ORDER.filter((b) => map.has(b)).map((b) => ({ brand: b, entries: map.get(b)! }))
+
+  return DEVICE_TYPE_ORDER.map((category) => ({
+    category,
+    entries: map.get(category) ?? []
+  }))
 }
 
-const BRAND_GROUPS = groupByBrand(DEVICE_CATALOG)
+const DEVICE_GROUPS = groupByCategory(DEVICE_CATALOG)
+
+function getDeviceDetails(entry: CatalogEntry): string {
+  const orientation = entry.width > entry.height ? 'Landscape' : 'Portrait'
+  return `${entry.width}×${entry.height} · ${entry.deviceScaleFactor}× · ${entry.touch ? 'Touch' : 'Pointer'} · ${orientation}`
+}
+
+interface DevicePresetCardProps {
+  entry: CatalogEntry
+  selectedPresets: Partial<Record<PaneId, string>>
+  visibleCount: number
+  onTogglePreset: (presetId: string) => void
+}
+
+function DevicePresetCard({
+  entry,
+  selectedPresets,
+  visibleCount,
+  onTogglePreset
+}: DevicePresetCardProps): React.JSX.Element {
+  const paneActive = selectedPresets[entry.paneId] !== undefined
+  const thisActive = selectedPresets[entry.paneId] === entry.presetId
+  const isLastVisible = thisActive && visibleCount === 1
+
+  return (
+    <button
+      type="button"
+      data-testid={`device-tab-${entry.presetId}`}
+      aria-pressed={thisActive}
+      aria-label={
+        thisActive
+          ? `${entry.name}, selected`
+          : paneActive
+            ? `Switch to ${entry.name}`
+            : `Add ${entry.name}`
+      }
+      title={
+        thisActive
+          ? isLastVisible
+            ? 'Keep at least one device active'
+            : `Remove ${entry.name}`
+          : paneActive
+            ? `Switch to ${entry.name}`
+            : `Add ${entry.name}`
+      }
+      disabled={isLastVisible}
+      onClick={() => onTogglePreset(entry.presetId)}
+      className={cn(
+        'group flex shrink-0 flex-col items-start gap-3 rounded-xl border p-3 text-left transition-[transform,background-color,border-color,box-shadow,opacity] duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
+        thisActive
+          ? 'border-white/45 bg-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]'
+          : paneActive
+            ? 'border-white/10 bg-white/[0.03] opacity-65 hover:border-white/20 hover:bg-white/[0.06] hover:opacity-100'
+            : 'border-white/10 bg-white/[0.05] hover:border-white/20 hover:bg-white/[0.1]',
+        isLastVisible && 'cursor-not-allowed opacity-45'
+      )}
+    >
+      <DeviceFrame
+        paneId={entry.paneId}
+        profile={entry}
+        scale={0.25}
+        showDynamicIsland={entry.paneId === 'iphone'}
+      >
+        <div className="h-full w-full bg-gradient-to-b from-zinc-800/60 via-zinc-950 to-black" />
+      </DeviceFrame>
+
+      <div className="flex w-full min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-white/90">{entry.name}</p>
+          <p className="mt-1 whitespace-nowrap text-[10px] leading-tight text-white/45">
+            {getDeviceDetails(entry)}
+          </p>
+          <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/30">
+            {entry.brand}
+          </p>
+        </div>
+        <span
+          aria-hidden="true"
+          className={cn(
+            'flex size-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold leading-none',
+            thisActive ? 'bg-white text-black' : 'border border-white/15 text-transparent'
+          )}
+        >
+          ✓
+        </span>
+      </div>
+    </button>
+  )
+}
 
 export function DevicesView({
   selectedPresets,
@@ -42,129 +148,73 @@ export function DevicesView({
   const { isOpen: sidebarOpen, isTransitioning: sidebarTransitioning } = useSidebar()
   const sidebarOffset = sidebarOpen || sidebarTransitioning ? SIDEBAR_WIDTH_PX : 0
   const visibleCount = Object.keys(selectedPresets).length
-  const activeEntries = DEVICE_CATALOG.filter(
-    (entry) => selectedPresets[entry.paneId] === entry.presetId
-  )
 
   return (
     <div
       data-testid="devices-view"
-      className={cn(
-        'absolute inset-0 z-10 box-border flex items-start justify-center overflow-y-auto',
-        CANVAS_GLASS_SURFACE_CLASS
-      )}
+      className={cn('absolute inset-0 z-10 box-border overflow-y-auto', CANVAS_GLASS_SURFACE_CLASS)}
       style={{ paddingTop: TOOLBAR_HEIGHT_PX, paddingLeft: sidebarOffset }}
     >
-      <div className="flex flex-col px-8 py-8">
-        <div className="mb-8 flex items-start justify-between gap-6">
-          <div>
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">
-              Device presets
-            </p>
-            <h1 className="text-xl font-medium tracking-tight text-white">Choose devices</h1>
-            <p className="mt-2 max-w-lg text-sm leading-relaxed text-white/50">
-              Select the viewports you want to keep visible. Choose one preset per device type;
-              selecting another replaces the current one. Changes apply immediately to the preview
-              canvas.
-            </p>
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-white/65">
-                {visibleCount} active {visibleCount === 1 ? 'device' : 'devices'}
-              </span>
-              {activeEntries.map((entry) => (
-                <span
-                  key={entry.presetId}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-white/50"
-                >
-                  <CategoryIcon category={entry.category} />
-                  {entry.name}
-                </span>
-              ))}
-            </div>
-            {visibleCount === 1 && (
-              <p className="mt-2 text-[11px] text-white/40">Keep at least one device active.</p>
-            )}
-          </div>
+      <div className="w-full px-8 py-8">
+        <nav aria-label="Breadcrumb" className="mb-10">
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 rounded-md border border-white/10 px-3 py-2 text-xs font-medium text-white/60 transition-colors hover:border-white/20 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+            className="group inline-flex items-center gap-2 rounded-md px-1 py-1 text-sm text-white/55 transition-[color,background-color] duration-150 ease-out hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
           >
-            Back to preview
+            <Icon
+              icon={ArrowLeft01Icon}
+              size={16}
+              className="transition-transform duration-150 ease-out group-hover:-translate-x-0.5"
+            />
+            <span>Preview</span>
+            <span className="text-white/20">/</span>
+            <span className="text-white/90">Devices</span>
           </button>
-        </div>
+        </nav>
 
-        <div className="flex items-start gap-5">
-          {BRAND_GROUPS.map(({ brand, entries }) => (
-            <div key={brand} className="flex min-w-[220px] flex-col gap-3">
-              <p className="px-1 text-[11px] font-semibold uppercase tracking-widest text-white/45">
-                {brand}
-              </p>
-              <div className="flex flex-col gap-2">
-                {entries.map((entry) => {
-                  const paneActive = selectedPresets[entry.paneId] !== undefined
-                  const thisActive = selectedPresets[entry.paneId] === entry.presetId
-                  const isLastVisible = thisActive && visibleCount === 1
-                  const orientation = entry.width > entry.height ? 'Landscape' : 'Portrait'
-                  return (
-                    <button
-                      key={entry.presetId}
-                      type="button"
-                      data-testid={`device-tab-${entry.presetId}`}
-                      aria-pressed={thisActive}
-                      aria-label={
-                        thisActive
-                          ? `${entry.name}, selected`
-                          : paneActive
-                            ? `Switch to ${entry.name}`
-                            : `Add ${entry.name}`
-                      }
-                      title={
-                        thisActive
-                          ? isLastVisible
-                            ? 'Keep at least one device active'
-                            : `Remove ${entry.name}`
-                          : paneActive
-                            ? `Switch to ${entry.name}`
-                            : `Add ${entry.name}`
-                      }
-                      disabled={isLastVisible}
-                      onClick={() => onTogglePreset(entry.presetId)}
-                      className={cn(
-                        'flex items-center gap-3 rounded-lg border px-4 py-3 text-left transition-[transform,background-color,border-color,color] duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
-                        thisActive
-                          ? 'border-white/40 bg-white/15 text-white'
-                          : paneActive
-                            ? 'border-white/10 bg-transparent text-white/50 hover:bg-white/5 hover:text-white/80'
-                            : 'border-white/10 bg-white/5 text-white/65 hover:bg-white/10 hover:text-white/90',
-                        isLastVisible && 'cursor-not-allowed opacity-40'
-                      )}
+        <div className="flex flex-col gap-12">
+          {DEVICE_GROUPS.map(({ category, entries }) => {
+            const activeEntry = entries.find(
+              (entry) => selectedPresets[entry.paneId] === entry.presetId
+            )
+
+            return (
+              <section key={category} aria-labelledby={`device-type-${category}`}>
+                <div className="mb-5 flex items-center justify-between gap-4 border-b border-white/10 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <CategoryIcon category={category} />
+                    <h2
+                      id={`device-type-${category}`}
+                      className="text-sm font-semibold uppercase tracking-[0.18em] text-white/75"
                     >
-                      <CategoryIcon category={entry.category} />
-                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <span className="text-sm font-medium leading-tight">{entry.name}</span>
-                        <span className="text-[11px] leading-tight text-white/45">
-                          {entry.width}×{entry.height} · {entry.deviceScaleFactor}× ·{' '}
-                          {entry.touch ? 'Touch' : 'Pointer'} · {orientation}
-                        </span>
-                      </div>
-                      <span
-                        aria-hidden="true"
-                        className={cn(
-                          'flex size-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold leading-none',
-                          thisActive
-                            ? 'bg-white text-black'
-                            : 'border border-white/15 text-transparent'
-                        )}
-                      >
-                        ✓
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
+                      {DEVICE_TYPE_LABELS[category]}
+                    </h2>
+                  </div>
+                  {activeEntry ? (
+                    <span className="inline-flex max-w-[50%] items-center gap-2 truncate rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs text-white/70">
+                      <span className="size-1.5 shrink-0 rounded-full bg-white" />
+                      <span className="truncate">{activeEntry.name}</span>
+                    </span>
+                  ) : (
+                    <span className="text-xs text-white/30">Not active</span>
+                  )}
+                </div>
+
+                <div className="flex items-start gap-5 overflow-x-auto pb-3">
+                  {entries.map((entry) => (
+                    <DevicePresetCard
+                      key={entry.presetId}
+                      entry={entry}
+                      selectedPresets={selectedPresets}
+                      visibleCount={visibleCount}
+                      onTogglePreset={onTogglePreset}
+                    />
+                  ))}
+                </div>
+              </section>
+            )
+          })}
         </div>
       </div>
     </div>

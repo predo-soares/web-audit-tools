@@ -16,6 +16,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
 import { Button } from '@renderer/components/ui/button'
+import { DeviceFrame } from '@renderer/components/device-frame'
 import { useCallback } from 'react'
 
 interface DevicePaneProps {
@@ -51,12 +52,6 @@ function friendlyErrorMessage(description: string): string {
   return map[description] ?? description.replace(/^ERR_/, '').replace(/_/g, ' ').toLowerCase()
 }
 
-const FRAME_STYLES: Record<PaneId, string> = {
-  iphone: 'rounded-[2.75rem] shadow-2xl shadow-black/50',
-  ipad: 'rounded-[1.5rem] shadow-xl shadow-black/40',
-  desktop: 'rounded-xl shadow-lg shadow-black/30'
-}
-
 export function DevicePane({
   paneId,
   active,
@@ -75,7 +70,6 @@ export function DevicePane({
   const { isTransitioning } = useSidebar()
   const profile = profileOverride ?? DEVICE_PRESETS[paneId]
   const dimensions = getMockupDimensions(paneId, profileOverride)
-  const { chrome } = dimensions
   const cornerRadius = getScaledScreenCornerRadius(paneId, zoom)
   const setBoundsRef = usePaneBounds(paneId, cornerRadius, active, profileOverride)
 
@@ -199,72 +193,40 @@ export function DevicePane({
         </div>
       </div>
 
-      <div
-        className={cn(
-          'flex shrink-0 flex-col border border-zinc-700/80 bg-zinc-900 transition-opacity duration-200',
-          FRAME_STYLES[paneId],
-          isTransitioning && 'opacity-0'
-        )}
-        style={{
-          width: dimensions.frameWidth,
-          height: dimensions.frameHeight,
-          paddingLeft: chrome.bezelX,
-          paddingRight: chrome.bezelX,
-          paddingTop: chrome.bezelTop,
-          paddingBottom: chrome.bezelBottom
-        }}
+      <DeviceFrame
+        paneId={paneId}
+        profile={profile}
+        screenRef={setBoundsRef}
+        screenTestId={`pane-surface-${paneId}`}
+        screenClassName={cn(loading && 'opacity-90')}
+        frameClassName={cn('transition-opacity duration-200', isTransitioning && 'opacity-0')}
+        showDynamicIsland={active && paneId === 'iphone' && !safariChromeEnabled}
       >
-        {paneId === 'desktop' ? (
-          <div
-            className="flex shrink-0 items-center gap-1.5 px-2"
-            style={{ height: chrome.headerHeight, marginBottom: chrome.headerGap }}
-          >
-            <span className="size-2.5 rounded-full bg-red-500/80" />
-            <span className="size-2.5 rounded-full bg-yellow-500/80" />
-            <span className="size-2.5 rounded-full bg-green-500/80" />
+        {!active && !error ? (
+          <div className="flex h-full items-center justify-center bg-zinc-950/90 px-6 text-center">
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-zinc-100">No screen loaded</p>
+              <p className="text-xs leading-5 text-zinc-400">Enter a URL to open this preview.</p>
+            </div>
           </div>
         ) : null}
 
-        <div
-          ref={setBoundsRef}
-          className={cn('relative shrink-0 overflow-hidden bg-black', loading && 'opacity-90')}
-          style={{
-            width: dimensions.screenWidth,
-            height: dimensions.screenHeight,
-            borderRadius: dimensions.screenCornerRadius
-          }}
-          data-testid={`pane-surface-${paneId}`}
-        >
-          {!active && !error ? (
-            <div className="flex h-full items-center justify-center bg-zinc-950/90 px-6 text-center">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-zinc-100">No screen loaded</p>
-                <p className="text-xs leading-5 text-zinc-400">Enter a URL to open this preview.</p>
+        {error ? (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/95 px-6 text-center">
+            <div className="space-y-3">
+              <Icon icon={Alert01Icon} className="mx-auto size-8 text-red-400" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-zinc-100">
+                  {friendlyErrorMessage(error.description)}
+                </p>
+                <p className="font-mono text-[10px] text-zinc-500">
+                  {error.description} ({error.code})
+                </p>
               </div>
             </div>
-          ) : null}
-
-          {error ? (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/95 px-6 text-center">
-              <div className="space-y-3">
-                <Icon icon={Alert01Icon} className="mx-auto size-8 text-red-400" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-zinc-100">
-                    {friendlyErrorMessage(error.description)}
-                  </p>
-                  <p className="font-mono text-[10px] text-zinc-500">
-                    {error.description} ({error.code})
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {active && paneId === 'iphone' && !safariChromeEnabled ? (
-            <div className="pointer-events-none absolute top-2 left-1/2 z-10 h-5 w-[72px] -translate-x-1/2 rounded-full bg-black" />
-          ) : null}
-        </div>
-      </div>
+          </div>
+        ) : null}
+      </DeviceFrame>
 
       {(() => {
         const shareVisible = isActivePane && active && Boolean(onShareWithAgent)
