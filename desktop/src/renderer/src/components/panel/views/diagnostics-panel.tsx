@@ -521,7 +521,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
                     >
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent side="bottom" alignItemWithTrigger={false}>
+                    <SelectContent side="bottom" align="end" alignItemWithTrigger={false}>
                       <SelectItem value="all">All levels</SelectItem>
                       <SelectItem value="errors">Errors</SelectItem>
                       <SelectItem value="warnings">Warnings</SelectItem>
@@ -542,7 +542,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
                       >
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent side="bottom" alignItemWithTrigger={false}>
+                      <SelectContent side="bottom" align="end" alignItemWithTrigger={false}>
                         <SelectItem value="all">All outcomes</SelectItem>
                         <SelectItem value="failed">Failed</SelectItem>
                         <SelectItem value="4xx">4xx</SelectItem>
@@ -561,7 +561,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
                       >
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent side="bottom" alignItemWithTrigger={false}>
+                      <SelectContent side="bottom" align="end" alignItemWithTrigger={false}>
                         <SelectItem value="all">Any duration</SelectItem>
                         <SelectItem value="100">100ms+</SelectItem>
                         <SelectItem value="500">500ms+</SelectItem>
@@ -581,7 +581,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
                       >
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent side="bottom" alignItemWithTrigger={false}>
+                      <SelectContent side="bottom" align="end" alignItemWithTrigger={false}>
                         <SelectItem value="newest">Newest</SelectItem>
                         <SelectItem value="duration">Slowest</SelectItem>
                         <SelectItem value="status">Status</SelectItem>
