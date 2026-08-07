@@ -1,5 +1,4 @@
 import {
-  ArrowLeft01Icon,
   LaptopIcon,
   SmartPhone01Icon,
   Tablet01Icon
@@ -24,7 +23,6 @@ import { Icon } from '@renderer/components/ui/icon'
 interface DevicesViewProps {
   selectedPresets: Partial<Record<PaneId, string>>
   onTogglePreset: (presetId: string) => void
-  onClose: () => void
 }
 
 const DEVICE_TYPE_ORDER: CatalogEntry['category'][] = ['mobile', 'tablet', 'desktop']
@@ -136,8 +134,7 @@ function DevicePresetCard({
 
 export function DevicesView({
   selectedPresets,
-  onTogglePreset,
-  onClose
+  onTogglePreset
 }: DevicesViewProps): React.JSX.Element {
   const { isOpen: sidebarOpen, isTransitioning: sidebarTransitioning } = useSidebar()
   const sidebarOffset = sidebarOpen || sidebarTransitioning ? SIDEBAR_WIDTH_PX : 0

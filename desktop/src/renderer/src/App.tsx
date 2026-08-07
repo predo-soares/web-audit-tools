@@ -287,10 +287,6 @@ export default function App(): React.JSX.Element {
             <DevicesView
               selectedPresets={selectedPresets}
               onTogglePreset={(id) => void handleTogglePreset(id)}
-              onClose={() => {
-                setWorkspace('browser')
-                void window.api.setPanesVisible(true)
-              }}
             />
           ) : (
             <PreviewCanvas
