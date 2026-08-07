@@ -577,14 +577,13 @@ export function DiagnosticsPanel(): React.JSX.Element {
               <Button
                 type="button"
                 variant="ghost"
-                size="tiny"
-                className="h-7 shrink-0 gap-1 px-2 text-xs font-medium text-muted-foreground"
+                size="icon-xs"
+                className="h-7 w-7 shrink-0 text-muted-foreground"
                 aria-label={capturePaused ? 'Resume capture' : 'Pause capture'}
                 title={capturePaused ? 'Resume capture' : 'Pause capture'}
                 onClick={toggleCapturePaused}
               >
                 <Icon icon={capturePaused ? PlayIcon : PauseIcon} className="size-3" />
-                {capturePaused ? 'Resume' : 'Pause'}
               </Button>
             </div>
             {!isAtLatest || hasPendingEvidence ? (
