@@ -19,6 +19,11 @@ import {
   type RuntimeEvidenceSnapshot
 } from '../../shared/runtime-evidence'
 import type { DevContext } from '../../shared/dev-context'
+import {
+  APPLICATION_DATA_EXPRESSION,
+  EMPTY_APPLICATION_DATA,
+  type ApplicationData
+} from '../../shared/application-data'
 import { isLocalhostUrl } from '../../shared/dev-context'
 import { resolveDevContext } from '../services/dev-context'
 import { createActivePaneTracker } from './active-pane-tracker'
@@ -361,6 +366,24 @@ export class PaneManager {
       ? buffer.getConsoleProblemCount() + buffer.getNetworkProblemCount()
       : 0
     return { paneId, problemCount }
+  }
+
+  async getApplicationData(): Promise<ApplicationData> {
+    const paneId = this.resolveActivePaneForEvidence()
+    const url = this.getTrackedPaneUrl(paneId)
+    if (!url || url === 'about:blank') {
+      return { ...EMPTY_APPLICATION_DATA, paneId, url }
+    }
+
+    try {
+      const data = await this.evaluateInPane<Omit<ApplicationData, 'paneId'>>(
+        paneId,
+        APPLICATION_DATA_EXPRESSION
+      )
+      return { ...data, paneId }
+    } catch {
+      return { ...EMPTY_APPLICATION_DATA, paneId, url }
+    }
   }
 
   clearRuntimeEvidence(channel: RuntimeEvidenceChannel): RuntimeEvidenceSnapshot {

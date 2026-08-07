@@ -21,6 +21,7 @@ import type {
   RuntimeEvidenceProblemCount,
   RuntimeEvidenceSnapshot
 } from '../shared/runtime-evidence'
+import type { ApplicationData } from '../shared/application-data'
 import type { SnapshotResult } from '../shared/snapshot'
 import type {
   AuditJobState,
@@ -85,6 +86,7 @@ export interface PanelOverlayApi {
   onWorkspaceViewChanged: (callback: (view: WorkspaceView) => void) => () => void
   getRuntimeEvidence: () => Promise<RuntimeEvidenceSnapshot>
   clearRuntimeEvidence: (channel: RuntimeEvidenceChannel) => Promise<RuntimeEvidenceSnapshot>
+  getApplicationData: () => Promise<ApplicationData>
   openExternalUrl: (url: string) => Promise<void>
   onRuntimeEvidenceChanged: (callback: (snapshot: RuntimeEvidenceSnapshot) => void) => () => void
   onRuntimeEvidenceProblemCount: (
@@ -260,6 +262,7 @@ const panelApi: PanelOverlayApi = {
   },
   getRuntimeEvidence: () => ipcRenderer.invoke('runtime-evidence:get'),
   clearRuntimeEvidence: (channel) => ipcRenderer.invoke('runtime-evidence:clear', channel),
+  getApplicationData: () => ipcRenderer.invoke('application:get-data'),
   openExternalUrl: (url) => ipcRenderer.invoke('url:open-external', url),
   onRuntimeEvidenceChanged: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, snapshot: RuntimeEvidenceSnapshot): void =>

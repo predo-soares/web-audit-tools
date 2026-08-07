@@ -40,9 +40,10 @@ import {
   SelectValue
 } from '@renderer/components/ui/select'
 import { MotionTabs } from '@renderer/components/ui/motion-tabs'
+import { ApplicationPanel } from './application-panel'
 import { RenderingControls } from './rendering-controls'
 
-type DiagnosticsTab = RuntimeEvidenceChannel | 'rendering'
+type DiagnosticsTab = RuntimeEvidenceChannel | 'rendering' | 'application'
 type ConsoleLevelFilter = 'all' | 'errors' | 'warnings' | 'info'
 type NetworkOutcomeFilter = 'all' | 'failed' | '4xx' | '5xx'
 type NetworkDurationFilter = 'all' | '100' | '500' | '1000' | '3000'
@@ -478,12 +479,19 @@ export function DiagnosticsPanel(): React.JSX.Element {
                     </Badge>
                   )
                 },
-                { value: 'rendering', label: 'Rendering', testId: 'diagnostics-tab-rendering' }
+                { value: 'rendering', label: 'Rendering', testId: 'diagnostics-tab-rendering' },
+                {
+                  value: 'application',
+                  label: 'Application',
+                  testId: 'diagnostics-tab-application'
+                }
               ]}
             />
           </header>
           {activeTab === 'rendering' ? (
             <RenderingControls />
+          ) : activeTab === 'application' ? (
+            <ApplicationPanel />
           ) : (
             <div className="flex min-h-0 flex-1 flex-col">
               <div className="flex items-center gap-2 border-b border-white/10 px-2 py-2">

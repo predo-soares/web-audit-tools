@@ -424,6 +424,8 @@ export function registerIpcHandlers(
     return paneManager.clearRuntimeEvidence(channel)
   })
 
+  ipcMain.handle('application:get-data', () => paneManager.getApplicationData())
+
   ipcMain.handle('url:open-external', async (_event, rawUrl: string) => {
     const url = new URL(rawUrl)
     if (!['http:', 'https:', 'file:'].includes(url.protocol)) {
