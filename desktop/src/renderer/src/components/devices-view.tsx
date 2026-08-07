@@ -99,12 +99,8 @@ function DevicePresetCard({
       disabled={isLastVisible}
       onClick={() => onTogglePreset(entry.presetId)}
       className={cn(
-        'group flex shrink-0 flex-col items-start gap-3 rounded-xl border p-3 text-left transition-[transform,background-color,border-color,box-shadow,opacity] duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
-        thisActive
-          ? 'border-white/45 bg-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]'
-          : paneActive
-            ? 'border-white/10 bg-white/[0.03] opacity-65 hover:border-white/20 hover:bg-white/[0.06] hover:opacity-100'
-            : 'border-white/10 bg-white/[0.05] hover:border-white/20 hover:bg-white/[0.1]',
+        'group flex shrink-0 flex-col items-start gap-3 rounded-xl  p-3 text-left transition-[transform,background-color,border-color,box-shadow,opacity] duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
+        thisActive && 'border-white/45 bg-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]',
         isLastVisible && 'cursor-not-allowed opacity-45'
       )}
     >
@@ -127,15 +123,6 @@ function DevicePresetCard({
             {entry.brand}
           </p>
         </div>
-        <span
-          aria-hidden="true"
-          className={cn(
-            'flex size-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold leading-none',
-            thisActive ? 'bg-white text-black' : 'border border-white/15 text-transparent'
-          )}
-        >
-          ✓
-        </span>
       </div>
     </button>
   )
@@ -154,15 +141,15 @@ export function DevicesView({
     <div
       data-testid="devices-view"
       className={cn(
-        'absolute inset-0 z-10 box-border overflow-y-auto text-foreground',
+        'absolute inset-0 z-10 box-border overflow-y-auto overflow-x-hidden text-foreground',
         CANVAS_GLASS_SURFACE_CLASS
       )}
-      style={{ paddingTop: TOOLBAR_HEIGHT_PX, paddingLeft: sidebarOffset }}
+      style={{ paddingLeft: sidebarOffset }}
     >
       <nav
         aria-label="Breadcrumb"
         className="absolute z-20"
-        style={{ top: TOOLBAR_HEIGHT_PX + 24, left: sidebarOffset + 24 }}
+        style={{ top: 12, left: sidebarOffset + 6 }}
       >
         <button
           type="button"
