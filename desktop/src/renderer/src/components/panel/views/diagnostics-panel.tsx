@@ -315,6 +315,18 @@ export function DiagnosticsPanel(): React.JSX.Element {
     void window.panelApi.clearRuntimeEvidence(channel).then(setEvidence)
   }, [])
 
+  const clearActiveFilter = useCallback((): void => {
+    if (activeTab === 'console') {
+      setConsoleFilter('')
+      setConsoleLevelFilter('all')
+      return
+    }
+    setNetworkFilter('')
+    setNetworkOutcomeFilter('all')
+    setNetworkDurationFilter('all')
+    setNetworkSort('newest')
+  }, [activeTab])
+
   const toggleExpanded = useCallback((entryId: string): void => {
     setExpandedEntryIds((current) => {
       const next = new Set(current)
@@ -599,13 +611,40 @@ export function DiagnosticsPanel(): React.JSX.Element {
             >
               {activeTab === 'console' ? (
                 !evidence || evidence.console.length === 0 ? (
-                  <p className="px-1 py-2 text-sm font-sans text-muted-foreground">
-                    No console output for the active pane yet.
-                  </p>
+                  <div className="flex flex-col items-start gap-2 px-1 py-3 font-sans">
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        No console output for the active pane yet.
+                      </p>
+                      <p className="mt-1 text-[11px] text-muted-foreground/70">
+                        Capture starts on navigation or reload.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="tiny"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => void window.panelApi.reload()}
+                    >
+                      Reload page
+                    </Button>
+                  </div>
                 ) : visibleConsoleEntries.length === 0 ? (
-                  <p className="px-1 py-2 text-sm font-sans text-muted-foreground">
-                    No console output matches this filter.
-                  </p>
+                  <div className="flex flex-col items-start gap-2 px-1 py-3 font-sans">
+                    <p className="text-sm text-muted-foreground">
+                      No console output matches this filter.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="tiny"
+                      className="h-7 px-2 text-xs"
+                      onClick={clearActiveFilter}
+                    >
+                      Clear filters
+                    </Button>
+                  </div>
                 ) : (
                   <ul className="flex flex-col gap-1">
                     {visibleConsoleEntries.map(({ entry, count }) => {
@@ -730,13 +769,40 @@ export function DiagnosticsPanel(): React.JSX.Element {
                   </ul>
                 )
               ) : !evidence || evidence.network.length === 0 ? (
-                <p className="px-1 py-2 text-sm font-sans text-muted-foreground">
-                  No network requests for the active pane yet.
-                </p>
+                <div className="flex flex-col items-start gap-2 px-1 py-3 font-sans">
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      No network requests for the active pane yet.
+                    </p>
+                    <p className="mt-1 text-[11px] text-muted-foreground/70">
+                      Capture starts on navigation or reload.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="tiny"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => void window.panelApi.reload()}
+                  >
+                    Reload page
+                  </Button>
+                </div>
               ) : visibleNetworkEntries.length === 0 ? (
-                <p className="px-1 py-2 text-sm font-sans text-muted-foreground">
-                  No network requests match this filter.
-                </p>
+                <div className="flex flex-col items-start gap-2 px-1 py-3 font-sans">
+                  <p className="text-sm text-muted-foreground">
+                    No network requests match this filter.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="tiny"
+                    className="h-7 px-2 text-xs"
+                    onClick={clearActiveFilter}
+                  >
+                    Clear filters
+                  </Button>
+                </div>
               ) : (
                 <ul className="flex flex-col gap-1">
                   {visibleNetworkEntries.map((entry) => {
