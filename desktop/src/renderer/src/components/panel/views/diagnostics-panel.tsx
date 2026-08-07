@@ -12,7 +12,13 @@ import {
 } from '../../../../../shared/runtime-evidence'
 import { TOOLBAR_HEIGHT_PX } from '../../../../../shared/sidebar'
 import { cn } from '@renderer/lib/utils'
-import { ArrowDown01Icon, ArrowRight01Icon, Search01Icon } from '@hugeicons/core-free-icons'
+import {
+  ArrowDown01Icon,
+  ArrowRight01Icon,
+  PauseIcon,
+  PlayIcon,
+  Search01Icon
+} from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
 import { Input } from '@renderer/components/ui/input'
 import { Badge } from '@renderer/components/ui/badge'
@@ -138,6 +144,11 @@ export function DiagnosticsPanel(): React.JSX.Element {
   const [networkFilter, setNetworkFilter] = useState('')
   const [consoleLevelFilter, setConsoleLevelFilter] = useState<ConsoleLevelFilter>('all')
   const [networkOutcomeFilter, setNetworkOutcomeFilter] = useState<NetworkOutcomeFilter>('all')
+  const [capturePaused, setCapturePaused] = useState(false)
+  const [hasPendingEvidence, setHasPendingEvidence] = useState(false)
+  const [isAtLatest, setIsAtLatest] = useState(true)
+  const capturePausedRef = useRef(false)
+  const pendingEvidenceRef = useRef<RuntimeEvidenceSnapshot | null>(null)
 
   const visibleConsoleEntries = useMemo(() => {
     const entries = evidence?.console ?? []
@@ -184,9 +195,23 @@ export function DiagnosticsPanel(): React.JSX.Element {
   useEffect(() => {
     void window.panelApi.getRuntimeEvidence().then(setEvidence)
 
-    const unsubscribeEvidence = window.panelApi.onRuntimeEvidenceChanged(setEvidence)
+    const unsubscribeEvidence = window.panelApi.onRuntimeEvidenceChanged((snapshot) => {
+      if (capturePausedRef.current) {
+        pendingEvidenceRef.current = snapshot
+        setHasPendingEvidence(true)
+        return
+      }
+      setEvidence(snapshot)
+    })
     const unsubscribeNavigation = window.panelApi.onPaneNavigation(() => {
-      void window.panelApi.getRuntimeEvidence().then(setEvidence)
+      void window.panelApi.getRuntimeEvidence().then((snapshot) => {
+        if (capturePausedRef.current) {
+          pendingEvidenceRef.current = snapshot
+          setHasPendingEvidence(true)
+          return
+        }
+        setEvidence(snapshot)
+      })
     })
 
     return () => {
@@ -216,6 +241,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
     if (!list) return
     list.scrollTop = list.scrollHeight
     stickToBottomRef.current = true
+    setIsAtLatest(true)
   }, [activeTab])
 
   useEffect(() => {
@@ -224,12 +250,36 @@ export function DiagnosticsPanel(): React.JSX.Element {
     if (!isScrolledToBottom(list)) return
     list.scrollTop = list.scrollHeight
     stickToBottomRef.current = true
+    setIsAtLatest(true)
   }, [evidence?.console.length, evidence?.network.length])
 
   const handleListScroll = useCallback((): void => {
     const list = listRef.current
     if (!list) return
-    stickToBottomRef.current = isScrolledToBottom(list)
+    const atLatest = isScrolledToBottom(list)
+    stickToBottomRef.current = atLatest
+    setIsAtLatest(atLatest)
+  }, [])
+
+  const toggleCapturePaused = useCallback((): void => {
+    const nextPaused = !capturePausedRef.current
+    capturePausedRef.current = nextPaused
+    setCapturePaused(nextPaused)
+
+    if (!nextPaused) {
+      pendingEvidenceRef.current = null
+      setHasPendingEvidence(false)
+      void window.panelApi.getRuntimeEvidence().then(setEvidence)
+    }
+  }, [])
+
+  const jumpToLatest = useCallback((): void => {
+    const list = listRef.current
+    if (!list) return
+    list.scrollTop = list.scrollHeight
+    stickToBottomRef.current = true
+    setIsAtLatest(true)
+    setHasPendingEvidence(false)
   }, [])
 
   const handleClear = useCallback((channel: RuntimeEvidenceChannel): void => {
@@ -429,7 +479,35 @@ export function DiagnosticsPanel(): React.JSX.Element {
               >
                 Clear
               </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="tiny"
+                className="h-7 shrink-0 gap-1 px-2 text-xs font-medium text-muted-foreground"
+                aria-label={capturePaused ? 'Resume capture' : 'Pause capture'}
+                title={capturePaused ? 'Resume capture' : 'Pause capture'}
+                onClick={toggleCapturePaused}
+              >
+                <Icon icon={capturePaused ? PlayIcon : PauseIcon} className="size-3" />
+                {capturePaused ? 'Resume' : 'Pause'}
+              </Button>
             </div>
+            {!isAtLatest || hasPendingEvidence ? (
+              <div className="flex items-center justify-between gap-2 border-b border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] text-muted-foreground">
+                <span>
+                  {hasPendingEvidence ? 'New entries are waiting' : 'Viewing older entries'}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="tiny"
+                  className="h-6 shrink-0 px-2 text-[11px] font-medium text-foreground"
+                  onClick={jumpToLatest}
+                >
+                  Jump to latest
+                </Button>
+              </div>
+            ) : null}
             <div
               ref={listRef}
               data-testid="diagnostics-list"
