@@ -105,7 +105,7 @@ function DevicePresetCard({
       disabled={isLastVisible}
       onClick={() => onTogglePreset(entry.presetId)}
       className={cn(
-        'group flex shrink-0 flex-col items-start gap-3 rounded-sm  p-3 text-left transition-opacity duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
+        'group flex shrink-0 flex-col items-start gap-3 rounded-sm   text-left transition-opacity duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
         thisActive ? '' : 'opacity-30 hover:opacity-100',
         isLastVisible && 'cursor-not-allowed opacity-45'
       )}
@@ -116,7 +116,7 @@ function DevicePresetCard({
         scale={0.25}
         showDynamicIsland={entry.paneId === 'iphone'}
       >
-        <div className="h-full w-full bg-linear-to-b from-zinc-800/60 via-zinc-950 to-black" />
+        <div className="h-full w-full bg-linear-to-b from-zinc-900/50 via-zinc-950 to-black" />
       </DeviceFrame>
 
       <div className="flex w-full min-w-0 items-start justify-between gap-3">
@@ -216,9 +216,9 @@ export function DevicesView({
                   </div>
                 </div>
 
-                <CarouselContent className="-ml-5">
+                <CarouselContent className="gap-4">
                   {entries.map((entry) => (
-                    <CarouselItem key={entry.presetId} className="basis-auto pl-5">
+                    <CarouselItem key={entry.presetId} className="basis-auto ">
                       <DevicePresetCard
                         entry={entry}
                         selectedPresets={selectedPresets}
