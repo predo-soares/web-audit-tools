@@ -27,6 +27,12 @@ import { Input } from '@renderer/components/ui/input'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from '@renderer/components/ui/tooltip'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -109,6 +115,23 @@ function formatHeaders(headers?: Record<string, string>): string {
 
 function isScrolledToBottom(element: HTMLElement): boolean {
   return element.scrollHeight - element.scrollTop - element.clientHeight <= SCROLL_TAIL_THRESHOLD_PX
+}
+
+function IconTooltipButton({
+  label,
+  children,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  label: string
+}): React.JSX.Element {
+  return (
+    <Tooltip>
+      <TooltipTrigger {...props} aria-label={label}>
+        {children}
+      </TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
+  )
 }
 
 const LEVEL_CLASS: Record<ConsoleEvidenceEntry['level'], string> = {
@@ -396,227 +419,392 @@ export function DiagnosticsPanel(): React.JSX.Element {
   )
 
   return (
-    <aside
-      id="diagnostics-drawer"
-      data-testid="diagnostics-drawer"
-      data-pane-id={evidence?.paneId ?? ''}
-      className="relative box-border flex h-screen min-h-screen shrink-0 flex-col overflow-hidden border-l border-white/10 bg-background text-foreground"
-      style={{ width: panelWidth }}
-    >
-      <div
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="Resize diagnostics panel"
-        data-testid="diagnostics-resize-handle"
-        className="absolute inset-y-0 left-0 z-20 w-1 -translate-x-1/2 cursor-col-resize touch-none hover:bg-white/10 active:bg-white/15"
-        onPointerDown={handleResizePointerDown}
-      />
-      <div
-        className="relative z-[1] flex min-h-0 flex-1 flex-col gap-0"
+    <TooltipProvider delay={200}>
+      <aside
+        id="diagnostics-drawer"
+        data-testid="diagnostics-drawer"
+        data-pane-id={evidence?.paneId ?? ''}
+        className="relative box-border flex h-screen min-h-screen shrink-0 flex-col overflow-hidden border-l border-white/10 bg-background text-foreground"
         style={{ width: panelWidth }}
       >
-        <header
-          className="flex items-center gap-1 border-b border-white/10 px-2 py-2"
-          style={{ paddingTop: TOOLBAR_HEIGHT_PX }}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize diagnostics panel"
+          data-testid="diagnostics-resize-handle"
+          className="absolute inset-y-0 left-0 z-20 w-1 -translate-x-1/2 cursor-col-resize touch-none hover:bg-white/10 active:bg-white/15"
+          onPointerDown={handleResizePointerDown}
+        />
+        <div
+          className="relative z-[1] flex min-h-0 flex-1 flex-col gap-0"
+          style={{ width: panelWidth }}
         >
-          <MotionTabs<DiagnosticsTab>
-            value={activeTab}
-            onChange={setActiveTab}
-            layoutId="diagnostics-tab-indicator"
-            ariaLabel="Diagnostics channels"
-            tabClassName="px-2 py-1"
-            items={[
-              {
-                value: 'console',
-                label: 'Console',
-                testId: 'diagnostics-tab-console',
-                trailing: (
-                  <Badge
-                    data-testid="diagnostics-console-badge"
-                    variant="secondary"
-                    className="h-auto px-1.5 py-0.5 text-[10px] tabular-nums"
+          <header
+            className="flex items-center gap-1 border-b border-white/10 px-2 py-2"
+            style={{ paddingTop: TOOLBAR_HEIGHT_PX }}
+          >
+            <MotionTabs<DiagnosticsTab>
+              value={activeTab}
+              onChange={setActiveTab}
+              layoutId="diagnostics-tab-indicator"
+              ariaLabel="Diagnostics channels"
+              tabClassName="px-2 py-1"
+              items={[
+                {
+                  value: 'console',
+                  label: 'Console',
+                  testId: 'diagnostics-tab-console',
+                  trailing: (
+                    <Badge
+                      data-testid="diagnostics-console-badge"
+                      variant="secondary"
+                      className="h-auto px-1.5 py-0.5 text-[10px] tabular-nums"
+                    >
+                      {consoleCount}
+                    </Badge>
+                  )
+                },
+                {
+                  value: 'network',
+                  label: 'Network',
+                  testId: 'diagnostics-tab-network',
+                  trailing: (
+                    <Badge
+                      data-testid="diagnostics-network-badge"
+                      variant="secondary"
+                      className="h-auto px-1.5 py-0.5 text-[10px] tabular-nums"
+                    >
+                      {networkCount}
+                    </Badge>
+                  )
+                },
+                { value: 'rendering', label: 'Rendering', testId: 'diagnostics-tab-rendering' }
+              ]}
+            />
+          </header>
+          {activeTab === 'rendering' ? (
+            <RenderingControls />
+          ) : (
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="flex items-center gap-2 border-b border-white/10 px-2 py-2">
+                <div className="relative min-w-0 flex-1">
+                  <Icon
+                    icon={Search01Icon}
+                    className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                  />
+                  <Input
+                    type="search"
+                    data-testid={`diagnostics-${activeTab}-filter`}
+                    aria-label={`Filter ${activeTab} output`}
+                    placeholder={`Filter ${activeTab}`}
+                    value={activeTab === 'console' ? consoleFilter : networkFilter}
+                    className="h-7 rounded-md border-0 pl-7 font-sans text-xs"
+                    onChange={(event) => {
+                      if (activeTab === 'console') {
+                        setConsoleFilter(event.target.value)
+                      } else {
+                        setNetworkFilter(event.target.value)
+                      }
+                    }}
+                  />
+                </div>
+                {activeTab === 'console' ? (
+                  <Select
+                    value={consoleLevelFilter}
+                    onValueChange={(v) => setConsoleLevelFilter(v as ConsoleLevelFilter)}
                   >
-                    {consoleCount}
-                  </Badge>
-                )
-              },
-              {
-                value: 'network',
-                label: 'Network',
-                testId: 'diagnostics-tab-network',
-                trailing: (
-                  <Badge
-                    data-testid="diagnostics-network-badge"
-                    variant="secondary"
-                    className="h-auto px-1.5 py-0.5 text-[10px] tabular-nums"
-                  >
-                    {networkCount}
-                  </Badge>
-                )
-              },
-              { value: 'rendering', label: 'Rendering', testId: 'diagnostics-tab-rendering' }
-            ]}
-          />
-        </header>
-        {activeTab === 'rendering' ? (
-          <RenderingControls />
-        ) : (
-          <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex items-center gap-2 border-b border-white/10 px-2 py-2">
-              <div className="relative min-w-0 flex-1">
-                <Icon
-                  icon={Search01Icon}
-                  className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
-                />
-                <Input
-                  type="search"
-                  data-testid={`diagnostics-${activeTab}-filter`}
-                  aria-label={`Filter ${activeTab} output`}
-                  placeholder={`Filter ${activeTab}`}
-                  value={activeTab === 'console' ? consoleFilter : networkFilter}
-                  className="h-7 rounded-md border-0 pl-7 font-sans text-xs"
-                  onChange={(event) => {
-                    if (activeTab === 'console') {
-                      setConsoleFilter(event.target.value)
-                    } else {
-                      setNetworkFilter(event.target.value)
+                    <SelectTrigger
+                      size="sm"
+                      data-testid="diagnostics-console-level-filter"
+                      aria-label="Filter console by severity"
+                      className="h-7 shrink-0 w-auto font-sans text-xs"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent side="bottom" alignItemWithTrigger={false}>
+                      <SelectItem value="all">All levels</SelectItem>
+                      <SelectItem value="errors">Errors</SelectItem>
+                      <SelectItem value="warnings">Warnings</SelectItem>
+                      <SelectItem value="info">Info</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <>
+                    <Select
+                      value={networkOutcomeFilter}
+                      onValueChange={(v) => setNetworkOutcomeFilter(v as NetworkOutcomeFilter)}
+                    >
+                      <SelectTrigger
+                        size="sm"
+                        data-testid="diagnostics-network-outcome-filter"
+                        aria-label="Filter network by outcome"
+                        className="h-7 shrink-0 w-auto font-sans text-xs"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent side="bottom" alignItemWithTrigger={false}>
+                        <SelectItem value="all">All outcomes</SelectItem>
+                        <SelectItem value="failed">Failed</SelectItem>
+                        <SelectItem value="4xx">4xx</SelectItem>
+                        <SelectItem value="5xx">5xx</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={networkDurationFilter}
+                      onValueChange={(v) => setNetworkDurationFilter(v as NetworkDurationFilter)}
+                    >
+                      <SelectTrigger
+                        size="sm"
+                        data-testid="diagnostics-network-duration-filter"
+                        aria-label="Filter network by duration"
+                        className="h-7 shrink-0 w-auto font-sans text-xs"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent side="bottom" alignItemWithTrigger={false}>
+                        <SelectItem value="all">Any duration</SelectItem>
+                        <SelectItem value="100">100ms+</SelectItem>
+                        <SelectItem value="500">500ms+</SelectItem>
+                        <SelectItem value="1000">1s+</SelectItem>
+                        <SelectItem value="3000">3s+</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={networkSort}
+                      onValueChange={(v) => setNetworkSort(v as NetworkSort)}
+                    >
+                      <SelectTrigger
+                        size="sm"
+                        data-testid="diagnostics-network-sort"
+                        aria-label="Sort network requests"
+                        className="h-7 shrink-0 w-auto font-sans text-xs"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent side="bottom" alignItemWithTrigger={false}>
+                        <SelectItem value="newest">Newest</SelectItem>
+                        <SelectItem value="duration">Slowest</SelectItem>
+                        <SelectItem value="status">Status</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </>
+                )}
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        data-testid={`diagnostics-clear-${activeTab}`}
+                        className="h-7 w-7 shrink-0 text-muted-foreground"
+                        aria-label={`Clear ${activeTab} output`}
+                        onClick={() => handleClear(activeTab)}
+                      />
                     }
-                  }}
-                />
+                  >
+                    <Icon icon={Eraser01Icon} className="size-3" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top">{`Clear ${activeTab} output`}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        className="h-7 w-7 shrink-0 text-muted-foreground"
+                        aria-label={capturePaused ? 'Resume capture' : 'Pause capture'}
+                        onClick={toggleCapturePaused}
+                      />
+                    }
+                  >
+                    <Icon icon={capturePaused ? PlayIcon : PauseIcon} className="size-3" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    {capturePaused ? 'Resume capture' : 'Pause capture'}
+                  </TooltipContent>
+                </Tooltip>
               </div>
-              {activeTab === 'console' ? (
-                <Select
-                  value={consoleLevelFilter}
-                  onValueChange={(v) => setConsoleLevelFilter(v as ConsoleLevelFilter)}
-                >
-                  <SelectTrigger
-                    size="sm"
-                    data-testid="diagnostics-console-level-filter"
-                    aria-label="Filter console by severity"
-                    className="h-7 shrink-0 w-auto font-sans text-xs"
+              {!isAtLatest || hasPendingEvidence ? (
+                <div className="flex items-center justify-between gap-2 border-b border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] text-muted-foreground">
+                  <span>
+                    {hasPendingEvidence ? 'New entries are waiting' : 'Viewing older entries'}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="tiny"
+                    className="h-6 shrink-0 px-2 text-[11px] font-medium text-foreground"
+                    onClick={jumpToLatest}
                   >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent side="bottom" alignItemWithTrigger={false}>
-                    <SelectItem value="all">All levels</SelectItem>
-                    <SelectItem value="errors">Errors</SelectItem>
-                    <SelectItem value="warnings">Warnings</SelectItem>
-                    <SelectItem value="info">Info</SelectItem>
-                  </SelectContent>
-                </Select>
-              ) : (
-                <>
-                  <Select
-                    value={networkOutcomeFilter}
-                    onValueChange={(v) => setNetworkOutcomeFilter(v as NetworkOutcomeFilter)}
-                  >
-                    <SelectTrigger
-                      size="sm"
-                      data-testid="diagnostics-network-outcome-filter"
-                      aria-label="Filter network by outcome"
-                      className="h-7 shrink-0 w-auto font-sans text-xs"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent side="bottom" alignItemWithTrigger={false}>
-                      <SelectItem value="all">All outcomes</SelectItem>
-                      <SelectItem value="failed">Failed</SelectItem>
-                      <SelectItem value="4xx">4xx</SelectItem>
-                      <SelectItem value="5xx">5xx</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    value={networkDurationFilter}
-                    onValueChange={(v) => setNetworkDurationFilter(v as NetworkDurationFilter)}
-                  >
-                    <SelectTrigger
-                      size="sm"
-                      data-testid="diagnostics-network-duration-filter"
-                      aria-label="Filter network by duration"
-                      className="h-7 shrink-0 w-auto font-sans text-xs"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent side="bottom" alignItemWithTrigger={false}>
-                      <SelectItem value="all">Any duration</SelectItem>
-                      <SelectItem value="100">100ms+</SelectItem>
-                      <SelectItem value="500">500ms+</SelectItem>
-                      <SelectItem value="1000">1s+</SelectItem>
-                      <SelectItem value="3000">3s+</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    value={networkSort}
-                    onValueChange={(v) => setNetworkSort(v as NetworkSort)}
-                  >
-                    <SelectTrigger
-                      size="sm"
-                      data-testid="diagnostics-network-sort"
-                      aria-label="Sort network requests"
-                      className="h-7 shrink-0 w-auto font-sans text-xs"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent side="bottom" alignItemWithTrigger={false}>
-                      <SelectItem value="newest">Newest</SelectItem>
-                      <SelectItem value="duration">Slowest</SelectItem>
-                      <SelectItem value="status">Status</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </>
-              )}
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                data-testid={`diagnostics-clear-${activeTab}`}
-                className="h-7 w-7 shrink-0 text-muted-foreground"
-                aria-label={`Clear ${activeTab} output`}
-                title={`Clear ${activeTab} output`}
-                onClick={() => handleClear(activeTab)}
+                    Jump to latest
+                  </Button>
+                </div>
+              ) : null}
+              <div
+                ref={listRef}
+                data-testid="diagnostics-list"
+                className="min-h-0 flex-1 overflow-y-auto px-2 py-2 font-mono text-xs"
+                onScroll={handleListScroll}
               >
-                <Icon icon={Eraser01Icon} className="size-3" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                className="h-7 w-7 shrink-0 text-muted-foreground"
-                aria-label={capturePaused ? 'Resume capture' : 'Pause capture'}
-                title={capturePaused ? 'Resume capture' : 'Pause capture'}
-                onClick={toggleCapturePaused}
-              >
-                <Icon icon={capturePaused ? PlayIcon : PauseIcon} className="size-3" />
-              </Button>
-            </div>
-            {!isAtLatest || hasPendingEvidence ? (
-              <div className="flex items-center justify-between gap-2 border-b border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] text-muted-foreground">
-                <span>
-                  {hasPendingEvidence ? 'New entries are waiting' : 'Viewing older entries'}
-                </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="tiny"
-                  className="h-6 shrink-0 px-2 text-[11px] font-medium text-foreground"
-                  onClick={jumpToLatest}
-                >
-                  Jump to latest
-                </Button>
-              </div>
-            ) : null}
-            <div
-              ref={listRef}
-              data-testid="diagnostics-list"
-              className="min-h-0 flex-1 overflow-y-auto px-2 py-2 font-mono text-xs"
-              onScroll={handleListScroll}
-            >
-              {activeTab === 'console' ? (
-                !evidence || evidence.console.length === 0 ? (
+                {activeTab === 'console' ? (
+                  !evidence || evidence.console.length === 0 ? (
+                    <div className="flex flex-col items-start gap-2 px-1 py-3 font-sans">
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          No console output for the active pane yet.
+                        </p>
+                        <p className="mt-1 text-[11px] text-muted-foreground/70">
+                          Capture starts on navigation or reload.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="soft"
+                        size="tiny"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => void window.panelApi.reload()}
+                      >
+                        Reload page
+                      </Button>
+                    </div>
+                  ) : visibleConsoleEntries.length === 0 ? (
+                    <div className="flex flex-col items-start gap-2 px-1 py-3 font-sans">
+                      <p className="text-sm text-muted-foreground">
+                        No console output matches this filter.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="soft"
+                        size="tiny"
+                        className="h-7 px-2 text-xs"
+                        onClick={clearActiveFilter}
+                      >
+                        Clear filters
+                      </Button>
+                    </div>
+                  ) : (
+                    <ul className="flex flex-col gap-1">
+                      {visibleConsoleEntries.map(({ entry, count }) => {
+                        const source = formatSource(entry)
+                        const expanded = expandedEntryIds.has(entry.id)
+                        const canExpand = Boolean(entry.stack)
+                        return (
+                          <li
+                            key={entry.id}
+                            data-testid="diagnostics-console-entry"
+                            className="group rounded-md px-2 py-1.5 hover:bg-white/5"
+                          >
+                            <div className="flex items-start gap-2">
+                              {canExpand ? (
+                                <button
+                                  type="button"
+                                  data-testid="diagnostics-console-expand"
+                                  aria-expanded={expanded}
+                                  aria-label={
+                                    expanded ? 'Collapse stack trace' : 'Expand stack trace'
+                                  }
+                                  className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground"
+                                  onClick={() => toggleExpanded(entry.id)}
+                                >
+                                  <Icon
+                                    icon={expanded ? ArrowDown01Icon : ArrowRight01Icon}
+                                    className="size-3"
+                                  />
+                                </button>
+                              ) : (
+                                <span className="w-3 shrink-0" />
+                              )}
+                              <span
+                                data-testid="diagnostics-console-level"
+                                className={cn('shrink-0 uppercase', LEVEL_CLASS[entry.level])}
+                              >
+                                {entry.level}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className="flex items-start gap-2 break-words text-foreground">
+                                  <span className="min-w-0 flex-1">{entry.message}</span>
+                                  {count > 1 ? (
+                                    <Badge
+                                      variant="secondary"
+                                      className="h-auto shrink-0 px-1.5 py-0 text-[10px] font-medium tabular-nums"
+                                      title={`${count} identical messages`}
+                                    >
+                                      ×{count}
+                                    </Badge>
+                                  ) : null}
+                                </p>
+                                {source ? (
+                                  <div className="mt-0.5 flex min-w-0 items-center gap-1">
+                                    <button
+                                      type="button"
+                                      data-testid="diagnostics-console-source-link"
+                                      className="block min-w-0 truncate text-left text-[11px] text-sky-400 hover:underline"
+                                      title={formatClipboardLocation(entry) ?? source}
+                                      onClick={() => openSourceLocation(entry)}
+                                    >
+                                      {source}
+                                    </button>
+                                    <IconTooltipButton
+                                      data-testid="diagnostics-console-copy-source"
+                                      className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-white/10 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50 group-hover:opacity-100"
+                                      label="Copy source location"
+                                      onClick={() => copySourceLocation(entry)}
+                                    >
+                                      <Icon icon={Copy01Icon} className="size-3" />
+                                    </IconTooltipButton>
+                                    <IconTooltipButton
+                                      data-testid="diagnostics-console-open-source"
+                                      className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-white/10 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50 group-hover:opacity-100"
+                                      label="Open source location"
+                                      onClick={() => openSourceLocation(entry)}
+                                    >
+                                      <Icon icon={ExternalLinkIcon} className="size-3" />
+                                    </IconTooltipButton>
+                                  </div>
+                                ) : null}
+                                {expanded && entry.stack ? (
+                                  <pre
+                                    data-testid="diagnostics-console-stack"
+                                    className="mt-1 whitespace-pre-wrap break-words text-[10px] text-muted-foreground"
+                                  >
+                                    {entry.stack}
+                                  </pre>
+                                ) : null}
+                              </div>
+                              <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                                <IconTooltipButton
+                                  data-testid="diagnostics-console-copy-message"
+                                  className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-white/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+                                  label="Copy message"
+                                  onClick={() => copyConsoleMessage(entry)}
+                                >
+                                  <Icon icon={Copy01Icon} className="size-3" />
+                                </IconTooltipButton>
+                                {entry.stack ? (
+                                  <IconTooltipButton
+                                    data-testid="diagnostics-console-copy-stack"
+                                    className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-white/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+                                    label="Copy stack trace"
+                                    onClick={() => copyConsoleStack(entry)}
+                                  >
+                                    <Icon icon={Copy01Icon} className="size-3" />
+                                  </IconTooltipButton>
+                                ) : null}
+                              </div>
+                            </div>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )
+                ) : !evidence || evidence.network.length === 0 ? (
                   <div className="flex flex-col items-start gap-2 px-1 py-3 font-sans">
                     <div>
                       <p className="text-sm text-muted-foreground">
-                        No console output for the active pane yet.
+                        No network requests for the active pane yet.
                       </p>
                       <p className="mt-1 text-[11px] text-muted-foreground/70">
                         Capture starts on navigation or reload.
@@ -632,10 +820,10 @@ export function DiagnosticsPanel(): React.JSX.Element {
                       Reload page
                     </Button>
                   </div>
-                ) : visibleConsoleEntries.length === 0 ? (
+                ) : visibleNetworkEntries.length === 0 ? (
                   <div className="flex flex-col items-start gap-2 px-1 py-3 font-sans">
                     <p className="text-sm text-muted-foreground">
-                      No console output matches this filter.
+                      No network requests match this filter.
                     </p>
                     <Button
                       type="button"
@@ -649,25 +837,27 @@ export function DiagnosticsPanel(): React.JSX.Element {
                   </div>
                 ) : (
                   <ul className="flex flex-col gap-1">
-                    {visibleConsoleEntries.map(({ entry, count }) => {
-                      const source = formatSource(entry)
+                    {visibleNetworkEntries.map((entry) => {
                       const expanded = expandedEntryIds.has(entry.id)
-                      const canExpand = Boolean(entry.stack)
+                      const requestHeaders = formatHeaders(entry.requestHeaders)
+                      const responseHeaders = formatHeaders(entry.responseHeaders)
+                      const canExpand = Boolean(requestHeaders || responseHeaders)
                       return (
                         <li
                           key={entry.id}
-                          data-testid="diagnostics-console-entry"
-                          className="group rounded-md px-2 py-1.5 hover:bg-white/5"
+                          data-testid="diagnostics-network-entry"
+                          className={cn(
+                            'rounded-md px-2 py-1.5 hover:bg-white/5',
+                            entry.failed && 'text-destructive'
+                          )}
                         >
                           <div className="flex items-start gap-2">
                             {canExpand ? (
                               <button
                                 type="button"
-                                data-testid="diagnostics-console-expand"
+                                data-testid="diagnostics-network-expand"
                                 aria-expanded={expanded}
-                                aria-label={
-                                  expanded ? 'Collapse stack trace' : 'Expand stack trace'
-                                }
+                                aria-label={expanded ? 'Collapse headers' : 'Expand headers'}
                                 className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground"
                                 onClick={() => toggleExpanded(entry.id)}
                               >
@@ -680,232 +870,73 @@ export function DiagnosticsPanel(): React.JSX.Element {
                               <span className="w-3 shrink-0" />
                             )}
                             <span
-                              data-testid="diagnostics-console-level"
-                              className={cn('shrink-0 uppercase', LEVEL_CLASS[entry.level])}
+                              data-testid="diagnostics-network-status"
+                              className={cn(
+                                'w-10 shrink-0 tabular-nums',
+                                entry.failed && 'text-destructive'
+                              )}
                             >
-                              {entry.level}
+                              {formatStatus(entry)}
+                            </span>
+                            <span
+                              data-testid="diagnostics-network-method"
+                              className="w-12 shrink-0 uppercase text-muted-foreground"
+                            >
+                              {entry.method}
                             </span>
                             <div className="min-w-0 flex-1">
-                              <p className="flex items-start gap-2 break-words text-foreground">
-                                <span className="min-w-0 flex-1">{entry.message}</span>
-                                {count > 1 ? (
-                                  <Badge
-                                    variant="secondary"
-                                    className="h-auto shrink-0 px-1.5 py-0 text-[10px] font-medium tabular-nums"
-                                    title={`${count} identical messages`}
-                                  >
-                                    ×{count}
-                                  </Badge>
-                                ) : null}
+                              <p
+                                data-testid="diagnostics-network-path"
+                                className="truncate text-foreground"
+                                title={entry.path}
+                              >
+                                {entry.path}
                               </p>
-                              {source ? (
-                                <div className="mt-0.5 flex min-w-0 items-center gap-1">
-                                  <button
-                                    type="button"
-                                    data-testid="diagnostics-console-source-link"
-                                    className="block min-w-0 truncate text-left text-[11px] text-sky-400 hover:underline"
-                                    title={formatClipboardLocation(entry) ?? source}
-                                    onClick={() => openSourceLocation(entry)}
-                                  >
-                                    {source}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    data-testid="diagnostics-console-copy-source"
-                                    aria-label="Copy source location"
-                                    title="Copy source location"
-                                    className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-white/10 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50 group-hover:opacity-100"
-                                    onClick={() => copySourceLocation(entry)}
-                                  >
-                                    <Icon icon={Copy01Icon} className="size-3" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    data-testid="diagnostics-console-open-source"
-                                    aria-label="Open source location"
-                                    title="Open source location"
-                                    className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-white/10 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50 group-hover:opacity-100"
-                                    onClick={() => openSourceLocation(entry)}
-                                  >
-                                    <Icon icon={ExternalLinkIcon} className="size-3" />
-                                  </button>
+                              {expanded ? (
+                                <div
+                                  data-testid="diagnostics-network-headers"
+                                  className="mt-1 space-y-1 text-[10px] text-muted-foreground"
+                                >
+                                  {requestHeaders ? (
+                                    <div>
+                                      <p className="font-sans font-medium text-foreground/80">
+                                        Request
+                                      </p>
+                                      <pre className="whitespace-pre-wrap break-words">
+                                        {requestHeaders}
+                                      </pre>
+                                    </div>
+                                  ) : null}
+                                  {responseHeaders ? (
+                                    <div>
+                                      <p className="font-sans font-medium text-foreground/80">
+                                        Response
+                                      </p>
+                                      <pre className="whitespace-pre-wrap break-words">
+                                        {responseHeaders}
+                                      </pre>
+                                    </div>
+                                  ) : null}
                                 </div>
                               ) : null}
-                              {expanded && entry.stack ? (
-                                <pre
-                                  data-testid="diagnostics-console-stack"
-                                  className="mt-1 whitespace-pre-wrap break-words text-[10px] text-muted-foreground"
-                                >
-                                  {entry.stack}
-                                </pre>
-                              ) : null}
                             </div>
-                            <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-                              <button
-                                type="button"
-                                data-testid="diagnostics-console-copy-message"
-                                aria-label="Copy console message"
-                                title="Copy message"
-                                className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-white/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-                                onClick={() => copyConsoleMessage(entry)}
-                              >
-                                <Icon icon={Copy01Icon} className="size-3" />
-                              </button>
-                              {entry.stack ? (
-                                <button
-                                  type="button"
-                                  data-testid="diagnostics-console-copy-stack"
-                                  aria-label="Copy stack trace"
-                                  title="Copy stack trace"
-                                  className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-white/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-                                  onClick={() => copyConsoleStack(entry)}
-                                >
-                                  <Icon icon={Copy01Icon} className="size-3" />
-                                </button>
-                              ) : null}
-                            </div>
+                            <span
+                              data-testid="diagnostics-network-duration"
+                              className="shrink-0 tabular-nums text-muted-foreground"
+                            >
+                              {formatDuration(entry.durationMs)}
+                            </span>
                           </div>
                         </li>
                       )
                     })}
                   </ul>
-                )
-              ) : !evidence || evidence.network.length === 0 ? (
-                <div className="flex flex-col items-start gap-2 px-1 py-3 font-sans">
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      No network requests for the active pane yet.
-                    </p>
-                    <p className="mt-1 text-[11px] text-muted-foreground/70">
-                      Capture starts on navigation or reload.
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="soft"
-                    size="tiny"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => void window.panelApi.reload()}
-                  >
-                    Reload page
-                  </Button>
-                </div>
-              ) : visibleNetworkEntries.length === 0 ? (
-                <div className="flex flex-col items-start gap-2 px-1 py-3 font-sans">
-                  <p className="text-sm text-muted-foreground">
-                    No network requests match this filter.
-                  </p>
-                  <Button
-                    type="button"
-                    variant="soft"
-                    size="tiny"
-                    className="h-7 px-2 text-xs"
-                    onClick={clearActiveFilter}
-                  >
-                    Clear filters
-                  </Button>
-                </div>
-              ) : (
-                <ul className="flex flex-col gap-1">
-                  {visibleNetworkEntries.map((entry) => {
-                    const expanded = expandedEntryIds.has(entry.id)
-                    const requestHeaders = formatHeaders(entry.requestHeaders)
-                    const responseHeaders = formatHeaders(entry.responseHeaders)
-                    const canExpand = Boolean(requestHeaders || responseHeaders)
-                    return (
-                      <li
-                        key={entry.id}
-                        data-testid="diagnostics-network-entry"
-                        className={cn(
-                          'rounded-md px-2 py-1.5 hover:bg-white/5',
-                          entry.failed && 'text-destructive'
-                        )}
-                      >
-                        <div className="flex items-start gap-2">
-                          {canExpand ? (
-                            <button
-                              type="button"
-                              data-testid="diagnostics-network-expand"
-                              aria-expanded={expanded}
-                              aria-label={expanded ? 'Collapse headers' : 'Expand headers'}
-                              className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground"
-                              onClick={() => toggleExpanded(entry.id)}
-                            >
-                              <Icon
-                                icon={expanded ? ArrowDown01Icon : ArrowRight01Icon}
-                                className="size-3"
-                              />
-                            </button>
-                          ) : (
-                            <span className="w-3 shrink-0" />
-                          )}
-                          <span
-                            data-testid="diagnostics-network-status"
-                            className={cn(
-                              'w-10 shrink-0 tabular-nums',
-                              entry.failed && 'text-destructive'
-                            )}
-                          >
-                            {formatStatus(entry)}
-                          </span>
-                          <span
-                            data-testid="diagnostics-network-method"
-                            className="w-12 shrink-0 uppercase text-muted-foreground"
-                          >
-                            {entry.method}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p
-                              data-testid="diagnostics-network-path"
-                              className="truncate text-foreground"
-                              title={entry.path}
-                            >
-                              {entry.path}
-                            </p>
-                            {expanded ? (
-                              <div
-                                data-testid="diagnostics-network-headers"
-                                className="mt-1 space-y-1 text-[10px] text-muted-foreground"
-                              >
-                                {requestHeaders ? (
-                                  <div>
-                                    <p className="font-sans font-medium text-foreground/80">
-                                      Request
-                                    </p>
-                                    <pre className="whitespace-pre-wrap break-words">
-                                      {requestHeaders}
-                                    </pre>
-                                  </div>
-                                ) : null}
-                                {responseHeaders ? (
-                                  <div>
-                                    <p className="font-sans font-medium text-foreground/80">
-                                      Response
-                                    </p>
-                                    <pre className="whitespace-pre-wrap break-words">
-                                      {responseHeaders}
-                                    </pre>
-                                  </div>
-                                ) : null}
-                              </div>
-                            ) : null}
-                          </div>
-                          <span
-                            data-testid="diagnostics-network-duration"
-                            className="shrink-0 tabular-nums text-muted-foreground"
-                          >
-                            {formatDuration(entry.durationMs)}
-                          </span>
-                        </div>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
+                )}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
-    </aside>
+          )}
+        </div>
+      </aside>
+    </TooltipProvider>
   )
 }
