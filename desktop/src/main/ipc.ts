@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain } from 'electron'
+import { BrowserWindow, ipcMain, shell } from 'electron'
 import { normalizeUrl } from '../shared/url'
 import type { ElementFingerprint } from '../shared/element-mirror'
 import type { NewProjectInput } from '../shared/project'
@@ -422,6 +422,14 @@ export function registerIpcHandlers(
 
   ipcMain.handle('runtime-evidence:clear', (_event, channel: 'console' | 'network') => {
     return paneManager.clearRuntimeEvidence(channel)
+  })
+
+  ipcMain.handle('url:open-external', async (_event, rawUrl: string) => {
+    const url = new URL(rawUrl)
+    if (!['http:', 'https:', 'file:'].includes(url.protocol)) {
+      throw new Error('Only http, https, and file URLs can be opened externally')
+    }
+    await shell.openExternal(url.toString())
   })
 
   ipcMain.handle('panel:open', async (_event, options: PanelOpenOptions) => {

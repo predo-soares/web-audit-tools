@@ -15,6 +15,8 @@ import { cn } from '@renderer/lib/utils'
 import {
   ArrowDown01Icon,
   ArrowRight01Icon,
+  Copy01Icon,
+  ExternalLinkIcon,
   PauseIcon,
   PlayIcon,
   Search01Icon
@@ -304,6 +306,20 @@ export function DiagnosticsPanel(): React.JSX.Element {
     void navigator.clipboard.writeText(location)
   }, [])
 
+  const copyConsoleMessage = useCallback((entry: ConsoleEvidenceEntry): void => {
+    void navigator.clipboard.writeText(entry.message)
+  }, [])
+
+  const copyConsoleStack = useCallback((entry: ConsoleEvidenceEntry): void => {
+    if (!entry.stack) return
+    void navigator.clipboard.writeText(entry.stack)
+  }, [])
+
+  const openSourceLocation = useCallback((entry: ConsoleEvidenceEntry): void => {
+    if (!entry.sourceUrl) return
+    void window.panelApi.openExternalUrl(entry.sourceUrl)
+  }, [])
+
   const consoleCount = evidence?.console.length ?? 0
   const networkCount = evidence?.network.length ?? 0
 
@@ -533,7 +549,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
                         <li
                           key={entry.id}
                           data-testid="diagnostics-console-entry"
-                          className="rounded-md px-2 py-1.5 hover:bg-white/5"
+                          className="group rounded-md px-2 py-1.5 hover:bg-white/5"
                         >
                           <div className="flex items-start gap-2">
                             {canExpand ? (
@@ -575,15 +591,37 @@ export function DiagnosticsPanel(): React.JSX.Element {
                                 ) : null}
                               </p>
                               {source ? (
-                                <button
-                                  type="button"
-                                  data-testid="diagnostics-console-source-link"
-                                  className="mt-0.5 block max-w-full truncate text-left text-[11px] text-sky-400 hover:underline"
-                                  title={formatClipboardLocation(entry) ?? source}
-                                  onClick={() => copySourceLocation(entry)}
-                                >
-                                  {source}
-                                </button>
+                                <div className="mt-0.5 flex min-w-0 items-center gap-1">
+                                  <button
+                                    type="button"
+                                    data-testid="diagnostics-console-source-link"
+                                    className="block min-w-0 truncate text-left text-[11px] text-sky-400 hover:underline"
+                                    title={formatClipboardLocation(entry) ?? source}
+                                    onClick={() => openSourceLocation(entry)}
+                                  >
+                                    {source}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    data-testid="diagnostics-console-copy-source"
+                                    aria-label="Copy source location"
+                                    title="Copy source location"
+                                    className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-white/10 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50 group-hover:opacity-100"
+                                    onClick={() => copySourceLocation(entry)}
+                                  >
+                                    <Icon icon={Copy01Icon} className="size-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    data-testid="diagnostics-console-open-source"
+                                    aria-label="Open source location"
+                                    title="Open source location"
+                                    className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-white/10 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50 group-hover:opacity-100"
+                                    onClick={() => openSourceLocation(entry)}
+                                  >
+                                    <Icon icon={ExternalLinkIcon} className="size-3" />
+                                  </button>
+                                </div>
                               ) : null}
                               {expanded && entry.stack ? (
                                 <pre
@@ -592,6 +630,30 @@ export function DiagnosticsPanel(): React.JSX.Element {
                                 >
                                   {entry.stack}
                                 </pre>
+                              ) : null}
+                            </div>
+                            <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                              <button
+                                type="button"
+                                data-testid="diagnostics-console-copy-message"
+                                aria-label="Copy console message"
+                                title="Copy message"
+                                className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-white/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+                                onClick={() => copyConsoleMessage(entry)}
+                              >
+                                <Icon icon={Copy01Icon} className="size-3" />
+                              </button>
+                              {entry.stack ? (
+                                <button
+                                  type="button"
+                                  data-testid="diagnostics-console-copy-stack"
+                                  aria-label="Copy stack trace"
+                                  title="Copy stack trace"
+                                  className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-white/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+                                  onClick={() => copyConsoleStack(entry)}
+                                >
+                                  <Icon icon={Copy01Icon} className="size-3" />
+                                </button>
                               ) : null}
                             </div>
                           </div>

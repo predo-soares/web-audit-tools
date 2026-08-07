@@ -85,6 +85,7 @@ export interface PanelOverlayApi {
   onWorkspaceViewChanged: (callback: (view: WorkspaceView) => void) => () => void
   getRuntimeEvidence: () => Promise<RuntimeEvidenceSnapshot>
   clearRuntimeEvidence: (channel: RuntimeEvidenceChannel) => Promise<RuntimeEvidenceSnapshot>
+  openExternalUrl: (url: string) => Promise<void>
   onRuntimeEvidenceChanged: (callback: (snapshot: RuntimeEvidenceSnapshot) => void) => () => void
   onRuntimeEvidenceProblemCount: (
     callback: (payload: RuntimeEvidenceProblemCount) => void
@@ -259,6 +260,7 @@ const panelApi: PanelOverlayApi = {
   },
   getRuntimeEvidence: () => ipcRenderer.invoke('runtime-evidence:get'),
   clearRuntimeEvidence: (channel) => ipcRenderer.invoke('runtime-evidence:clear', channel),
+  openExternalUrl: (url) => ipcRenderer.invoke('url:open-external', url),
   onRuntimeEvidenceChanged: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, snapshot: RuntimeEvidenceSnapshot): void =>
       callback(snapshot)
