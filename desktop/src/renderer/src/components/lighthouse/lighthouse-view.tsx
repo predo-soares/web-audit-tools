@@ -86,6 +86,7 @@ export function LighthouseView({
 
   const auditable = isAuditableUrl(url)
   const result = state.results[viewProfile]
+  const analysisOutdated = LIGHTHOUSE_PROFILES.some((profile) => state.results[profile]?.stale)
   const hasResults = hasAnyLighthouseResult(state.results)
 
   const profileTabs: Array<MotionTabItem<LighthouseProfile>> = LIGHTHOUSE_PROFILES.map(
@@ -131,7 +132,7 @@ export function LighthouseView({
                 url={url}
                 history={history}
                 running={running}
-                runLabel="Analyze page"
+                runLabel={analysisOutdated ? 'Analyze page · outdated' : 'Analyze page'}
                 runDisabled={!auditable}
                 onNavigate={(target) => {
                   onTargetNavigate()
