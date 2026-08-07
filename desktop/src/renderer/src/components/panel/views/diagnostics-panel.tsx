@@ -16,6 +16,7 @@ import {
   ArrowDown01Icon,
   ArrowRight01Icon,
   Copy01Icon,
+  Eraser01Icon,
   ExternalLinkIcon,
   PauseIcon,
   PlayIcon,
@@ -567,12 +568,14 @@ export function DiagnosticsPanel(): React.JSX.Element {
               <Button
                 type="button"
                 variant="ghost"
-                size="tiny"
+                size="icon-xs"
                 data-testid={`diagnostics-clear-${activeTab}`}
-                className="h-7 shrink-0 px-2 text-xs font-medium text-muted-foreground"
+                className="h-7 w-7 shrink-0 text-muted-foreground"
+                aria-label={`Clear ${activeTab} output`}
+                title={`Clear ${activeTab} output`}
                 onClick={() => handleClear(activeTab)}
               >
-                Clear
+                <Icon icon={Eraser01Icon} className="size-3" />
               </Button>
               <Button
                 type="button"
