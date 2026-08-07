@@ -33,6 +33,35 @@ type NetworkOutcomeFilter = 'all' | 'failed' | '4xx' | '5xx'
 
 const SCROLL_TAIL_THRESHOLD_PX = 24
 
+interface GroupedConsoleEntry {
+  entry: ConsoleEvidenceEntry
+  count: number
+}
+
+function groupConsoleEntries(entries: ConsoleEvidenceEntry[]): GroupedConsoleEntry[] {
+  const groups = new Map<string, GroupedConsoleEntry>()
+
+  for (const entry of entries) {
+    const key = [
+      entry.level,
+      entry.message,
+      entry.sourceUrl ?? '',
+      entry.line ?? '',
+      entry.column ?? '',
+      entry.stack ?? ''
+    ].join('\u0000')
+    const existing = groups.get(key)
+
+    if (existing) {
+      existing.count += 1
+    } else {
+      groups.set(key, { entry, count: 1 })
+    }
+  }
+
+  return [...groups.values()]
+}
+
 function formatSource(entry: ConsoleEvidenceEntry): string | null {
   if (!entry.sourceUrl) return null
   const fileName = entry.sourceUrl.split('/').pop() || entry.sourceUrl
@@ -113,13 +142,15 @@ export function DiagnosticsPanel(): React.JSX.Element {
   const visibleConsoleEntries = useMemo(() => {
     const entries = evidence?.console ?? []
     const query = consoleFilter.trim().toLocaleLowerCase()
-    return entries.filter(
-      (entry) =>
-        matchesConsoleLevel(entry, consoleLevelFilter) &&
-        (!query ||
-          [entry.level, entry.message, entry.sourceUrl, entry.line, entry.column, entry.stack]
-            .filter((value) => value !== undefined)
-            .some((value) => String(value).toLocaleLowerCase().includes(query)))
+    return groupConsoleEntries(
+      entries.filter(
+        (entry) =>
+          matchesConsoleLevel(entry, consoleLevelFilter) &&
+          (!query ||
+            [entry.level, entry.message, entry.sourceUrl, entry.line, entry.column, entry.stack]
+              .filter((value) => value !== undefined)
+              .some((value) => String(value).toLocaleLowerCase().includes(query)))
+      )
     )
   }, [consoleFilter, consoleLevelFilter, evidence?.console])
 
@@ -416,7 +447,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
                   </p>
                 ) : (
                   <ul className="flex flex-col gap-1">
-                    {visibleConsoleEntries.map((entry) => {
+                    {visibleConsoleEntries.map(({ entry, count }) => {
                       const source = formatSource(entry)
                       const expanded = expandedEntryIds.has(entry.id)
                       const canExpand = Boolean(entry.stack)
@@ -453,7 +484,18 @@ export function DiagnosticsPanel(): React.JSX.Element {
                               {entry.level}
                             </span>
                             <div className="min-w-0 flex-1">
-                              <p className="break-words text-foreground">{entry.message}</p>
+                              <p className="flex items-start gap-2 break-words text-foreground">
+                                <span className="min-w-0 flex-1">{entry.message}</span>
+                                {count > 1 ? (
+                                  <Badge
+                                    variant="secondary"
+                                    className="h-auto shrink-0 px-1.5 py-0 text-[10px] font-medium tabular-nums"
+                                    title={`${count} identical messages`}
+                                  >
+                                    ×{count}
+                                  </Badge>
+                                ) : null}
+                              </p>
                               {source ? (
                                 <button
                                   type="button"
