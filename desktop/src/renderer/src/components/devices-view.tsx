@@ -4,19 +4,13 @@ import {
   SmartPhone01Icon,
   Tablet01Icon
 } from '@hugeicons/core-free-icons'
-import { SIDEBAR_WIDTH_PX, TOOLBAR_HEIGHT_PX } from '../../../shared/sidebar'
+import { SIDEBAR_WIDTH_PX } from '../../../shared/sidebar'
 import { DEVICE_CATALOG } from '../../../shared/device-catalog'
 import type { CatalogEntry } from '../../../shared/device-catalog'
 import type { PaneId } from '../../../shared/types'
 import { useSidebar } from '@renderer/context/sidebar-context'
 import { DeviceFrame } from '@renderer/components/device-frame'
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious
-} from '@renderer/components/ui/carousel'
+import { Carousel, CarouselContent, CarouselItem } from '@renderer/components/ui/carousel'
 import { CANVAS_GLASS_SURFACE_CLASS } from '@renderer/lib/glass-surface'
 import { cn } from '@renderer/lib/utils'
 import { Icon } from '@renderer/components/ui/icon'
@@ -231,8 +225,6 @@ export function DevicesView({
                     </CarouselItem>
                   ))}
                 </CarouselContent>
-                <CarouselPrevious />
-                <CarouselNext />
               </Carousel>
             </section>
           )
