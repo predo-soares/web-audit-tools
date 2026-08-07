@@ -207,11 +207,8 @@ export function DevicesView({
                 )}
               </div>
 
-              <div
-                className="relative left-1/2 -translate-x-1/2 overflow-x-auto pb-3"
-                style={{ width: `calc(100vw - ${sidebarOffset}px)` }}
-              >
-                <div className="flex w-max min-w-full items-start gap-5 px-8">
+              <div className="min-w-0 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex min-w-max items-start gap-5">
                   {entries.map((entry) => (
                     <DevicePresetCard
                       key={entry.presetId}
