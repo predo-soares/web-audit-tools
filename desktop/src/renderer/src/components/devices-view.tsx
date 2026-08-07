@@ -116,7 +116,7 @@ function DevicePresetCard({
         scale={0.25}
         showDynamicIsland={entry.paneId === 'iphone'}
       >
-        <div className="h-full w-full bg-linear-to-b from-zinc-900/50 via-zinc-950 to-black" />
+        <div className="h-full w-full bg-linear-to-b backdrop-blur-md from-zinc-900/50  to-black" />
       </DeviceFrame>
 
       <div className="flex w-full min-w-0 items-start justify-between gap-3">
@@ -152,27 +152,6 @@ export function DevicesView({
       )}
       style={{ paddingLeft: sidebarOffset, scrollbarGutter: 'stable' }}
     >
-      <nav
-        aria-label="Breadcrumb"
-        className="absolute z-20"
-        style={{ top: 12, left: sidebarOffset + 6 }}
-      >
-        <button
-          type="button"
-          onClick={onClose}
-          className="group inline-flex items-center gap-2 rounded-md px-1 py-1 text-sm text-white/55 transition-[color,background-color] duration-150 ease-out hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
-        >
-          <Icon
-            icon={ArrowLeft01Icon}
-            size={16}
-            className="transition-transform duration-150 ease-out group-hover:-translate-x-0.5"
-          />
-          <span>Preview</span>
-          <span className="text-white/20">/</span>
-          <span className="text-white/90">Devices</span>
-        </button>
-      </nav>
-
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-12 px-8 pb-8 pt-24">
         {DEVICE_GROUPS.map(({ category, entries }) => {
           const activeEntry = entries.find(

@@ -20,6 +20,7 @@ import type { Project } from '../../../../../shared/project'
 import type { PaneId } from '../../../../../shared/types'
 import { WindowControls } from '@renderer/components/window-controls'
 import {
+  ArrowLeft01Icon,
   Monitor,
   Moon01Icon,
   PanelLeftIcon,
@@ -59,6 +60,14 @@ const THEME_LABEL: Record<ThemePreference, string> = {
   system: 'System theme',
   light: 'Light theme',
   dark: 'Dark theme'
+}
+
+const WORKSPACE_LABEL: Record<WorkspaceView, string> = {
+  browser: 'Preview',
+  seo: 'SEO',
+  lighthouse: 'Lighthouse',
+  devices: 'Devices',
+  settings: 'Settings'
 }
 
 function readStoredThemePreference(): ThemePreference {
@@ -448,7 +457,7 @@ export function ToolbarPanel(): React.JSX.Element {
   // replace it, so hide that chrome there.
   return (
     <header
-      className="relative box-border flex h-full w-full items-center justify-between gap-3 bg-transparent px-3"
+      className="relative box-border flex h-full w-full items-center justify-between gap-3 bg-transparent px-4"
       style={{ height: TOOLBAR_HEIGHT_PX }}
       data-app-region="drag"
       data-testid="toolbar"
@@ -479,6 +488,26 @@ export function ToolbarPanel(): React.JSX.Element {
           <Icon icon={PanelLeftIcon} size={14} />
         </Button>
       </div>
+      {!isBrowserView ? (
+        <nav
+          aria-label="Breadcrumb"
+          className="pointer-events-auto absolute z-20"
+          style={{ top: 12, left: sidebarOpen ? SIDEBAR_WIDTH_PX + 18 : 18 }}
+        >
+          <button
+            type="button"
+            data-app-region="no-drag"
+            onClick={() => window.panelApi.sendAction({ type: 'enter-preview-view' })}
+            className="group inline-flex items-center gap-2 rounded-md px-1 py-1 text-sm text-white/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
+          >
+            <span className="text-white/90 opacity-60 transition-opacity duration-150 ease-out group-hover:opacity-100">
+              Preview
+            </span>
+            <span className="text-white/20">/</span>
+            <span className="text-white/90">{WORKSPACE_LABEL[workspaceView]}</span>
+          </button>
+        </nav>
+      ) : null}
       <div
         data-testid="toolbar-url-layout"
         className="flex min-w-0 flex-1 items-center justify-center px-2 transition-[padding-left,padding-right] ease-out"
