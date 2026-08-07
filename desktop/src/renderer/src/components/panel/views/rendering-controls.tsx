@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
+import { Refresh01Icon } from '@hugeicons/core-free-icons'
 import {
   SegmentedControl,
   type SegmentedControlOption
 } from '@renderer/components/ui/segmented-control'
 import { Checkbox } from '@renderer/components/ui/checkbox'
+import { Button } from '@renderer/components/ui/button'
+import { Icon } from '@renderer/components/ui/icon'
 import {
   Select,
   SelectContent,
@@ -162,6 +165,28 @@ function SelectRow({
   )
 }
 
+function ControlSection({
+  title,
+  description,
+  children
+}: {
+  title: string
+  description: string
+  children: React.ReactNode
+}): React.JSX.Element {
+  return (
+    <section className="border-b border-white/10 pb-2 pt-2">
+      <div className="px-1 pb-1.5">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-foreground/80">
+          {title}
+        </h2>
+        <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">{description}</p>
+      </div>
+      {children}
+    </section>
+  )
+}
+
 export function RenderingControls(): React.JSX.Element {
   const [theme, setTheme] = useState<ThemePreference>(readStoredTheme)
   const [media, setMedia] = useState<MediaFeatureState>(DEFAULT_MEDIA_FEATURES)
@@ -193,162 +218,213 @@ export function RenderingControls(): React.JSX.Element {
     void window.panelApi.setMediaFeatures(next)
   }
 
+  const resetOverrides = (): void => {
+    setTheme('system')
+    window.localStorage.setItem(THEME_STORAGE_KEY, 'system')
+    void window.panelApi.setPaneThemePreference('system')
+    setMedia(DEFAULT_MEDIA_FEATURES)
+    window.localStorage.setItem(MEDIA_FEATURES_STORAGE_KEY, JSON.stringify(DEFAULT_MEDIA_FEATURES))
+    void window.panelApi.setMediaFeatures(DEFAULT_MEDIA_FEATURES)
+  }
+
   return (
     <div
       data-testid="rendering-controls"
       className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 py-1"
     >
-      {/* Rendering overlay flags */}
-      <CheckboxRow
-        label="Paint flashing"
-        description="Highlights areas of the page (green) that need to be repainted."
-        checked={media.paintFlashing}
-        onChange={(v) => changeMedia('paintFlashing', v)}
-      />
-      <CheckboxRow
-        label="Layout shift regions"
-        description="Highlights areas of the page (blue) that were shifted."
-        checked={media.layoutShiftRegions}
-        onChange={(v) => changeMedia('layoutShiftRegions', v)}
-      />
-      <CheckboxRow
-        label="Layer borders"
-        description="Shows layer borders (orange/olive) and tiles (cyan)."
-        checked={media.layerBorders}
-        onChange={(v) => changeMedia('layerBorders', v)}
-      />
-      <CheckboxRow
-        label="Frame Rendering Stats"
-        description="Plots frame throughput, dropped frames distribution, and GPU memory."
-        checked={media.frameRenderingStats}
-        onChange={(v) => changeMedia('frameRenderingStats', v)}
-      />
-      <CheckboxRow
-        label="Scrolling performance issues"
-        description="Highlights elements (teal) that can slow down scrolling."
-        checked={media.scrollingPerf}
-        onChange={(v) => changeMedia('scrollingPerf', v)}
-      />
-      <CheckboxRow
-        label="Highlight ads"
-        description="Highlights elements (red) detected to be ads."
-        checked={media.highlightAds}
-        onChange={(v) => changeMedia('highlightAds', v)}
-      />
-      <CheckboxRow
-        label="Disable local fonts"
-        description="Disables local() sources in @font-face rules. Requires a page reload."
-        checked={media.disableLocalFonts}
-        onChange={(v) => changeMedia('disableLocalFonts', v)}
-      />
-      <CheckboxRow
-        label="Emulate a focused page"
-        description="Keep page focused. Commonly used for debugging disappearing elements."
-        checked={media.focusedPage}
-        onChange={(v) => changeMedia('focusedPage', v)}
-      />
-      <CheckboxRow
-        label="Enable automatic dark mode"
-        description="Enables automatic dark mode and sets prefers-color-scheme to dark."
-        checked={media.autoDarkMode}
-        onChange={(v) => changeMedia('autoDarkMode', v)}
-      />
+      <div className="sticky top-0 z-10 -mx-2 flex items-center justify-between border-b border-white/10 bg-background/95 px-3 py-2 backdrop-blur">
+        <div>
+          <p className="text-xs font-medium">Rendering overrides</p>
+          <p className="text-[10px] text-muted-foreground">
+            Test edge cases without leaving the page.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="tiny"
+          className="h-7 gap-1 px-2 text-[11px] text-muted-foreground"
+          aria-label="Reset rendering overrides"
+          onClick={resetOverrides}
+        >
+          <Icon icon={Refresh01Icon} className="size-3" />
+          Reset
+        </Button>
+      </div>
 
-      {/* CSS media feature emulation */}
-      <SegmentedRow label="Prefers-color-scheme">
-        <SegmentedControl
-          ariaLabel="Prefers-color-scheme"
-          options={COLOR_SCHEME_OPTIONS}
-          value={theme}
-          onChange={changeTheme}
+      <ControlSection
+        title="Paint"
+        description="Visualize repainting, compositing, and frame work."
+      >
+        <CheckboxRow
+          label="Paint flashing"
+          description="Highlights areas of the page (green) that need to be repainted."
+          checked={media.paintFlashing}
+          onChange={(v) => changeMedia('paintFlashing', v)}
         />
-      </SegmentedRow>
-      <SegmentedRow label="Prefers-reduced-motion">
-        <SegmentedControl
-          ariaLabel="Prefers-reduced-motion"
-          options={REDUCED_OPTIONS}
-          value={media.reducedMotion}
-          onChange={(value) => changeMedia('reducedMotion', value)}
+        <CheckboxRow
+          label="Layer borders"
+          description="Shows layer borders (orange/olive) and tiles (cyan)."
+          checked={media.layerBorders}
+          onChange={(v) => changeMedia('layerBorders', v)}
         />
-      </SegmentedRow>
-      <SegmentedRow label="Prefers-reduced-data">
-        <SegmentedControl
-          ariaLabel="Prefers-reduced-data"
-          options={REDUCED_OPTIONS}
-          value={media.reducedData}
-          onChange={(value) => changeMedia('reducedData', value)}
+        <CheckboxRow
+          label="Frame Rendering Stats"
+          description="Plots frame throughput, dropped frames distribution, and GPU memory."
+          checked={media.frameRenderingStats}
+          onChange={(v) => changeMedia('frameRenderingStats', v)}
         />
-      </SegmentedRow>
-      <SegmentedRow label="Prefers-reduced-transparency">
-        <SegmentedControl
-          ariaLabel="Prefers-reduced-transparency"
-          options={REDUCED_OPTIONS}
-          value={media.reducedTransparency}
-          onChange={(value) => changeMedia('reducedTransparency', value)}
+        <CheckboxRow
+          label="Highlight ads"
+          description="Highlights elements (red) detected to be ads."
+          checked={media.highlightAds}
+          onChange={(v) => changeMedia('highlightAds', v)}
         />
-      </SegmentedRow>
-      <SegmentedRow label="Forced-colors">
-        <SegmentedControl
-          ariaLabel="Forced-colors"
-          options={FORCED_COLORS_OPTIONS}
-          value={media.forcedColors}
-          onChange={(value) => changeMedia('forcedColors', value)}
-        />
-      </SegmentedRow>
-      <SegmentedRow label="Prefers-contrast">
-        <SegmentedControl
-          ariaLabel="Prefers-contrast"
-          options={CONTRAST_OPTIONS}
-          value={media.contrast}
-          onChange={(value) => changeMedia('contrast', value)}
-        />
-      </SegmentedRow>
-      <SegmentedRow label="Color-gamut">
-        <SegmentedControl
-          ariaLabel="Color-gamut"
-          options={COLOR_GAMUT_OPTIONS}
-          value={media.colorGamut}
-          onChange={(value) => changeMedia('colorGamut', value)}
-        />
-      </SegmentedRow>
-      <SegmentedRow label="Media type">
-        <SegmentedControl
-          ariaLabel="Media type"
-          options={MEDIA_TYPE_OPTIONS}
-          value={media.mediaType}
-          onChange={(value) => changeMedia('mediaType', value)}
-        />
-      </SegmentedRow>
+      </ControlSection>
 
-      {/* Vision / accessibility emulation */}
-      <SelectRow
-        label="Emulate vision deficiencies"
-        description="Forces vision deficiency emulation."
-        value={media.visionDeficiency}
-        options={VISION_DEFICIENCY_OPTIONS}
-        onChange={(v) => changeMedia('visionDeficiency', v as VisionDeficiency)}
-      />
-      <SelectRow
-        label="Emulate OS text scale"
-        description="Forces OS text scale emulation."
-        value={String(media.osTextScale)}
-        options={OS_TEXT_SCALE_OPTIONS}
-        onChange={(v) => changeMedia('osTextScale', Number(v))}
-      />
+      <ControlSection
+        title="Layout"
+        description="Find movement and interaction conditions that affect layout."
+      >
+        <CheckboxRow
+          label="Layout shift regions"
+          description="Highlights areas of the page (blue) that were shifted."
+          checked={media.layoutShiftRegions}
+          onChange={(v) => changeMedia('layoutShiftRegions', v)}
+        />
+        <CheckboxRow
+          label="Scrolling performance issues"
+          description="Highlights elements (teal) that can slow down scrolling."
+          checked={media.scrollingPerf}
+          onChange={(v) => changeMedia('scrollingPerf', v)}
+        />
+        <CheckboxRow
+          label="Emulate a focused page"
+          description="Keep page focused. Commonly used for debugging disappearing elements."
+          checked={media.focusedPage}
+          onChange={(v) => changeMedia('focusedPage', v)}
+        />
+      </ControlSection>
 
-      {/* Image format disabling */}
-      <CheckboxRow
-        label="Disable AVIF image format"
-        description="Requires a page reload to apply and disables caching for image requests."
-        checked={media.disableAvif}
-        onChange={(v) => changeMedia('disableAvif', v)}
-      />
-      <CheckboxRow
-        label="Disable WebP image format"
-        description="Requires a page reload to apply and disables caching for image requests."
-        checked={media.disableWebp}
-        onChange={(v) => changeMedia('disableWebp', v)}
-      />
+      <ControlSection
+        title="Accessibility"
+        description="Exercise reduced-motion and reduced-data preferences."
+      >
+        <SegmentedRow label="Prefers-reduced-motion">
+          <SegmentedControl
+            ariaLabel="Prefers-reduced-motion"
+            options={REDUCED_OPTIONS}
+            value={media.reducedMotion}
+            onChange={(value) => changeMedia('reducedMotion', value)}
+          />
+        </SegmentedRow>
+        <SegmentedRow label="Prefers-reduced-data">
+          <SegmentedControl
+            ariaLabel="Prefers-reduced-data"
+            options={REDUCED_OPTIONS}
+            value={media.reducedData}
+            onChange={(value) => changeMedia('reducedData', value)}
+          />
+        </SegmentedRow>
+        <SegmentedRow label="Prefers-reduced-transparency">
+          <SegmentedControl
+            ariaLabel="Prefers-reduced-transparency"
+            options={REDUCED_OPTIONS}
+            value={media.reducedTransparency}
+            onChange={(value) => changeMedia('reducedTransparency', value)}
+          />
+        </SegmentedRow>
+      </ControlSection>
+
+      <ControlSection title="Color" description="Test themes, contrast, gamut, and media behavior.">
+        <SegmentedRow label="Prefers-color-scheme">
+          <SegmentedControl
+            ariaLabel="Prefers-color-scheme"
+            options={COLOR_SCHEME_OPTIONS}
+            value={theme}
+            onChange={changeTheme}
+          />
+        </SegmentedRow>
+        <CheckboxRow
+          label="Enable automatic dark mode"
+          description="Enables automatic dark mode and sets prefers-color-scheme to dark."
+          checked={media.autoDarkMode}
+          onChange={(v) => changeMedia('autoDarkMode', v)}
+        />
+        <SegmentedRow label="Forced-colors">
+          <SegmentedControl
+            ariaLabel="Forced-colors"
+            options={FORCED_COLORS_OPTIONS}
+            value={media.forcedColors}
+            onChange={(value) => changeMedia('forcedColors', value)}
+          />
+        </SegmentedRow>
+        <SegmentedRow label="Prefers-contrast">
+          <SegmentedControl
+            ariaLabel="Prefers-contrast"
+            options={CONTRAST_OPTIONS}
+            value={media.contrast}
+            onChange={(value) => changeMedia('contrast', value)}
+          />
+        </SegmentedRow>
+        <SegmentedRow label="Color-gamut">
+          <SegmentedControl
+            ariaLabel="Color-gamut"
+            options={COLOR_GAMUT_OPTIONS}
+            value={media.colorGamut}
+            onChange={(value) => changeMedia('colorGamut', value)}
+          />
+        </SegmentedRow>
+        <SegmentedRow label="Media type">
+          <SegmentedControl
+            ariaLabel="Media type"
+            options={MEDIA_TYPE_OPTIONS}
+            value={media.mediaType}
+            onChange={(value) => changeMedia('mediaType', value)}
+          />
+        </SegmentedRow>
+      </ControlSection>
+
+      <ControlSection title="Vision" description="Check text scale and common vision deficiencies.">
+        <SelectRow
+          label="Emulate vision deficiencies"
+          description="Forces vision deficiency emulation."
+          value={media.visionDeficiency}
+          options={VISION_DEFICIENCY_OPTIONS}
+          onChange={(v) => changeMedia('visionDeficiency', v as VisionDeficiency)}
+        />
+        <SelectRow
+          label="Emulate OS text scale"
+          description="Forces OS text scale emulation."
+          value={String(media.osTextScale)}
+          options={OS_TEXT_SCALE_OPTIONS}
+          onChange={(v) => changeMedia('osTextScale', Number(v))}
+        />
+      </ControlSection>
+
+      <ControlSection
+        title="Resources"
+        description="Simulate missing local fonts and image formats."
+      >
+        <CheckboxRow
+          label="Disable local fonts"
+          description="Disables local() sources in @font-face rules. Requires a page reload."
+          checked={media.disableLocalFonts}
+          onChange={(v) => changeMedia('disableLocalFonts', v)}
+        />
+        <CheckboxRow
+          label="Disable AVIF image format"
+          description="Requires a page reload to apply and disables caching for image requests."
+          checked={media.disableAvif}
+          onChange={(v) => changeMedia('disableAvif', v)}
+        />
+        <CheckboxRow
+          label="Disable WebP image format"
+          description="Requires a page reload to apply and disables caching for image requests."
+          checked={media.disableWebp}
+          onChange={(v) => changeMedia('disableWebp', v)}
+        />
+      </ControlSection>
     </div>
   )
 }
