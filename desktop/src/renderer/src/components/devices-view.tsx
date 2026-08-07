@@ -207,8 +207,8 @@ export function DevicesView({
                 )}
               </div>
 
-              <div className="min-w-0 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <div className="flex min-w-max items-start gap-5">
+              <div className="-mx-8 min-w-0 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex min-w-max items-start gap-5 px-8">
                   {entries.map((entry) => (
                     <DevicePresetCard
                       key={entry.presetId}
