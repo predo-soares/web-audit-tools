@@ -207,16 +207,21 @@ export function DevicesView({
                 )}
               </div>
 
-              <div className="flex items-start gap-5 overflow-x-auto pb-3">
-                {entries.map((entry) => (
-                  <DevicePresetCard
-                    key={entry.presetId}
-                    entry={entry}
-                    selectedPresets={selectedPresets}
-                    visibleCount={visibleCount}
-                    onTogglePreset={onTogglePreset}
-                  />
-                ))}
+              <div
+                className="relative left-1/2 -translate-x-1/2 overflow-x-auto pb-3"
+                style={{ width: `calc(100vw - ${sidebarOffset}px)` }}
+              >
+                <div className="flex w-max min-w-full items-start gap-5 px-8">
+                  {entries.map((entry) => (
+                    <DevicePresetCard
+                      key={entry.presetId}
+                      entry={entry}
+                      selectedPresets={selectedPresets}
+                      visibleCount={visibleCount}
+                      onTogglePreset={onTogglePreset}
+                    />
+                  ))}
+                </div>
               </div>
             </section>
           )
