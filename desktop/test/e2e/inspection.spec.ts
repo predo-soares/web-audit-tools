@@ -52,6 +52,7 @@ test('Element picker compares visible panes independently of interaction links',
     await expect(window.getByTestId('inspection-result-ipad')).toContainText('Matched')
     await expect(window.getByTestId('inspection-result-desktop')).toContainText('Matched')
     await expect(window.getByTestId('inspection-result-ipad')).toContainText('Independent')
+    await expect(window.getByTestId('inspection-difference-width')).toBeVisible()
   } finally {
     await close()
   }

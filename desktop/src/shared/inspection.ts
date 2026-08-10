@@ -117,6 +117,14 @@ export interface InspectionState {
   records: InspectionRecord[]
 }
 
+export interface InspectionDifference {
+  category: 'geometry' | 'layout' | 'styles'
+  key: string
+  label: string
+  sourceValue: string
+  targetValues: Array<{ paneId: PaneId; value: string }>
+}
+
 export const EMPTY_INSPECTION_STATE: InspectionState = {
   active: false,
   record: null,
@@ -523,6 +531,96 @@ export function formatInspectionStatus(status: InspectionMatchStatus): string {
   if (status === 'unavailable') return 'Unavailable'
   if (status === 'stale') return 'Stale'
   return 'Matched'
+}
+
+const GEOMETRY_FIELDS: Array<keyof InspectionGeometry> = ['x', 'y', 'width', 'height']
+const LAYOUT_FIELDS: Array<keyof InspectionLayout> = [
+  'display',
+  'position',
+  'width',
+  'height',
+  'overflow',
+  'flex',
+  'grid'
+]
+const STYLE_FIELDS: Array<keyof InspectionStyles> = [
+  'margin',
+  'padding',
+  'color',
+  'background',
+  'font',
+  'fontSize',
+  'lineHeight',
+  'fontWeight',
+  'zIndex',
+  'minWidth',
+  'maxWidth',
+  'minHeight',
+  'maxHeight'
+]
+
+function humanizeInspectionKey(key: string): string {
+  return key.replace(/[A-Z]/g, (letter) => ` ${letter.toLowerCase()}`)
+}
+
+function inspectionValue(value: unknown): string {
+  return value === null || value === undefined || value === '' ? '—' : String(value)
+}
+
+export function getInspectionDifferences(
+  records: readonly InspectionRecord[]
+): InspectionDifference[] {
+  const source = records.find((record) => record.source && record.snapshot)
+  if (!source?.snapshot) return []
+  const matchedTargets = records.filter(
+    (record) => !record.source && record.status === 'matched' && record.snapshot
+  )
+  if (!matchedTargets.length) return []
+
+  const rows: InspectionDifference[] = []
+  const addRows = <T extends object>(
+    category: InspectionDifference['category'],
+    sourceValues: T,
+    targetValues: Array<{ paneId: PaneId; values: T }>,
+    fields: readonly (keyof T)[]
+  ): void => {
+    for (const key of fields) {
+      const sourceValue = inspectionValue(sourceValues[key])
+      const targets = targetValues.map(({ paneId, values }) => ({
+        paneId,
+        value: inspectionValue(values[key])
+      }))
+      if (targets.some(({ value }) => value !== sourceValue)) {
+        rows.push({
+          category,
+          key: String(key),
+          label: humanizeInspectionKey(String(key)),
+          sourceValue,
+          targetValues: targets
+        })
+      }
+    }
+  }
+
+  addRows(
+    'geometry',
+    source.snapshot.geometry,
+    matchedTargets.map((record) => ({ paneId: record.paneId, values: record.snapshot!.geometry })),
+    GEOMETRY_FIELDS
+  )
+  addRows(
+    'layout',
+    source.snapshot.layout,
+    matchedTargets.map((record) => ({ paneId: record.paneId, values: record.snapshot!.layout })),
+    LAYOUT_FIELDS
+  )
+  addRows(
+    'styles',
+    source.snapshot.styles,
+    matchedTargets.map((record) => ({ paneId: record.paneId, values: record.snapshot!.styles })),
+    STYLE_FIELDS
+  )
+  return rows
 }
 
 export function formatInspectionIdentity(target: InspectionTarget): string {

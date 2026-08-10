@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest'
 import {
   buildInspectionTarget,
   buildInspectionLayers,
+  createInspectionRecord,
+  getInspectionDifferences,
   matchesInspectionLayer,
   resolveInspectionTarget,
-  type InspectionElementDescriptor
+  type InspectionElementDescriptor,
+  type InspectionPageSnapshot
 } from '../../src/shared/inspection'
+import { DEVICE_PRESETS } from '../../src/shared/device-presets'
 
 function descriptor(
   overrides: Partial<InspectionElementDescriptor> = {}
@@ -121,5 +125,67 @@ describe('inspection identity', () => {
     const layer = { type: 'id' as const, value: 'stable' }
     expect(matchesInspectionLayer(layer, descriptor({ id: 'stable' }))).toBe(true)
     expect('x' in descriptor()).toBe(false)
+  })
+
+  it('projects geometry and style differences in stable order', () => {
+    const target = buildInspectionTarget(descriptor({ id: 'layout' }))
+    const snapshot = (overrides: Partial<InspectionPageSnapshot> = {}): InspectionPageSnapshot => ({
+      target,
+      selector: '#layout',
+      domPath: 'main > div:nth-child(1)',
+      geometry: { x: 0, y: 0, width: 200, height: 80 },
+      visibility: { visible: true, clipped: false, offscreen: false },
+      layout: {
+        display: 'block',
+        position: 'static',
+        width: '200px',
+        height: '80px',
+        overflow: 'visible',
+        flex: null,
+        grid: null
+      },
+      styles: {
+        margin: '0px',
+        padding: '8px',
+        color: 'white',
+        background: 'black',
+        font: '16px system-ui',
+        fontSize: '16px',
+        lineHeight: '24px',
+        fontWeight: '400',
+        zIndex: 'auto',
+        minWidth: '0px',
+        maxWidth: 'none',
+        minHeight: '0px',
+        maxHeight: 'none'
+      },
+      url: 'https://fixture.test/',
+      capturedAt: 1,
+      ...overrides
+    })
+    const source = createInspectionRecord({
+      paneId: 'desktop',
+      source: true,
+      target,
+      profile: DEVICE_PRESETS.desktop,
+      url: 'https://fixture.test/',
+      snapshot: snapshot()
+    })
+    const targetRecord = createInspectionRecord({
+      paneId: 'iphone',
+      source: false,
+      target,
+      profile: DEVICE_PRESETS.iphone,
+      url: 'https://fixture.test/',
+      snapshot: snapshot({
+        geometry: { x: 8, y: 0, width: 160, height: 80 },
+        styles: { ...snapshot().styles, color: 'yellow' }
+      }),
+      status: 'matched'
+    })
+
+    const differences = getInspectionDifferences([source, targetRecord])
+    expect(differences.slice(0, 2).map((difference) => difference.key)).toEqual(['x', 'width'])
+    expect(differences.at(-1)).toMatchObject({ category: 'styles', key: 'color' })
   })
 })
