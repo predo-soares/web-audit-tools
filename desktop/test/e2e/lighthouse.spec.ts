@@ -27,6 +27,8 @@ test('flags an invalid URL in the Lighthouse target bar', async () => {
     await waitForAllPanes(window)
     const panel = await openLighthouseView(window)
     const input = panel.getByTestId('lighthouse-target-url')
+    await expect(panel.getByTestId('lighthouse-tab-mobile')).toHaveCount(0)
+    await expect(panel.getByTestId('lighthouse-tab-desktop')).toHaveCount(0)
 
     await input.fill('not a url')
     await input.press('Enter')
@@ -95,6 +97,8 @@ test('renders the final Lighthouse screenshot in the results summary', async ({ 
 
     const screenshot = panel.getByTestId('lighthouse-final-screenshot')
     await expect(screenshot).toBeVisible({ timeout: 120_000 })
+    await expect(panel.getByTestId('lighthouse-tab-mobile')).toBeVisible()
+    await expect(panel.getByTestId('lighthouse-tab-desktop')).toBeVisible()
     await expect(screenshot).toHaveAttribute('src', /^data:image\/jpeg;base64,/)
     await expect
       .poll(() => screenshot.evaluate((image: HTMLImageElement) => image.naturalWidth))

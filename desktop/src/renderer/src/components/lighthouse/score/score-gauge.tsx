@@ -6,11 +6,13 @@ import { EASE_OUT } from '../lib/styles'
 export function ScoreGauge({
   category,
   size = 'md',
-  centered = false
+  centered = false,
+  hideRingsOnInteraction = false
 }: {
   category: LighthouseCategory
   size?: 'sm' | 'md' | 'lg'
   centered?: boolean
+  hideRingsOnInteraction?: boolean
 }): React.JSX.Element {
   const tone = scoreTone(category.score)
   const value = category.score == null ? 0 : Math.max(0, Math.min(1, category.score))
@@ -18,7 +20,7 @@ export function ScoreGauge({
   const small = size === 'sm'
   const box = large ? 120 : small ? 68 : 88
   const radius = large ? 48 : small ? 27 : 36
-  const stroke = large ? 8 : small ? 5 : 6
+  const stroke = large ? 8 : small ? 3.5 : 6
   const circumference = 2 * Math.PI * radius
   const dash = circumference * value
 
@@ -39,6 +41,13 @@ export function ScoreGauge({
             fill="none"
             stroke="rgba(255,255,255,0.08)"
             strokeWidth={stroke}
+            className={cn(
+              'transition-opacity duration-[400ms]',
+              EASE_OUT,
+              'motion-reduce:duration-0',
+              hideRingsOnInteraction &&
+                'group-hover/performance:opacity-0 group-focus/performance:opacity-0'
+            )}
           />
           <circle
             cx={box / 2}
@@ -50,15 +59,17 @@ export function ScoreGauge({
             strokeLinecap="round"
             strokeDasharray={`${dash} ${circumference}`}
             className={cn(
-              'transition-[stroke-dasharray] duration-300',
+              'transition-[stroke-dasharray,opacity] duration-[400ms]',
               EASE_OUT,
-              'motion-reduce:duration-0'
+              'motion-reduce:duration-0',
+              hideRingsOnInteraction &&
+                'group-hover/performance:opacity-0 group-focus/performance:opacity-0'
             )}
           />
         </svg>
         <strong
           className={cn(
-            'absolute inset-0 flex items-center justify-center font-semibold tabular-nums',
+            'absolute inset-0 flex items-center justify-center font-medium tabular-nums',
             large ? 'text-4xl' : small ? 'text-xl' : 'text-2xl',
             TONE_TEXT[tone]
           )}
@@ -68,10 +79,7 @@ export function ScoreGauge({
       </div>
       {!centered ? (
         <span
-          className={cn(
-            'text-center text-white/55',
-            large ? 'text-sm' : small ? 'text-[11px]' : 'text-xs'
-          )}
+          className={cn("text-center text-white/80", large ? "text-sm" : "text-xs")}
         >
           {category.title}
         </span>
