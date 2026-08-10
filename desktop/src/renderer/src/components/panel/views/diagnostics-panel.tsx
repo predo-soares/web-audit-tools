@@ -20,8 +20,7 @@ import {
   ExternalLinkIcon,
   PauseIcon,
   PlayIcon,
-  Search01Icon,
-  SourceCodeIcon
+  Search01Icon
 } from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
 import { Input } from '@renderer/components/ui/input'
@@ -53,6 +52,26 @@ type NetworkDurationFilter = 'all' | '100' | '500' | '1000' | '3000'
 type NetworkSort = 'newest' | 'duration' | 'status'
 
 const SCROLL_TAIL_THRESHOLD_PX = 24
+
+function CursorArrowRaysIcon({ className }: { className?: string }): React.JSX.Element {
+  return (
+    <svg
+      aria-hidden="true"
+      className={cn('shrink-0', className)}
+      fill="none"
+      focusable="false"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672ZM12 2.25V4.5m5.834.166-1.591 1.591M20.25 10.5H18M7.757 14.743l-1.59 1.59M6 10.5H3.75m4.007-4.243-1.59-1.59"
+      />
+    </svg>
+  )
+}
 
 interface GroupedConsoleEntry {
   entry: ConsoleEvidenceEntry
@@ -515,7 +534,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
                 },
                 {
                   value: 'inspection' as const,
-                  label: <Icon icon={SourceCodeIcon} size={14} />,
+                  label: <CursorArrowRaysIcon className="size-3.5" />,
                   ariaLabel: 'Inspection',
                   iconOnly: true,
                   testId: 'diagnostics-tab-inspection'
@@ -535,7 +554,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
               />
             ) : (
               <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
-                <Icon icon={SourceCodeIcon} className="size-5 text-muted-foreground" />
+                <CursorArrowRaysIcon className="size-5 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">
                   {inspectionState.active
                     ? 'Move over an element in Preview, then click to inspect it.'
