@@ -65,8 +65,8 @@ export default function App(): React.JSX.Element {
   // repeated nav-state updates (title changes, etc.) that carry the same URL.
   const lastCommittedUrlRef = useRef('')
   // Set when a navigation is initiated from within a full-screen view's own URL
-  // bar (e.g. the SEO target bar), so the pane navigation that follows keeps the
-  // user in that view instead of returning them to the device canvas.
+  // bar or a panel history/project action, so the pane navigation that follows
+  // keeps the user in that view instead of returning them to the device canvas.
   const suppressCanvasReturnRef = useRef(false)
   // Read by IPC callbacks whose effect runs once; keeps them off stale closures.
   const workspaceRef = useRef(workspace)
@@ -75,6 +75,15 @@ export default function App(): React.JSX.Element {
     workspaceRef.current = workspace
     chromeHiddenRef.current = chromeHidden
   }, [workspace, chromeHidden])
+
+  useEffect(() => {
+    const unsubscribePanelAction = window.api.onPanelAction((action) => {
+      if (action.type === 'navigate' && workspaceRef.current !== 'browser') {
+        suppressCanvasReturnRef.current = true
+      }
+    })
+    return unsubscribePanelAction
+  }, [])
 
   // Mirror the active workspace to the toolbar panel so it can hide the URL bar
   // and page-scoped controls outside the browser view.

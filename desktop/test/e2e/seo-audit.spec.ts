@@ -32,6 +32,7 @@ async function selectSeoTab(
 import {
   evaluateInPane,
   fixtureUrl,
+  getSidebarPage,
   launchApp,
   navigateTo,
   openSeoView,
@@ -386,6 +387,29 @@ test('suggests visited pages from history in the target bar', async ({ fixturePo
     const history = panel.getByTestId('seo-url-history')
     await expect(history).toBeVisible()
     await expect(history.getByTestId('seo-url-history-item').first()).toContainText('with-title')
+  } finally {
+    await close()
+  }
+})
+
+test('keeps the SEO workspace when selecting a page from sidebar history', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+  const historyUrl = fixtureUrl(fixturePort, '/seo/with-title')
+
+  try {
+    await navigateTo(window, historyUrl)
+    await waitForPaneElement(window, 'desktop', 'seo-with-title')
+    await navigateTo(window, fixtureUrl(fixturePort, '/seo/no-title'))
+    await waitForPaneElement(window, 'desktop', 'seo-no-title')
+
+    await openSeoView(window)
+    const sidebar = await getSidebarPage(window)
+    await sidebar.getByTestId(`history-row-${encodeURIComponent(historyUrl)}`).click()
+
+    await expect(window.getByTestId('seo-view')).toBeVisible()
+    await expect(window.getByTestId('preview-canvas')).toHaveCount(0)
   } finally {
     await close()
   }

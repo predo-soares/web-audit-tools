@@ -578,6 +578,15 @@ export function registerIpcHandlers(
     }
 
     if (action.type === 'navigate') {
+      // Sidebar history/project navigation originates in a panel renderer, so
+      // tell the main renderer to keep its current full-screen workspace before
+      // the pane navigation event arrives.
+      if (currentWorkspaceView !== 'browser') {
+        const mainWindow = BrowserWindow.getAllWindows()[0]
+        if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+          mainWindow.webContents.send('panel:action', action)
+        }
+      }
       void paneManager.navigateAll(normalizeUrl(action.url))
       if (panelId === 'url-history') {
         panelManager.close(panelId)
