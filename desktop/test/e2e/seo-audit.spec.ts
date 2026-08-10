@@ -346,7 +346,7 @@ test('offers an editable URL bar before a page is committed', async () => {
     // available so a page can be entered from here.
     await expect(panel.getByTestId('seo-target-url')).toBeVisible()
     await expect(panel.getByTestId('seo-run-audit')).toBeVisible()
-    await expect(panel.getByText('Run an audit to see results.')).toBeVisible()
+    await expect(panel.getByText('Run an audit to see results.')).toHaveCount(0)
   } finally {
     await close()
   }

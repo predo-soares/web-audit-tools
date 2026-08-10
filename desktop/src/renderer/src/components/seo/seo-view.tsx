@@ -50,6 +50,7 @@ export function SeoView({
     setFindingOutcomes,
     copyMarkdown
   } = presentation
+  const isEmptyState = !result && !presentation.running
 
   return (
     <TooltipProvider delay={200}>
@@ -65,100 +66,103 @@ export function SeoView({
           scrollbarGutter: 'stable'
         }}
       >
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-8 py-8">
-          <header>
-            <h1 className="text-lg font-semibold tracking-tight text-white">Page SEO audit</h1>
-            <p className="mt-1 text-xs text-white/45">
-              Check discoverability, metadata, and structured data for the current page.
-            </p>
-          </header>
-          <AuditControls
-            url={presentation.url}
-            intent={presentation.intent}
-            running={presentation.running}
-            job={presentation.job}
-            result={result}
-            history={presentation.history}
-            handleNavigate={(target) => {
-              onTargetNavigate()
-              presentation.handleNavigate(target)
-            }}
-            handleIntentChange={presentation.handleIntentChange}
-            handleRun={presentation.handleRun}
-            handleCancel={presentation.handleCancel}
-          />
-
-          {!result ? (
-            presentation.running ? (
-              <div
-                data-testid="seo-results-loading"
-                className="flex items-center justify-center gap-3 rounded-xl border border-white/10 bg-black/40 px-6 py-16 text-sm text-white/55 backdrop-blur-md"
-              >
-                <span
-                  aria-hidden
-                  className="size-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent"
-                />
-                Running audit…
-              </div>
-            ) : (
-              <p className="rounded-xl border border-white/10 bg-black/40 px-6 py-16 text-center text-sm text-white/55 backdrop-blur-md">
-                Run an audit to see results.
-              </p>
-            )
-          ) : (
-            <>
-              <MotionTabs
-                items={SEO_TABS}
-                value={tab}
-                onChange={setTab}
-                layoutId="seo-tab-indicator"
-                ariaLabel="SEO report sections"
-              />
-              <div
-                role="tabpanel"
-                data-testid={`seo-tabpanel-${tab}`}
-                className="flex flex-col gap-5"
-              >
-                {tab === 'findings' ? (
-                  <FindingsSection
-                    result={result}
-                    findingCategories={findingCategories}
-                    findingOutcomes={findingOutcomes}
-                    setFindingCategories={setFindingCategories}
-                    setFindingOutcomes={setFindingOutcomes}
-                    copyMarkdown={copyMarkdown}
-                  />
-                ) : null}
-
-                {tab === 'preview' ? (
-                  <>
-                    <SearchPreview result={result} />
-                    <SocialPreviews result={result} />
-                  </>
-                ) : null}
-
-                {tab === 'structure' ? (
-                  <>
-                    <DocumentStructureSection result={result} />
-                    <StructuredDataSection result={result} />
-                    <MetadataDetails result={result} />
-                  </>
-                ) : null}
-
-                {tab === 'links' ? (
-                  <LinkInventorySection
-                    result={result}
-                    linkFilter={linkFilter}
-                    setLinkFilter={setLinkFilter}
-                  />
-                ) : null}
-
-                {tab === 'media' ? <ImagesMediaSection result={result} /> : null}
-
-                {tab === 'i18n' ? <InternationalizationSection result={result} /> : null}
-              </div>
-            </>
+        <div
+          className={cn(
+            'mx-auto flex w-full flex-col px-8 py-8',
+            isEmptyState && 'min-h-full justify-center'
           )}
+        >
+          <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
+            <header>
+              <h1 className="text-lg font-semibold tracking-tight text-white">Page SEO audit</h1>
+              <p className="mt-1 text-xs text-white/45">
+                Check discoverability, metadata, and structured data for the current page.
+              </p>
+            </header>
+            <AuditControls
+              url={presentation.url}
+              intent={presentation.intent}
+              running={presentation.running}
+              job={presentation.job}
+              result={result}
+              history={presentation.history}
+              handleNavigate={(target) => {
+                onTargetNavigate()
+                presentation.handleNavigate(target)
+              }}
+              handleIntentChange={presentation.handleIntentChange}
+              handleRun={presentation.handleRun}
+              handleCancel={presentation.handleCancel}
+            />
+
+            {!result ? (
+              presentation.running ? (
+                <div
+                  data-testid="seo-results-loading"
+                  className="flex items-center justify-center gap-3 rounded-xl border border-white/10 bg-black/40 px-6 py-16 text-sm text-white/55 backdrop-blur-md"
+                >
+                  <span
+                    aria-hidden
+                    className="size-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent"
+                  />
+                  Running audit…
+                </div>
+              ) : null
+            ) : (
+              <>
+                <MotionTabs
+                  items={SEO_TABS}
+                  value={tab}
+                  onChange={setTab}
+                  layoutId="seo-tab-indicator"
+                  ariaLabel="SEO report sections"
+                />
+                <div
+                  role="tabpanel"
+                  data-testid={`seo-tabpanel-${tab}`}
+                  className="flex flex-col gap-5"
+                >
+                  {tab === 'findings' ? (
+                    <FindingsSection
+                      result={result}
+                      findingCategories={findingCategories}
+                      findingOutcomes={findingOutcomes}
+                      setFindingCategories={setFindingCategories}
+                      setFindingOutcomes={setFindingOutcomes}
+                      copyMarkdown={copyMarkdown}
+                    />
+                  ) : null}
+
+                  {tab === 'preview' ? (
+                    <>
+                      <SearchPreview result={result} />
+                      <SocialPreviews result={result} />
+                    </>
+                  ) : null}
+
+                  {tab === 'structure' ? (
+                    <>
+                      <DocumentStructureSection result={result} />
+                      <StructuredDataSection result={result} />
+                      <MetadataDetails result={result} />
+                    </>
+                  ) : null}
+
+                  {tab === 'links' ? (
+                    <LinkInventorySection
+                      result={result}
+                      linkFilter={linkFilter}
+                      setLinkFilter={setLinkFilter}
+                    />
+                  ) : null}
+
+                  {tab === 'media' ? <ImagesMediaSection result={result} /> : null}
+
+                  {tab === 'i18n' ? <InternationalizationSection result={result} /> : null}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </TooltipProvider>
