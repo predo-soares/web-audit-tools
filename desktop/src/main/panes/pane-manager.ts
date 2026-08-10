@@ -896,7 +896,7 @@ export class PaneManager {
 
     const profile = this.paneProfiles.get(paneId) ?? DEVICE_PRESETS[paneId]
     const url = this.getEngine(paneId).getCurrentUrl()
-    const record = createInspectionRecord({
+    const sourceRecord = createInspectionRecord({
       paneId,
       source: true,
       target,
@@ -904,18 +904,80 @@ export class PaneManager {
       url,
       snapshot,
       status: 'matched',
-      provenance: snapshot.target.strongestIdentity ? null : 'page selection'
+      provenance: null
     })
+
+    const visiblePanes = PANE_IDS.filter((id) => this.isPaneVisible(id))
+    const targetResults = await Promise.all(
+      visiblePanes.map(async (targetPaneId) => {
+        if (targetPaneId === paneId) {
+          return { paneId: targetPaneId, status: 'matched' as const, snapshot, provenance: null }
+        }
+
+        const engine = this.getEngine(targetPaneId)
+        const url = engine.getCurrentUrl()
+        if (url === 'about:blank' || this.loadingState.get(targetPaneId)) {
+          return {
+            paneId: targetPaneId,
+            status: 'unavailable' as const,
+            snapshot: null,
+            provenance: null
+          }
+        }
+
+        try {
+          const result = await engine.inspectElement(target)
+          return { paneId: targetPaneId, ...result }
+        } catch {
+          return {
+            paneId: targetPaneId,
+            status: 'unavailable' as const,
+            snapshot: null,
+            provenance: null
+          }
+        }
+      })
+    )
+
+    const records = targetResults.map((result) => {
+      if (result.paneId === paneId) return sourceRecord
+      const profile = this.paneProfiles.get(result.paneId) ?? DEVICE_PRESETS[result.paneId]
+      const engine = this.getEngine(result.paneId)
+      return createInspectionRecord({
+        paneId: result.paneId,
+        source: false,
+        target,
+        profile,
+        url: engine.getCurrentUrl(),
+        snapshot: result.snapshot,
+        status: result.status,
+        provenance: result.provenance,
+        error:
+          result.status === 'unavailable' ? 'Pane did not return inspection evidence' : undefined
+      })
+    })
+
+    await Promise.all(
+      targetResults.map((result) =>
+        this.getEngine(result.paneId).setInspectionSelection(
+          result.status === 'matched' ? target : null
+        )
+      )
+    )
+
     this.inspectionState = {
       active: true,
-      record,
-      records: [record]
+      record: sourceRecord,
+      records
     }
     this.broadcastRendererEvent('inspection:state', this.getInspectionState())
   }
 
   clearInspectionSelection(): void {
     if (!this.inspectionState.record && !this.inspectionState.records.length) return
+    for (const paneId of PANE_IDS) {
+      void this.getEngine(paneId).setInspectionSelection(null)
+    }
     this.inspectionState = {
       active: this.inspectionMode,
       record: null,

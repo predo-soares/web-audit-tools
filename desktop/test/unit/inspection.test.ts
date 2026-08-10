@@ -77,6 +77,46 @@ describe('inspection identity', () => {
     })
   })
 
+  it('matches responsive markup through a stable id even when text changes', () => {
+    const source = descriptor({
+      tagName: 'div',
+      id: 'layout',
+      visibleText: 'desktop markup',
+      structuralPath: 'main > div:nth-child(1)'
+    })
+    const mobile = descriptor({
+      tagName: 'section',
+      id: 'layout',
+      visibleText: 'mobile markup',
+      structuralPath: 'main > section:nth-child(2)'
+    })
+    const target = buildInspectionTarget(source)
+
+    expect(resolveInspectionTarget(target, [mobile])).toMatchObject({
+      status: 'matched',
+      index: 0,
+      layer: { type: 'id' }
+    })
+  })
+
+  it('reports a strict not-found result when every semantic signal is absent', () => {
+    const target = buildInspectionTarget(
+      descriptor({
+        id: 'source-only',
+        visibleText: null,
+        structuralPath: 'main > div:nth-child(3)'
+      })
+    )
+    expect(
+      resolveInspectionTarget(target, [descriptor({ id: 'other', visibleText: 'Other' })])
+    ).toEqual({
+      status: 'not-found',
+      index: null,
+      layer: null,
+      provenance: null
+    })
+  })
+
   it('does not accept coordinate data as an identity signal', () => {
     const layer = { type: 'id' as const, value: 'stable' }
     expect(matchesInspectionLayer(layer, descriptor({ id: 'stable' }))).toBe(true)

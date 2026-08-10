@@ -4,10 +4,15 @@ import { Button } from '@renderer/components/ui/button'
 
 interface InspectionRailProps {
   record: InspectionRecord
+  records: InspectionRecord[]
   onClose: () => void
 }
 
-export function InspectionRail({ record, onClose }: InspectionRailProps): React.JSX.Element {
+export function InspectionRail({
+  record,
+  records,
+  onClose
+}: InspectionRailProps): React.JSX.Element {
   const descriptor = record.target.descriptor
 
   return (
@@ -103,6 +108,36 @@ export function InspectionRail({ record, onClose }: InspectionRailProps): React.
                 {record.device.url || 'Unavailable'}
               </span>
             </div>
+          </div>
+        </section>
+
+        <section className="space-y-2" aria-labelledby="inspection-comparison-heading">
+          <h3
+            id="inspection-comparison-heading"
+            className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500"
+          >
+            Visible panes
+          </h3>
+          <div className="space-y-2">
+            {records.map((paneRecord) => (
+              <div
+                key={paneRecord.paneId}
+                className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2"
+                data-testid={`inspection-result-${paneRecord.paneId}`}
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-zinc-200">{paneRecord.device.preset}</p>
+                  <p className="truncate text-[11px] text-zinc-500">
+                    {paneRecord.source
+                      ? 'Source pane'
+                      : (paneRecord.provenance ?? 'Independent comparison')}
+                  </p>
+                </div>
+                <span className="shrink-0 font-medium text-zinc-300">
+                  {formatInspectionStatus(paneRecord.status)}
+                </span>
+              </div>
+            ))}
           </div>
         </section>
 

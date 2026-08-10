@@ -33,3 +33,26 @@ test('Element picker selects a page element without leaving Preview', async ({ f
     await close()
   }
 })
+
+test('Element picker compares visible panes independently of interaction links', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/ua-sniff'))
+    await waitForAllPanes(window)
+    await window.evaluate(() => window.api.setPaneLinked('ipad', false))
+
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('inspection-toggle').click()
+    await evaluateInPane(window, 'desktop', `document.getElementById('layout')?.click()`)
+
+    await expect(window.getByTestId('inspection-result-iphone')).toContainText('Matched')
+    await expect(window.getByTestId('inspection-result-ipad')).toContainText('Matched')
+    await expect(window.getByTestId('inspection-result-desktop')).toContainText('Matched')
+    await expect(window.getByTestId('inspection-result-ipad')).toContainText('Independent')
+  } finally {
+    await close()
+  }
+})

@@ -2,8 +2,10 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { createElementMirror } from '../shared/element-mirror'
 import {
   buildInspectionTarget,
+  resolveInspectionTarget,
   type InspectionElementDescriptor,
-  type InspectionPageSnapshot
+  type InspectionPageSnapshot,
+  type InspectionTarget
 } from '../shared/inspection'
 import type { PaneId } from '../shared/types'
 
@@ -16,6 +18,7 @@ function getPaneId(): PaneId {
 const paneId = getPaneId()
 const mirror = createElementMirror()
 let disposeInspectionController: (() => void) | null = null
+let applyRemoteInspectionSelection: ((target: InspectionTarget | null) => void) | null = null
 
 function isValueSyncControl(
   target: EventTarget | null
@@ -272,6 +275,22 @@ function installInspectionController(): void {
     schedulePaint()
   }
 
+  const applySelection = (target: InspectionTarget | null): void => {
+    if (!target) {
+      selectedElement = null
+      schedulePaint()
+      return
+    }
+    const elements = Array.from(document.querySelectorAll('*'))
+    const descriptors = elements.map(describeInspectionElement)
+    const resolution = resolveInspectionTarget(target, descriptors)
+    selectedElement =
+      resolution.status === 'matched' && resolution.index !== null
+        ? (elements[resolution.index] ?? null)
+        : null
+    schedulePaint()
+  }
+
   const handleEscape = (event: KeyboardEvent): void => {
     if (event.key !== 'Escape') return
     ipcRenderer.send('pane:inspection-escape', paneId)
@@ -283,6 +302,7 @@ function installInspectionController(): void {
   window.addEventListener('keydown', handleEscape, true)
   window.addEventListener('scroll', schedulePaint, { passive: true })
   window.addEventListener('resize', schedulePaint)
+  applyRemoteInspectionSelection = applySelection
 
   disposeInspectionController = () => {
     window.removeEventListener('pointermove', handlePointerMove, true)
@@ -295,6 +315,7 @@ function installInspectionController(): void {
     root.remove()
     selectedElement = null
     hoverElement = null
+    applyRemoteInspectionSelection = null
     disposeInspectionController = null
   }
 }
@@ -302,6 +323,10 @@ function installInspectionController(): void {
 ipcRenderer.on('pane:inspection-mode', (_event, enabled: boolean) => {
   if (enabled) installInspectionController()
   else disposeInspectionController?.()
+})
+
+ipcRenderer.on('pane:inspection-selection', (_event, target: InspectionTarget | null) => {
+  applyRemoteInspectionSelection?.(target)
 })
 
 window.addEventListener(

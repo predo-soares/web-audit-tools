@@ -18,7 +18,7 @@ import {
 } from '../../shared/element-mirror'
 import {
   getInspectionPageExpression,
-  type InspectionPageSnapshot,
+  type InspectionPageResolution,
   type InspectionTarget
 } from '../../shared/inspection'
 import { DEFAULT_ZOOM } from '../../shared/mockup-layout'
@@ -38,11 +38,6 @@ interface RuntimeEvaluateResponse {
 
 interface CaptureScreenshotResponse {
   data?: string
-}
-
-interface InspectionPageResolution {
-  status: 'matched' | 'not-found' | 'ambiguous' | 'unavailable' | 'stale'
-  snapshot: InspectionPageSnapshot | null
 }
 
 function isNavigationAborted(error: unknown): boolean {
@@ -526,7 +521,7 @@ export class WebContentsViewEngine implements EngineView {
     this.webContents.send('pane:inspection-mode', enabled)
   }
 
-  async inspectElement(target: InspectionTarget): Promise<InspectionPageSnapshot | null> {
+  async inspectElement(target: InspectionTarget): Promise<InspectionPageResolution> {
     try {
       await this.ensureDebugger()
       const response = (await this.webContents.debugger.sendCommand('Runtime.evaluate', {
@@ -538,14 +533,19 @@ export class WebContentsViewEngine implements EngineView {
           `[pane:${this.paneId}] inspection evaluate failed:`,
           response.exceptionDetails
         )
-        return null
+        return { status: 'unavailable', snapshot: null, provenance: null }
       }
       const result = response.result?.value as InspectionPageResolution | undefined
-      return result?.status === 'matched' ? (result.snapshot ?? null) : null
+      return result ?? { status: 'unavailable', snapshot: null, provenance: null }
     } catch (error) {
       console.error(`[pane:${this.paneId}] inspection resolution failed:`, error)
-      return null
+      return { status: 'unavailable', snapshot: null, provenance: null }
     }
+  }
+
+  async setInspectionSelection(target: InspectionTarget | null): Promise<void> {
+    if (this.webContents.isDestroyed()) return
+    this.webContents.send('pane:inspection-selection', target)
   }
 
   async evaluate<T = unknown>(expression: string): Promise<T> {

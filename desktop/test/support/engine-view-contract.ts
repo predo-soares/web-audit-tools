@@ -255,7 +255,12 @@ export function describeEngineViewContract(
       }
 
       await expect(harness.engine.setInspectionMode(true)).resolves.toBeUndefined()
-      await expect(harness.engine.inspectElement(target)).resolves.toBeNull()
+      await expect(harness.engine.inspectElement(target)).resolves.toMatchObject({
+        status: 'unavailable',
+        snapshot: null
+      })
+      await expect(harness.engine.setInspectionSelection(target)).resolves.toBeUndefined()
+      await expect(harness.engine.setInspectionSelection(null)).resolves.toBeUndefined()
       await expect(harness.engine.setInspectionMode(false)).resolves.toBeUndefined()
     })
 

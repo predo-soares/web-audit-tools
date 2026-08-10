@@ -33,6 +33,12 @@ export interface InspectionResolution {
   provenance: string | null
 }
 
+export interface InspectionPageResolution {
+  status: InspectionMatchStatus
+  snapshot: InspectionPageSnapshot | null
+  provenance: string | null
+}
+
 export interface InspectionGeometry {
   x: number
   y: number
@@ -300,11 +306,7 @@ export function createInspectionRecord(input: {
  * deliberately has no references to module scope. It returns evidence only;
  * it never mutates the page or uses coordinates to identify a target.
  */
-export function createInspectionPageResolver(target: InspectionTarget): {
-  status: InspectionMatchStatus
-  snapshot: InspectionPageSnapshot | null
-  provenance: string | null
-} {
+export function createInspectionPageResolver(target: InspectionTarget): InspectionPageResolution {
   const normalizePage = (value: string | null | undefined): string =>
     (value ?? '').replace(/\s+/g, ' ').trim()
 

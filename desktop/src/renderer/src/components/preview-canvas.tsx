@@ -166,6 +166,7 @@ export function PreviewCanvas({
           <div className="absolute bottom-0 z-20" style={{ right: rightOffset, top: topOffset }}>
             <InspectionRail
               record={inspectionState.record}
+              records={inspectionState.records}
               onClose={() => void window.api.setInspectionMode(false)}
             />
           </div>

@@ -6,7 +6,7 @@ import type {
   ThemePreference
 } from '../../shared/types'
 import type { ElementFingerprint, MirrorFailureLog } from '../../shared/element-mirror'
-import type { InspectionPageSnapshot, InspectionTarget } from '../../shared/inspection'
+import type { InspectionPageResolution, InspectionTarget } from '../../shared/inspection'
 import type { ConsoleEvidenceEntry, NetworkEvidenceEntry } from '../../shared/runtime-evidence'
 
 export interface ValueSyncPayload {
@@ -90,7 +90,9 @@ export interface EngineView {
   /** Enable the page-side Element picker controller for this pane. */
   setInspectionMode(enabled: boolean): Promise<void>
   /** Resolve and collect read-only inspection evidence in the page context. */
-  inspectElement(target: InspectionTarget): Promise<InspectionPageSnapshot | null>
+  inspectElement(target: InspectionTarget): Promise<InspectionPageResolution>
+  /** Apply/remove the selected outline after a cross-pane inspection match. */
+  setInspectionSelection(target: InspectionTarget | null): Promise<void>
   /** Show or hide the pane's view without detaching it from the window. */
   setVisible(visible: boolean): void
   /** Add the pane's view to the window's content view. */

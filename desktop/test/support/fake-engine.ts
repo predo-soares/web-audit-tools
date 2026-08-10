@@ -7,7 +7,11 @@ import type {
   ThemePreference
 } from '../../src/shared/types'
 import type { ElementFingerprint, MirrorFailureLog } from '../../src/shared/element-mirror'
-import type { InspectionPageSnapshot, InspectionTarget } from '../../src/shared/inspection'
+import type {
+  InspectionPageResolution,
+  InspectionPageSnapshot,
+  InspectionTarget
+} from '../../src/shared/inspection'
 import type {
   EngineView,
   EngineViewEventMap,
@@ -45,6 +49,11 @@ export class FakeEngine implements EngineView {
   focused = false
   inspectionMode = false
   inspectionResult: InspectionPageSnapshot | null = null
+  inspectionResolution: InspectionPageResolution = {
+    status: 'unavailable',
+    snapshot: null,
+    provenance: null
+  }
 
   readonly calls = {
     mount: [] as PaneMount[],
@@ -60,6 +69,7 @@ export class FakeEngine implements EngineView {
     dispatchKey: [] as MirroredKey[],
     setInspectionMode: [] as boolean[],
     inspectElement: [] as InspectionTarget[],
+    setInspectionSelection: [] as Array<InspectionTarget | null>,
     evaluate: [] as string[],
     captureScreenshot: 0,
     goBack: 0,
@@ -188,9 +198,15 @@ export class FakeEngine implements EngineView {
     this.calls.setInspectionMode.push(enabled)
   }
 
-  async inspectElement(target: InspectionTarget): Promise<InspectionPageSnapshot | null> {
+  async inspectElement(target: InspectionTarget): Promise<InspectionPageResolution> {
     this.calls.inspectElement.push(target)
     return this.inspectionResult
+      ? { status: 'matched', snapshot: this.inspectionResult, provenance: 'fake' }
+      : this.inspectionResolution
+  }
+
+  async setInspectionSelection(target: InspectionTarget | null): Promise<void> {
+    this.calls.setInspectionSelection.push(target)
   }
 
   getCurrentUrl(): string {
