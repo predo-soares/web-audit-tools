@@ -500,7 +500,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
               items={[
                 {
                   value: 'inspection' as const,
-                  label: <CursorArrowRaysIcon className="size-3.5" />,
+                  label: <CursorArrowRaysIcon className="size-4" />,
                   ariaLabel: 'Inspection',
                   iconOnly: true,
                   testId: 'diagnostics-tab-inspection'
