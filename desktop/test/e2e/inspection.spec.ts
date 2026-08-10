@@ -12,6 +12,10 @@ import {
 async function activateInspection(window: Page, toolbar: Page): Promise<void> {
   await toolbar.getByTestId('diagnostics-toggle').click()
   await expect(window.getByTestId('diagnostics-drawer')).toBeVisible()
+  await expect(window.getByTestId('diagnostics-tab-inspection')).toHaveAttribute(
+    'aria-label',
+    'Inspection'
+  )
   await window.getByTestId('diagnostics-tab-inspection').click()
   await window.getByTestId('inspection-start').click()
   await expect(window.getByTestId('inspection-start')).toHaveAttribute('aria-pressed', 'true')

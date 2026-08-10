@@ -7,6 +7,8 @@ export interface MotionTabItem<T extends string> {
   /** Optional trailing content, e.g. a count badge. */
   trailing?: React.ReactNode
   testId?: string
+  ariaLabel?: string
+  iconOnly?: boolean
 }
 
 /**
@@ -50,13 +52,16 @@ export function MotionTabs<T extends string>({
               type="button"
               role="tab"
               aria-selected={isActive}
+              aria-label={item.ariaLabel}
+              title={item.ariaLabel}
               data-testid={item.testId}
               onClick={() => onChange(item.value)}
               className={cn(
                 'relative flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium outline-none transition-colors',
                 'focus-visible:ring-2 focus-visible:ring-ring/50',
                 isActive ? 'text-white' : 'text-white/50 hover:text-white/80',
-                tabClassName
+                tabClassName,
+                item.iconOnly && 'size-7 justify-center px-0 py-0'
               )}
             >
               {isActive ? (

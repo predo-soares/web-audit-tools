@@ -515,7 +515,9 @@ export function DiagnosticsPanel(): React.JSX.Element {
                 },
                 {
                   value: 'inspection' as const,
-                  label: 'Inspection',
+                  label: <Icon icon={SourceCodeIcon} size={14} />,
+                  ariaLabel: 'Inspection',
+                  iconOnly: true,
                   testId: 'diagnostics-tab-inspection'
                 }
               ]}
