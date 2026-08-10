@@ -198,6 +198,7 @@ function captureInspectionSnapshot(element: Element): InspectionPageSnapshot {
       minHeight: style.minHeight,
       maxHeight: style.maxHeight
     },
+    outerHTML: element.outerHTML,
     url: window.location.href,
     capturedAt: Date.now()
   }

@@ -86,6 +86,7 @@ export interface InspectionPageSnapshot {
   visibility: InspectionVisibility
   layout: InspectionLayout
   styles: InspectionStyles
+  outerHTML: string
   url: string
   capturedAt: number
 }
@@ -510,6 +511,7 @@ export function createInspectionPageResolver(target: InspectionTarget): Inspecti
       minHeight: style.minHeight,
       maxHeight: style.maxHeight
     },
+    outerHTML: element.outerHTML,
     url: window.location.href,
     capturedAt: Date.now()
   }
@@ -685,6 +687,8 @@ function formatInspectionRecordContext(record: InspectionRecord): string[] {
   lines.push(`  visibility: ${formatInspectionVisibility(record.snapshot.visibility)}`)
   lines.push(`  layout: ${formatInspectionLayout(record.snapshot.layout)}`)
   lines.push(`  styles: ${formatInspectionStyles(record.snapshot.styles)}`)
+  lines.push('  markup:')
+  lines.push(record.snapshot.outerHTML)
   lines.push(`  pageCapturedAtEpochMs: ${record.snapshot.capturedAt}`)
   return lines
 }

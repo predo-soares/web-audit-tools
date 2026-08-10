@@ -90,7 +90,7 @@ export function InspectionRail({
           >
             Overview
           </h3>
-          <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
+          <div className="rounded-lg bg-white/[0.04] p-3">
             <div className="flex items-center justify-between gap-3">
               <span className="text-zinc-400">Status</span>
               <span data-testid="inspection-status" className="font-medium text-amber-300">
@@ -118,7 +118,7 @@ export function InspectionRail({
           >
             Source pane
           </h3>
-          <div className="space-y-2 rounded-lg border border-white/10 bg-white/[0.04] p-3 text-zinc-300">
+          <div className="space-y-2 rounded-lg bg-white/[0.04] p-3 text-zinc-300">
             <div className="flex justify-between gap-3">
               <span className="text-zinc-500">Device</span>
               <span>{record.device.preset}</span>
@@ -152,7 +152,7 @@ export function InspectionRail({
             {records.map((paneRecord) => (
               <div
                 key={paneRecord.paneId}
-                className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2"
+                className="flex items-center justify-between gap-3 rounded-lg bg-white/[0.04] px-3 py-2"
                 data-testid={`inspection-result-${paneRecord.paneId}`}
               >
                 <div className="min-w-0">
@@ -179,7 +179,7 @@ export function InspectionRail({
             >
               Selection
             </h3>
-            <div className="space-y-2 rounded-lg border border-white/10 bg-white/[0.04] p-3 text-zinc-300">
+            <div className="space-y-2 rounded-lg bg-white/[0.04] p-3 text-zinc-300">
               <div className="flex justify-between gap-3">
                 <span className="text-zinc-500">Geometry</span>
                 <span className="font-mono">
@@ -218,7 +218,7 @@ export function InspectionRail({
                 return (
                   <div
                     key={`${paneRecord.paneId}-evidence`}
-                    className="space-y-2 rounded-lg border border-white/10 bg-white/[0.04] p-3"
+                    className="space-y-2 rounded-lg bg-white/[0.04] p-3"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <span className="font-medium text-zinc-200">{paneRecord.device.preset}</span>
@@ -273,6 +273,15 @@ export function InspectionRail({
                         label={`${paneRecord.paneId} z-index and sizing`}
                       />
                     </div>
+                    <div className="space-y-1 pt-2">
+                      <span className="text-zinc-500">Markup</span>
+                      <pre
+                        data-testid={`inspection-markup-${paneRecord.paneId}`}
+                        className="max-w-full overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-zinc-300"
+                      >
+                        {snapshot.outerHTML}
+                      </pre>
+                    </div>
                   </div>
                 )
               })}
@@ -291,7 +300,7 @@ export function InspectionRail({
               {differences.map((difference) => (
                 <div
                   key={`${difference.category}-${difference.key}`}
-                  className="rounded-lg border border-amber-300/20 bg-amber-300/[0.06] p-3"
+                  className="rounded-lg bg-amber-300/[0.06] p-3"
                   data-testid={`inspection-difference-${difference.key}`}
                 >
                   <div className="flex items-center justify-between gap-3">

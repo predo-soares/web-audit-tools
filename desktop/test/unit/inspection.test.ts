@@ -160,6 +160,7 @@ describe('inspection identity', () => {
         minHeight: '0px',
         maxHeight: 'none'
       },
+      outerHTML: '<div id="layout">Target</div>',
       url: 'https://fixture.test/',
       capturedAt: 1,
       ...overrides
@@ -204,6 +205,8 @@ describe('inspection identity', () => {
     expect(context).toContain('status: Unavailable')
     expect(context).toContain('evidence: none (Unavailable)')
     expect(context).toContain('observed page evidence; this is not a guaranteed diagnosis')
+    expect(context).toContain('markup:')
+    expect(context).toContain('<div id="layout">Target</div>')
     expect(context).toContain('width=200px')
   })
 })

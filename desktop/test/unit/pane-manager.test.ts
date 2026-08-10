@@ -183,6 +183,7 @@ function createInspectionSnapshot(): InspectionPageSnapshot {
       minHeight: '0px',
       maxHeight: 'none'
     },
+    outerHTML: '<div id="inspection-target">Target</div>',
     url: 'https://example.com/',
     capturedAt: 1
   }
