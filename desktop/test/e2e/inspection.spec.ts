@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures'
+import type { Page } from '@playwright/test'
 import {
   evaluateInPane,
   fixtureUrl,
@@ -8,6 +9,14 @@ import {
   waitForAllPanes
 } from './helpers'
 
+async function activateInspection(window: Page, toolbar: Page): Promise<void> {
+  await toolbar.getByTestId('diagnostics-toggle').click()
+  await expect(window.getByTestId('diagnostics-drawer')).toBeVisible()
+  await window.getByTestId('diagnostics-tab-inspection').click()
+  await window.getByTestId('inspection-start').click()
+  await expect(window.getByTestId('inspection-start')).toHaveAttribute('aria-pressed', 'true')
+}
+
 test('Element picker selects a page element without leaving Preview', async ({ fixturePort }) => {
   const { window, close } = await launchApp()
 
@@ -16,8 +25,7 @@ test('Element picker selects a page element without leaving Preview', async ({ f
     await waitForAllPanes(window)
 
     const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('inspection-toggle').click()
-    await expect(toolbar.getByTestId('inspection-toggle')).toHaveAttribute('aria-pressed', 'true')
+    await activateInspection(window, toolbar)
 
     await evaluateInPane(window, 'desktop', `document.getElementById('fixture-home')?.click()`)
 
@@ -42,7 +50,8 @@ test('Element picker selects a page element without leaving Preview', async ({ f
 
     await window.getByTestId('inspection-close').click()
     await expect(window.getByTestId('inspection-rail')).toHaveCount(0)
-    await expect(toolbar.getByTestId('inspection-toggle')).toHaveAttribute('aria-pressed', 'false')
+    await window.getByTestId('diagnostics-tab-inspection').click()
+    await expect(window.getByTestId('inspection-start')).toHaveAttribute('aria-pressed', 'false')
   } finally {
     await close()
   }
@@ -59,7 +68,7 @@ test('Element picker compares visible panes independently of interaction links',
     await window.evaluate(() => window.api.setPaneLinked('ipad', false))
 
     const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('inspection-toggle').click()
+    await activateInspection(window, toolbar)
     await evaluateInPane(window, 'desktop', `document.getElementById('layout')?.click()`)
 
     await expect(window.getByTestId('inspection-result-iphone')).toContainText('Matched')
@@ -81,7 +90,7 @@ test('Element picker marks a removed node stale without blocking page lifecycle'
     await navigateTo(window, fixtureUrl(fixturePort, '/long-scroll'))
     await waitForAllPanes(window)
     const toolbar = await getToolbarPage(window)
-    await toolbar.getByTestId('inspection-toggle').click()
+    await activateInspection(window, toolbar)
     await evaluateInPane(window, 'desktop', `document.getElementById('section-0')?.click()`)
     await expect(window.getByTestId('inspection-status')).toHaveText('Matched')
 

@@ -78,7 +78,7 @@ export function InspectionRail({
           data-testid="inspection-close"
           onClick={onClose}
         >
-          Close
+          Exit Inspect
         </Button>
       </div>
 

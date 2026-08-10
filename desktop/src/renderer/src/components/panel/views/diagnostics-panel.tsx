@@ -20,7 +20,8 @@ import {
   ExternalLinkIcon,
   PauseIcon,
   PlayIcon,
-  Search01Icon
+  Search01Icon,
+  SourceCodeIcon
 } from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
 import { Input } from '@renderer/components/ui/input'
@@ -512,15 +513,11 @@ export function DiagnosticsPanel(): React.JSX.Element {
                   label: 'Application',
                   testId: 'diagnostics-tab-application'
                 },
-                ...(inspectionState.record
-                  ? [
-                      {
-                        value: 'inspection' as const,
-                        label: 'Inspection',
-                        testId: 'diagnostics-tab-inspection'
-                      }
-                    ]
-                  : [])
+                {
+                  value: 'inspection' as const,
+                  label: 'Inspection',
+                  testId: 'diagnostics-tab-inspection'
+                }
               ]}
             />
           </header>
@@ -535,8 +532,28 @@ export function DiagnosticsPanel(): React.JSX.Element {
                 }
               />
             ) : (
-              <div className="flex min-h-0 flex-1 items-center justify-center px-4 text-center text-sm text-muted-foreground">
-                Select an element in Preview to inspect it.
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
+                <Icon icon={SourceCodeIcon} className="size-5 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  {inspectionState.active
+                    ? 'Move over an element in Preview, then click to inspect it.'
+                    : 'Select an element in Preview to inspect it.'}
+                </p>
+                <Button
+                  type="button"
+                  variant="soft"
+                  size="tiny"
+                  data-testid="inspection-start"
+                  aria-pressed={inspectionState.active}
+                  onClick={() =>
+                    window.panelApi.sendAction({
+                      type: 'set-inspection-mode',
+                      active: !inspectionState.active
+                    })
+                  }
+                >
+                  {inspectionState.active ? 'Exit Inspect mode' : 'Inspect an element'}
+                </Button>
               </div>
             )
           ) : activeTab === 'rendering' ? (
