@@ -17,15 +17,10 @@ export function ProfileReport({
     <div data-testid="lighthouse-result" className="space-y-4">
       <section
         data-testid="lighthouse-result-summary"
-        className="rounded-xl border border-white/10 bg-black/40 px-5 py-5 backdrop-blur-md"
+        className="rounded-xl border border-white/10 bg-black/40   backdrop-blur-md"
       >
-        <div>
-          <h2 className="text-sm font-semibold text-white">Results summary</h2>
-          <p className="mt-1 text-xs text-white/45">
-            Core performance metrics from this {result.deviceMode} lab run.
-          </p>
-        </div>
-        <div className="mt-5 grid grid-cols-5 gap-3">
+
+        <div className="flex justify-center gap-8 py-5">
           {result.categories.map((category, index) => (
             <a
               key={category.id}
@@ -46,15 +41,16 @@ export function ProfileReport({
             </a>
           ))}
         </div>
+
         <PerformanceOverview result={result} />
         <MetricsGrid result={result} />
 
         {performance ? (
-          <div id="lighthouse-dimension-performance" className="mt-6 border-t border-white/10 pt-5">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-white/55">
+          <div id="lighthouse-dimension-performance" className="mt-10">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-white/55 px-6 py-3">
               Performance insights
             </h3>
-            <div className="mt-2">
+            <div className="">
               <DimensionAudits category={performance} result={result} />
             </div>
           </div>

@@ -28,9 +28,9 @@ export function AuditBucket({
 
   if (bucket === 'failed') {
     return (
-      <div className="border-t border-white/10 ">
+      <div className="border-t border-white/10 px-5">
         {grouped.map((group) => (
-          <div key={group.id} className="border-b border-white/10 last:border-b-0">
+          <div key={group.id} className="">
             <div className="px-1 py-4">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-white/45">
                 {group.meta.title}
@@ -51,7 +51,7 @@ export function AuditBucket({
   }
 
   return (
-    <Accordion className="" defaultValue={meta.defaultOpen ? [bucket] : []}>
+    <Accordion className="px-5" defaultValue={meta.defaultOpen ? [bucket] : []}>
       <AccordionItem value={bucket} className="border-0">
         <AccordionTrigger
           hideIcon

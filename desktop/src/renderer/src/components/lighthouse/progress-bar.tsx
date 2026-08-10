@@ -37,7 +37,7 @@ export function ProgressBar({
       >
         <div
           className={cn(
-            'h-full rounded-r-full bg-sky-400 transition-[width] duration-250',
+            'h-full rounded-r-full bg-white transition-[width] duration-250',
             EASE_OUT,
             'motion-reduce:duration-0'
           )}

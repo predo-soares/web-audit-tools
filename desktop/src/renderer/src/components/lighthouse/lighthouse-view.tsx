@@ -88,6 +88,7 @@ export function LighthouseView({
   const result = state.results[viewProfile]
   const analysisOutdated = LIGHTHOUSE_PROFILES.some((profile) => state.results[profile]?.stale)
   const hasResults = hasAnyLighthouseResult(state.results)
+  const isEmptyState = !running && !hasResults
 
   const profileTabs: Array<MotionTabItem<LighthouseProfile>> = LIGHTHOUSE_PROFILES.map(
     (profile) => ({
@@ -116,94 +117,96 @@ export function LighthouseView({
         )}
         style={{ paddingTop: TOOLBAR_HEIGHT_PX, paddingLeft: sidebarOffset }}
       >
-        <div className="mx-auto flex w-full flex-col gap-5 px-8 py-8">
-          <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
-            <header>
-              <h1 className="text-lg font-semibold tracking-tight text-white">
-                Diagnose performance issues
-              </h1>
-              <p className="mt-1 text-xs text-white/45">
-                Runs Lighthouse for both Mobile and Desktop with configurable lab specs.
-              </p>
-            </header>
+        <div
+          className={cn(
+            'w-full px-8 pb-32',
+            isEmptyState && 'flex min-h-full flex-col justify-center'
+          )}
+        >
+          <div className="grid w-full  grid-cols-1 gap-8 xl:grid-cols-[1fr_13rem] ">
+            <div className="mx-auto flex  min-w-3xl w-full max-w-4xl justify-self-center flex-col gap-5">
+              <header >
+                <h1 className="text-lg font-semibold tracking-tight text-white">
+                  Diagnose performance issues
+                </h1>
+                <p className="mt-1 text-xs text-white/45">
+                  Runs Lighthouse for both Mobile and Desktop with configurable lab specs.
+                </p>
+              </header>
 
-            <section className={cn(CARD, 'relative z-20 px-3 py-3')}>
-              <TargetUrlBar
-                url={url}
-                history={history}
-                running={running}
-                runLabel={analysisOutdated ? 'Analyze page · outdated' : 'Analyze page'}
-                runDisabled={!auditable}
-                onNavigate={(target) => {
-                  onTargetNavigate()
-                  void window.api.navigate(target)
-                }}
-                onRun={() => void window.api.runLighthouse(labSelection)}
-                onCancel={() => void window.api.cancelLighthouse()}
-                testIds={LIGHTHOUSE_URL_BAR_TEST_IDS}
-                middleSlot={
-                  <LabSpecsPopover
-                    selection={labSelection}
-                    disabled={running}
-                    onChange={setLabSelection}
-                  />
-                }
-              />
-            </section>
+              <section className={cn(CARD, 'relative  z-20 px-3 py-3')}>
+                <TargetUrlBar
+                  url={url}
+                  history={history}
+                  running={running}
+                  runLabel={analysisOutdated ? 'Analyze page · outdated' : 'Analyze page'}
+                  runDisabled={!auditable}
+                  onNavigate={(target) => {
+                    onTargetNavigate()
+                    void window.api.navigate(target)
+                  }}
+                  onRun={() => void window.api.runLighthouse(labSelection)}
+                  onCancel={() => void window.api.cancelLighthouse()}
+                  testIds={LIGHTHOUSE_URL_BAR_TEST_IDS}
+                  middleSlot={
+                    <LabSpecsPopover
+                      selection={labSelection}
+                      disabled={running}
+                      onChange={setLabSelection}
+                    />
+                  }
+                />
+              </section>
 
-            <MotionTabs
-              items={profileTabs}
-              value={viewProfile}
-              onChange={setViewProfile}
-              layoutId="lighthouse-profile-indicator"
-              ariaLabel="Device profile"
-            />
+              {hasResults ? (
+                <MotionTabs
+                  items={profileTabs}
+                  value={viewProfile}
+                  onChange={setViewProfile}
+                  layoutId="lighthouse-profile-indicator"
+                  ariaLabel="Device profile"
+                />
+              ) : null}
 
-            {state.phase === 'failed' ? (
-              <p
-                role="alert"
-                className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive backdrop-blur-md"
-              >
-                {state.error}
-              </p>
-            ) : null}
+              {state.phase === 'failed' ? (
+                <p
+                  role="alert"
+                  className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive backdrop-blur-md"
+                >
+                  {state.error}
+                </p>
+              ) : null}
 
-            {state.phase === 'cancelled' ? (
-              <p
-                role="status"
-                className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400 backdrop-blur-md"
-              >
-                Lighthouse run cancelled.
-              </p>
-            ) : null}
-          </div>
+              {state.phase === 'cancelled' ? (
+                <p
+                  role="status"
+                  className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400 backdrop-blur-md"
+                >
+                  Lighthouse run cancelled.
+                </p>
+              ) : null}
 
-          {result ? (
-            <div className="relative w-full">
-              <main className="mx-auto min-w-0 max-w-4xl">
-                <ProfileReport result={result} />
-              </main>
-              <div className="mx-auto mt-5 w-full max-w-4xl lg:absolute lg:inset-y-0 lg:-right-8 lg:mt-0 lg:w-52 lg:max-w-none">
+              {result ? (
+                <main className="min-w-0 w-full">
+                  <ProfileReport result={result} />
+                </main>
+              ) : running || hasResults ? (
+                <div className="w-full">
+                  <p className="rounded-xl border border-white/10 bg-black/30 px-6 py-12 text-center text-sm text-white/40 backdrop-blur-md">
+                    {running
+                      ? `Waiting for ${viewProfile} results…`
+                      : `No ${viewProfile} report yet. Run Analyze page again.`}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+
+            {result ? (
+              <div className="hidden xl:block">
                 <SpecsBar spec={result.labSpec} />
               </div>
-            </div>
-          ) : (
-            <div className="w-full max-w-4xl">
-              {!running && !hasResults ? (
-                <p className="rounded-xl border border-white/10 bg-black/30 px-6 py-16 text-center text-sm text-white/40 backdrop-blur-md">
-                  Analyze the page to generate Mobile and Desktop Lighthouse reports.
-                </p>
-              ) : null}
-
-              {running || hasResults ? (
-                <p className="rounded-xl border border-white/10 bg-black/30 px-6 py-12 text-center text-sm text-white/40 backdrop-blur-md">
-                  {running
-                    ? `Waiting for ${viewProfile} results…`
-                    : `No ${viewProfile} report yet. Run Analyze page again.`}
-                </p>
-              ) : null}
-            </div>
-          )}
+            ) : null}
+          </div>
         </div>
       </div>
 
