@@ -2,9 +2,7 @@ import { Globe02Icon } from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
 import { useState } from 'react'
 import type { Project } from '../../../shared/project'
-import { isLocalhostUrl } from '../../../shared/dev-context'
 import { cn } from '@renderer/lib/utils'
-import { DevBadge } from '@renderer/components/dev-badge'
 
 interface ProjectRowProps {
   project: Project
@@ -18,7 +16,6 @@ export function ProjectRow({
   onActivate
 }: ProjectRowProps): React.JSX.Element {
   const [faviconFailed, setFaviconFailed] = useState(false)
-  const isDev = isLocalhostUrl(project.url)
 
   return (
     <button
@@ -48,7 +45,6 @@ export function ProjectRow({
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center justify-between gap-1.5">
           <span className="truncate text-xs font-medium">{project.name}</span>
-          {isDev && <DevBadge />}
         </span>
         {/*<span className="block truncate text-xs text-muted-foreground">{project.url}</span>*/}
       </span>

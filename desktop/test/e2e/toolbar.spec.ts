@@ -6,6 +6,7 @@ import {
   expectSidebarOpen,
   fixtureUrl,
   focusPane,
+  getDevContextPage,
   getOverlayPage,
   getToolbarPage,
   launchApp,
@@ -39,6 +40,35 @@ test('toolbar menus stay non-modal and keep the app visible', async () => {
         `window.matchMedia('(prefers-color-scheme: dark)').matches`
       )
     ).resolves.toBe(true)
+  } finally {
+    await close()
+  }
+})
+
+test('local dev badge opens project metadata modal and restores focus', async ({ fixturePort }) => {
+  const { window, close } = await launchAppReady()
+
+  try {
+    const url = fixtureUrl(fixturePort, '/flow-a')
+    await navigateToCommitted(window, url)
+
+    const toolbar = await getToolbarPage(window)
+    const badge = toolbar.getByTestId('dev-badge')
+    await expect(badge).toBeVisible()
+    await badge.click()
+
+    const modal = await getDevContextPage(window)
+    await expect(modal.getByTestId('dev-context-dialog')).toBeVisible()
+    await expect(modal.getByText('Local project metadata')).toBeVisible()
+    await expect(modal.getByText('audit-screens', { exact: true })).toBeVisible()
+    await expect(modal.getByTestId('dev-context-close')).toBeFocused()
+
+    await modal.keyboard.press('Escape')
+    await expect(modal.getByTestId('dev-context-modal-backdrop')).toHaveAttribute(
+      'data-visible',
+      'false'
+    )
+    await expect(badge).toBeFocused()
   } finally {
     await close()
   }

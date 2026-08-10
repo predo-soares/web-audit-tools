@@ -96,7 +96,8 @@ const ALL_PANEL_IDS: PanelId[] = [
   'toolbar-top',
   'zoom',
   'url-history',
-  'shortcuts'
+  'shortcuts',
+  'dev-context'
 ]
 
 const PANEL_Z_ORDER: PanelId[] = ALL_PANEL_IDS

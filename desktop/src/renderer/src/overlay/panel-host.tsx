@@ -162,7 +162,7 @@ export function PanelHost(): React.JSX.Element | null {
     return (
       <div
         ref={containerRef}
-        data-testid="shortcuts-modal-backdrop"
+        data-testid={`${panel.panelId}-modal-backdrop`}
         data-visible={visible ? 'true' : 'false'}
         className="flex h-screen w-screen items-center justify-center bg-black/60 p-4 transition-opacity supports-backdrop-filter:bg-black/45 supports-backdrop-filter:backdrop-blur-md"
         style={{

@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState, KeyboardEvent } from 'react'
 import { Input } from '@renderer/components/ui/input'
 import { Button } from '@renderer/components/ui/button'
 import { SaveProjectButton } from '@renderer/components/save-project-button'
+import { DevBadge } from '@renderer/components/dev-badge'
 import { cn } from '@renderer/lib/utils'
 import {
   ArrowLeft01Icon,
@@ -33,6 +34,9 @@ interface UrlBarProps {
   isSavedProject: boolean
   saveSuggestedName: string
   onSaveProject: (name: string) => void
+  showDevBadge: boolean
+  onDevBadgeClick?: () => void
+  devBadgeRef?: React.Ref<HTMLButtonElement>
   containerRef?: React.Ref<HTMLFormElement>
   className?: string
 }
@@ -58,6 +62,9 @@ export function UrlBar({
   isSavedProject,
   saveSuggestedName,
   onSaveProject,
+  showDevBadge,
+  onDevBadgeClick,
+  devBadgeRef,
   containerRef,
   className
 }: UrlBarProps): React.JSX.Element {
@@ -161,6 +168,7 @@ export function UrlBar({
             </span>
           ) : null}
         </div>
+        {showDevBadge ? <DevBadge ref={devBadgeRef} onClick={onDevBadgeClick} /> : null}
         <button type="submit" data-testid="url-submit" className="sr-only" disabled={disabled}>
           Go
         </button>

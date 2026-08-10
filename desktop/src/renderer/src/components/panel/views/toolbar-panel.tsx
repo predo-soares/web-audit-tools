@@ -34,6 +34,7 @@ import { startTransition, useCallback, useEffect, useMemo, useRef, useState } fr
 import type { SnapshotResult } from '../../../../../shared/snapshot'
 import type { HistoryEntry } from '../../../../../shared/history'
 import { matchesAppShortcut } from '../../../../../shared/shortcuts'
+import { isLocalhostUrl } from '../../../../../shared/dev-context'
 
 const THEME_STORAGE_KEY = 'audit-screens-theme-preference'
 const MEDIA_FEATURES_STORAGE_KEY = 'audit-screens-media-features'
@@ -87,6 +88,8 @@ function snapshotToastMessage(result: SnapshotResult): string {
 export function ToolbarPanel(): React.JSX.Element {
   const toolbarRef = useRef<HTMLDivElement>(null)
   const zoomTriggerRef = useRef<HTMLButtonElement>(null)
+  const devBadgeRef = useRef<HTMLButtonElement>(null)
+  const devContextWasOpenRef = useRef(false)
   const toggleButtonRef = useRef<HTMLButtonElement>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('browser')
@@ -106,6 +109,7 @@ export function ToolbarPanel(): React.JSX.Element {
   const [zoom, setZoom] = useState(1)
   const [themePreference, setThemePreference] = useState<ThemePreference>(readStoredThemePreference)
   const [zoomOpen, setZoomOpen] = useState(false)
+  const [devContextOpen, setDevContextOpen] = useState(false)
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
   const [diagnosticsWidth, setDiagnosticsWidth] = useState(DIAGNOSTICS_DRAWER_WIDTH_PX)
   const [problemCount, setProblemCount] = useState(0)
@@ -154,6 +158,19 @@ export function ToolbarPanel(): React.JSX.Element {
       setDiagnosticsOpen(open)
     }
   })
+
+  useOverlayPanel('dev-context', {
+    mode: 'modal',
+    open: devContextOpen && isBrowserView,
+    onOpenChange: setDevContextOpen
+  })
+
+  useEffect(() => {
+    if (devContextWasOpenRef.current && !devContextOpen) {
+      window.requestAnimationFrame(() => devBadgeRef.current?.focus())
+    }
+    devContextWasOpenRef.current = devContextOpen
+  }, [devContextOpen])
 
   useEffect(() => {
     const el = urlBarRef.current
@@ -548,6 +565,9 @@ export function ToolbarPanel(): React.JSX.Element {
             isSavedProject={isSavedProject}
             saveSuggestedName={saveSuggestedName}
             onSaveProject={(name) => void handleToggleProject(name)}
+            showDevBadge={isLocalhostUrl(committedUrl)}
+            onDevBadgeClick={() => setDevContextOpen(true)}
+            devBadgeRef={devBadgeRef}
             className="min-w-0 flex-1"
           />
         </div>

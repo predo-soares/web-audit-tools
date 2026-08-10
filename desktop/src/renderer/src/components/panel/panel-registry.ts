@@ -4,6 +4,7 @@ import { DiagnosticsPanel } from '@renderer/components/panel/views/diagnostics-p
 import { ToolbarPanel } from '@renderer/components/panel/views/toolbar-panel'
 import { UrlHistoryPanel } from '@renderer/components/panel/views/url-history-panel'
 import { ShortcutsPanel } from '@renderer/components/panel/views/shortcuts-panel'
+import { DevContextPanel } from '@renderer/components/panel/views/dev-context-panel'
 import type { PanelViewComponent, PanelViewRegistry } from '@renderer/components/panel/types'
 
 export const PANEL_VIEW_REGISTRY: PanelViewRegistry = {
@@ -12,5 +13,6 @@ export const PANEL_VIEW_REGISTRY: PanelViewRegistry = {
   'diagnostics-right': DiagnosticsPanel as PanelViewComponent,
   'toolbar-top': ToolbarPanel as PanelViewComponent,
   'url-history': UrlHistoryPanel as PanelViewComponent,
-  shortcuts: ShortcutsPanel as PanelViewComponent
+  shortcuts: ShortcutsPanel as PanelViewComponent,
+  'dev-context': DevContextPanel as PanelViewComponent
 }

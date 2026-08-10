@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { HistoryEntry } from '../shared/history'
+import type { DevContext } from '../shared/dev-context'
 import type {
   PanelAction,
   PanelCloseOptions,
@@ -87,6 +88,7 @@ export interface PanelOverlayApi {
   getRuntimeEvidence: () => Promise<RuntimeEvidenceSnapshot>
   clearRuntimeEvidence: (channel: RuntimeEvidenceChannel) => Promise<RuntimeEvidenceSnapshot>
   getApplicationData: () => Promise<ApplicationData>
+  getDevContext: () => Promise<DevContext | null>
   openExternalUrl: (url: string) => Promise<void>
   onRuntimeEvidenceChanged: (callback: (snapshot: RuntimeEvidenceSnapshot) => void) => () => void
   onRuntimeEvidenceProblemCount: (
@@ -263,6 +265,7 @@ const panelApi: PanelOverlayApi = {
   getRuntimeEvidence: () => ipcRenderer.invoke('runtime-evidence:get'),
   clearRuntimeEvidence: (channel) => ipcRenderer.invoke('runtime-evidence:clear', channel),
   getApplicationData: () => ipcRenderer.invoke('application:get-data'),
+  getDevContext: () => ipcRenderer.invoke('dev-context:get'),
   openExternalUrl: (url) => ipcRenderer.invoke('url:open-external', url),
   onRuntimeEvidenceChanged: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, snapshot: RuntimeEvidenceSnapshot): void =>

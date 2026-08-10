@@ -129,6 +129,11 @@ export class PaneManager {
     return this.devContext ?? null
   }
 
+  async getDevContextAsync(): Promise<DevContext | null> {
+    if (this.devContextPromise) await this.devContextPromise
+    return this.getDevContext()
+  }
+
   private maybeResolveDevContext(url: string): void {
     if (this.devContext !== undefined || this.devContextPromise) return
     if (!isLocalhostUrl(url)) return

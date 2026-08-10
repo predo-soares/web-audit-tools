@@ -3,7 +3,6 @@ import { Icon } from '@renderer/components/ui/icon'
 import { useState } from 'react'
 import type { HistoryEntry } from '../../../shared/history'
 import { suggestProjectName } from '../../../shared/project'
-import { isLocalhostUrl } from '../../../shared/dev-context'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,7 +10,6 @@ import {
   DropdownMenuTrigger
 } from '@renderer/components/ui/dropdown-menu'
 import { cn } from '@renderer/lib/utils'
-import { DevBadge } from '@renderer/components/dev-badge'
 
 interface HistoryRowProps {
   entry: HistoryEntry
@@ -35,7 +33,6 @@ export function HistoryRow({
   const [faviconFailed, setFaviconFailed] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const title = suggestProjectName(entry.title, entry.url)
-  const isDev = isLocalhostUrl(entry.url)
 
   return (
     <div
@@ -73,7 +70,6 @@ export function HistoryRow({
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 items-center gap-1.5 justify-between">
             <span className="truncate text-xs font-medium max-w-[22ch]">{title}</span>
-            {isDev && <DevBadge />}
           </span>
           {/*<span className="block truncate text-xs text-muted-foreground max-w-[24ch]">
             {entry.url}

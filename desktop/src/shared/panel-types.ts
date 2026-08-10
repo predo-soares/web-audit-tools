@@ -11,6 +11,7 @@ export type PanelId =
   | 'toolbar-top'
   | 'url-history'
   | 'shortcuts'
+  | 'dev-context'
 
 export type PanelMode = 'anchored' | 'docked' | 'modal'
 
@@ -109,7 +110,8 @@ export const PANEL_MIN_SIZE: Record<PanelId, Size> = {
   'diagnostics-right': { width: DIAGNOSTICS_DRAWER_WIDTH_PX, height: 400 },
   'toolbar-top': { width: 400, height: 52 },
   'url-history': { width: 400, height: 48 },
-  shortcuts: { width: 480, height: 480 }
+  shortcuts: { width: 480, height: 480 },
+  'dev-context': { width: 460, height: 360 }
 }
 
 export const PANEL_FIXED_SIZE: Partial<Record<PanelId, Size>> = {

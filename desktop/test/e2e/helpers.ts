@@ -131,6 +131,27 @@ export async function getPopoverOverlayPage(window: Page): Promise<Page> {
   )
 }
 
+export async function getDevContextPage(window: Page): Promise<Page> {
+  const context = window.context()
+  const started = Date.now()
+  while (Date.now() - started < 10_000) {
+    for (const page of context.pages()) {
+      if (!page.url().includes('overlay.html')) continue
+      if ((await page.getByTestId('dev-context-dialog').count()) > 0) {
+        await page.waitForLoadState('domcontentloaded')
+        return page
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  throw new Error(
+    `Dev context overlay page not found. Pages: ${context
+      .pages()
+      .map((page) => page.url())
+      .join(', ')}`
+  )
+}
+
 export async function getDiagnosticsDrawerPage(window: Page): Promise<Page> {
   const context = window.context()
   const started = Date.now()
