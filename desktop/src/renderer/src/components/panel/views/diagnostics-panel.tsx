@@ -499,6 +499,13 @@ export function DiagnosticsPanel(): React.JSX.Element {
               tabClassName="px-2 py-1"
               items={[
                 {
+                  value: 'inspection' as const,
+                  label: <CursorArrowRaysIcon className="size-3.5" />,
+                  ariaLabel: 'Inspection',
+                  iconOnly: true,
+                  testId: 'diagnostics-tab-inspection'
+                },
+                {
                   value: 'console',
                   label: 'Console',
                   testId: 'diagnostics-tab-console',
@@ -531,13 +538,6 @@ export function DiagnosticsPanel(): React.JSX.Element {
                   value: 'application',
                   label: 'Application',
                   testId: 'diagnostics-tab-application'
-                },
-                {
-                  value: 'inspection' as const,
-                  label: <CursorArrowRaysIcon className="size-3.5" />,
-                  ariaLabel: 'Inspection',
-                  iconOnly: true,
-                  testId: 'diagnostics-tab-inspection'
                 }
               ]}
             />
