@@ -1,58 +1,82 @@
-import { useState } from 'react'
-import type { InspectionRecord, InspectionState } from '../../../shared/inspection'
-import {
-  formatInspectionIdentity,
-  formatInspectionStatus,
-  formatInspectionContext,
-  getInspectionDifferences
-} from '../../../shared/inspection'
-import { Button } from '@renderer/components/ui/button'
+import { AlertCircleIcon, Cancel01Icon } from '@hugeicons/core-free-icons'
+import type { InspectionRecord } from '../../../shared/inspection'
+import { formatInspectionStatus, getInspectionDifferences } from '../../../shared/inspection'
+import { InspectionBoxModel } from '@renderer/components/inspection-box-model'
+import { InspectionMarkupTree } from '@renderer/components/inspection-markup-tree'
+import { Icon } from '@renderer/components/ui/icon'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip'
 
 interface InspectionRailProps {
   record: InspectionRecord
   records: InspectionRecord[]
-  state: InspectionState
   onClose: () => void
 }
 
-function CopyValue({ value, label }: { value: string; label: string }): React.JSX.Element {
-  const copy = (): void => {
-    if (!value || value === '—') return
-    void navigator.clipboard?.writeText(value)
-  }
+function selectedClassName(record: InspectionRecord): string | null {
+  const classAttribute = record.snapshot?.markup.attributes?.find(
+    (attribute) => attribute.name === 'class'
+  )
+  return classAttribute?.value.trim() || null
+}
+
+function formatClassSelector(value: string | null): string {
+  if (!value) return ''
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((name) => `.${name}`)
+    .join(' ')
+}
+
+function EmptyPaneView({ record }: { record: InspectionRecord }): React.JSX.Element {
+  return (
+    <div
+      className="flex min-h-[220px] flex-col items-center justify-center gap-2 rounded-md border border-dashed border-white/10 bg-white/[0.02] px-6 text-center"
+      data-testid={`inspection-empty-${record.paneId}`}
+    >
+      <Icon icon={AlertCircleIcon} size={18} className="text-zinc-600" />
+      <p className="text-xs text-zinc-400">
+        {record.status === 'not-found'
+          ? 'This element was not found in this pane.'
+          : `${formatInspectionStatus(record.status)} in this pane.`}
+      </p>
+      <p className="text-[10px] text-zinc-600">Try selecting the pane icon above.</p>
+    </div>
+  )
+}
+
+function DifferenceStrip({ records }: { records: InspectionRecord[] }): React.JSX.Element | null {
+  const differences = getInspectionDifferences(records)
+  if (!differences.length) return null
 
   return (
-    <button
-      type="button"
-      className="block max-w-[220px] truncate text-right font-mono text-zinc-200 underline decoration-dotted underline-offset-2 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-      title={`${label}: ${value}`}
-      aria-label={`Copy ${label}`}
-      onClick={copy}
+    <div
+      className="flex flex-wrap items-center gap-1.5 border-t border-white/10 pt-3 text-[10px]"
+      data-testid="inspection-differences"
     >
-      {value}
-    </button>
+      <span className="mr-1 text-zinc-600">Differs</span>
+      {differences.map((difference) => (
+        <span
+          key={`${difference.category}-${difference.key}`}
+          data-testid={`inspection-difference-${difference.key}`}
+          className="rounded bg-amber-300/[0.08] px-1.5 py-1 text-amber-200/80"
+          title={`Source: ${difference.sourceValue}`}
+        >
+          {difference.label}
+        </span>
+      ))}
+    </div>
   )
 }
 
 export function InspectionRail({
   record,
   records,
-  state,
   onClose
 }: InspectionRailProps): React.JSX.Element {
-  const descriptor = record.target.descriptor
-  const differences = getInspectionDifferences(records)
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
-
-  const copyInspectionContext = async (): Promise<void> => {
-    try {
-      if (!navigator.clipboard) throw new Error('Clipboard unavailable')
-      await navigator.clipboard.writeText(formatInspectionContext(state))
-      setCopyState('copied')
-    } catch {
-      setCopyState('failed')
-    }
-  }
+  const activeRecord = record
+  const className = selectedClassName(record)
+  const classSelector = formatClassSelector(className)
 
   return (
     <aside
@@ -61,298 +85,75 @@ export function InspectionRail({
       data-testid="inspection-rail"
       className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col bg-background text-foreground"
     >
-      <div className="flex shrink-0 items-start justify-between gap-3 border-b border-white/10 px-4 py-3">
+      <header className="flex shrink-0 items-start justify-between gap-3 border-b border-white/10 px-4 py-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">
-            Inspection
+          <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-600">
+            Inspecting
           </p>
-          <h2 className="mt-1 truncate font-mono text-sm text-zinc-100">
-            &lt;{descriptor.tagName}&gt;
+          <h2
+            className="mt-1 truncate font-mono text-sm text-zinc-100"
+            data-testid="inspection-subheader"
+            title={className ? `class="${className}"` : undefined}
+          >
+            <span className="text-sky-300">&lt;{record.target.descriptor.tagName}&gt;</span>
+            {classSelector ? <span className="ml-2 text-violet-300">{classSelector}</span> : null}
           </h2>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="tiny"
-          aria-label="Close inspection"
-          data-testid="inspection-close"
-          onClick={onClose}
-        >
-          Exit Inspect
-        </Button>
-      </div>
-
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 text-xs">
-        <section className="space-y-2" aria-labelledby="inspection-overview-heading">
-          <h3
-            id="inspection-overview-heading"
-            className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500"
+        <Tooltip>
+          <TooltipTrigger
+            type="button"
+            aria-label="Close inspection"
+            data-testid="inspection-close"
+            className="flex size-7 shrink-0 items-center justify-center rounded-md text-zinc-500 outline-none transition-colors hover:bg-white/[0.08] hover:text-zinc-100 focus-visible:ring-1 focus-visible:ring-ring"
+            onClick={onClose}
           >
-            Overview
-          </h3>
-          <div className="rounded-lg bg-white/[0.04] p-3">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-zinc-400">Status</span>
-              <span data-testid="inspection-status" className="font-medium text-amber-300">
-                {formatInspectionStatus(record.status)}
-              </span>
-            </div>
-            <div className="mt-2 flex items-start justify-between gap-3">
-              <span className="text-zinc-400">Identity</span>
-              <CopyValue value={formatInspectionIdentity(record.target)} label="identity" />
-            </div>
-            <div className="mt-2 flex items-start justify-between gap-3">
-              <span className="text-zinc-400">Label</span>
-              <CopyValue
-                value={descriptor.accessibleName ?? descriptor.visibleText ?? '—'}
-                label="readable label"
-              />
-            </div>
-          </div>
-        </section>
+            <Icon icon={Cancel01Icon} size={15} />
+          </TooltipTrigger>
+          <TooltipContent side="top">Exit inspect mode</TooltipContent>
+        </Tooltip>
+      </header>
 
-        <section className="space-y-2" aria-labelledby="inspection-source-heading">
-          <h3
-            id="inspection-source-heading"
-            className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500"
-          >
-            Source pane
-          </h3>
-          <div className="space-y-2 rounded-lg bg-white/[0.04] p-3 text-zinc-300">
-            <div className="flex justify-between gap-3">
-              <span className="text-zinc-500">Device</span>
-              <span>{record.device.preset}</span>
-            </div>
-            <div className="flex justify-between gap-3">
-              <span className="text-zinc-500">Viewport</span>
-              <span>
-                {record.device.viewport.width} × {record.device.viewport.height} @{' '}
-                {record.device.dpr}x
-              </span>
-            </div>
-            <div className="flex justify-between gap-3">
-              <span className="text-zinc-500">Touch</span>
-              <span>{record.device.touch ? 'Supported' : 'Not supported'}</span>
-            </div>
-            <div className="flex items-start justify-between gap-3">
-              <span className="shrink-0 text-zinc-500">URL</span>
-              <CopyValue value={record.device.url || 'Unavailable'} label="source URL" />
-            </div>
-          </div>
-        </section>
-
-        <section className="space-y-2" aria-labelledby="inspection-comparison-heading">
-          <h3
-            id="inspection-comparison-heading"
-            className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500"
-          >
-            Visible panes
-          </h3>
-          <div className="space-y-2">
-            {records.map((paneRecord) => (
-              <div
-                key={paneRecord.paneId}
-                className="flex items-center justify-between gap-3 rounded-lg bg-white/[0.04] px-3 py-2"
-                data-testid={`inspection-result-${paneRecord.paneId}`}
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-zinc-200">{paneRecord.device.preset}</p>
-                  <p className="truncate text-[11px] text-zinc-500">
-                    {paneRecord.source
-                      ? 'Source pane'
-                      : (paneRecord.provenance ?? 'Independent comparison')}
-                  </p>
-                </div>
-                <span className="shrink-0 font-medium text-zinc-300">
-                  {formatInspectionStatus(paneRecord.status)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {record.snapshot ? (
-          <section className="space-y-2" aria-labelledby="inspection-geometry-heading">
-            <h3
-              id="inspection-geometry-heading"
-              className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500"
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 text-xs">
+        {activeRecord.snapshot ? (
+          <div className="space-y-4">
+            <section
+              aria-labelledby="inspection-markup-heading"
+              data-testid={`inspection-markup-${activeRecord.paneId}`}
+              className="space-y-2"
             >
-              Selection
-            </h3>
-            <div className="space-y-2 rounded-lg bg-white/[0.04] p-3 text-zinc-300">
-              <div className="flex justify-between gap-3">
-                <span className="text-zinc-500">Geometry</span>
-                <span className="font-mono">
-                  {Math.round(record.snapshot.geometry.width)} ×{' '}
-                  {Math.round(record.snapshot.geometry.height)} at{' '}
-                  {Math.round(record.snapshot.geometry.x)}, {Math.round(record.snapshot.geometry.y)}
-                </span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-zinc-500">Visibility</span>
-                <span>{record.snapshot.visibility.visible ? 'Visible' : 'Not visible'}</span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-zinc-500">Selector</span>
-                <CopyValue
-                  value={record.snapshot.selector ?? record.snapshot.domPath ?? 'Unavailable'}
-                  label="selector or DOM path"
+              <h3
+                id="inspection-markup-heading"
+                className="text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-500"
+              >
+                Markup
+              </h3>
+              <div className="max-h-[320px] overflow-auto" data-testid="inspection-markup-section">
+                <InspectionMarkupTree
+                  key={`${activeRecord.paneId}-${activeRecord.snapshot.capturedAt}`}
+                  node={activeRecord.snapshot.markup}
+                  onLoadChildren={(nodeId) =>
+                    window.panelApi.loadInspectionMarkupChildren(activeRecord.paneId, nodeId)
+                  }
                 />
               </div>
-            </div>
-          </section>
-        ) : null}
-
-        <section className="space-y-2" aria-labelledby="inspection-evidence-heading">
-          <h3
-            id="inspection-evidence-heading"
-            className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500"
-          >
-            Evidence
-          </h3>
-          <div className="space-y-3">
-            {records
-              .filter((paneRecord) => paneRecord.snapshot)
-              .map((paneRecord) => {
-                const snapshot = paneRecord.snapshot!
-                return (
-                  <div
-                    key={`${paneRecord.paneId}-evidence`}
-                    className="space-y-2 rounded-lg bg-white/[0.04] p-3"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-medium text-zinc-200">{paneRecord.device.preset}</span>
-                      <span className="max-w-[180px] truncate text-right text-zinc-500">
-                        {paneRecord.device.viewport.width} × {paneRecord.device.viewport.height} @{' '}
-                        {paneRecord.device.dpr}x · {paneRecord.device.touch ? 'touch' : 'pointer'}
-                      </span>
-                    </div>
-                    <p className="truncate text-[10px] text-zinc-600" title={paneRecord.device.url}>
-                      {paneRecord.device.url} · observed{' '}
-                      {new Date(paneRecord.device.capturedAt).toISOString()}
-                    </p>
-                    <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[11px]">
-                      <span className="text-zinc-500">Visibility</span>
-                      <CopyValue
-                        value={`${snapshot.visibility.visible ? 'visible' : 'not visible'} / ${snapshot.visibility.clipped ? 'clipped' : 'not clipped'} / ${snapshot.visibility.offscreen ? 'offscreen' : 'onscreen'}`}
-                        label={`${paneRecord.paneId} visibility`}
-                      />
-                      <span className="text-zinc-500">Layout</span>
-                      <CopyValue
-                        value={`${snapshot.layout.display} / ${snapshot.layout.position} / ${snapshot.layout.width} × ${snapshot.layout.height}`}
-                        label={`${paneRecord.paneId} layout`}
-                      />
-                      <span className="text-zinc-500">Overflow</span>
-                      <CopyValue
-                        value={snapshot.layout.overflow}
-                        label={`${paneRecord.paneId} overflow`}
-                      />
-                      <span className="text-zinc-500">Spacing</span>
-                      <CopyValue
-                        value={`margin ${snapshot.styles.margin}; padding ${snapshot.styles.padding}`}
-                        label={`${paneRecord.paneId} spacing`}
-                      />
-                      <span className="text-zinc-500">Typography</span>
-                      <CopyValue
-                        value={`${snapshot.styles.fontSize} / ${snapshot.styles.lineHeight} / ${snapshot.styles.fontWeight}`}
-                        label={`${paneRecord.paneId} typography`}
-                      />
-                      <span className="text-zinc-500">Color</span>
-                      <CopyValue
-                        value={`${snapshot.styles.color} on ${snapshot.styles.background}`}
-                        label={`${paneRecord.paneId} colors`}
-                      />
-                      <span className="text-zinc-500">Flex / grid</span>
-                      <CopyValue
-                        value={`${snapshot.layout.flex ?? 'none'} / ${snapshot.layout.grid ?? 'none'}`}
-                        label={`${paneRecord.paneId} flex and grid`}
-                      />
-                      <span className="text-zinc-500">Z / sizing</span>
-                      <CopyValue
-                        value={`z ${snapshot.styles.zIndex}; min ${snapshot.styles.minWidth} × ${snapshot.styles.minHeight}; max ${snapshot.styles.maxWidth} × ${snapshot.styles.maxHeight}`}
-                        label={`${paneRecord.paneId} z-index and sizing`}
-                      />
-                    </div>
-                    <div className="space-y-1 pt-2">
-                      <span className="text-zinc-500">Markup</span>
-                      <pre
-                        data-testid={`inspection-markup-${paneRecord.paneId}`}
-                        className="max-w-full overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-zinc-300"
-                      >
-                        {snapshot.outerHTML}
-                      </pre>
-                    </div>
-                  </div>
-                )
-              })}
+            </section>
+            <section
+              aria-labelledby="inspection-box-model-heading"
+              className="space-y-2 border-t border-white/10 pt-4"
+            >
+              <h3
+                id="inspection-box-model-heading"
+                className="text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-500"
+              >
+                Box model
+              </h3>
+              <InspectionBoxModel snapshot={activeRecord.snapshot} />
+            </section>
+            <DifferenceStrip records={records} />
           </div>
-        </section>
-
-        {differences.length ? (
-          <section className="space-y-2" aria-labelledby="inspection-differences-heading">
-            <h3
-              id="inspection-differences-heading"
-              className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500"
-            >
-              Differences from source
-            </h3>
-            <div className="space-y-2">
-              {differences.map((difference) => (
-                <div
-                  key={`${difference.category}-${difference.key}`}
-                  className="rounded-lg bg-amber-300/[0.06] p-3"
-                  data-testid={`inspection-difference-${difference.key}`}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="capitalize text-zinc-300">{difference.label}</span>
-                    <span className="text-[10px] uppercase tracking-[0.1em] text-amber-200">
-                      {difference.category} differs
-                    </span>
-                  </div>
-                  <p className="mt-1 font-mono text-[11px] text-zinc-400">
-                    Source: {difference.sourceValue}
-                  </p>
-                  {difference.targetValues.map((targetValue) => (
-                    <p key={targetValue.paneId} className="font-mono text-[11px] text-zinc-300">
-                      {targetValue.paneId}: {targetValue.value}
-                    </p>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        <section className="space-y-2" aria-labelledby="inspection-agent-heading">
-          <h3
-            id="inspection-agent-heading"
-            className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500"
-          >
-            Agent handoff
-          </h3>
-          <Button
-            type="button"
-            variant="soft"
-            size="small"
-            className="w-full justify-center"
-            data-testid="inspection-copy-context"
-            aria-label="Copy inspection context"
-            onClick={() => void copyInspectionContext()}
-          >
-            Copy inspection context
-          </Button>
-          {copyState !== 'idle' ? (
-            <p
-              role="status"
-              data-testid="inspection-copy-status"
-              className={copyState === 'copied' ? 'text-emerald-300' : 'text-amber-300'}
-            >
-              {copyState === 'copied'
-                ? 'Inspection context copied'
-                : 'Clipboard unavailable — copy the evidence manually'}
-            </p>
-          ) : null}
-        </section>
+        ) : (
+          <EmptyPaneView record={activeRecord} />
+        )}
       </div>
     </aside>
   )

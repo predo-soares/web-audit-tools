@@ -410,6 +410,20 @@ export function DiagnosticsPanel(): React.JSX.Element {
     setNetworkSort('newest')
   }, [activeTab])
 
+  const handleDiagnosticsTabChange = useCallback(
+    (nextTab: DiagnosticsTab): void => {
+      setActiveTab(nextTab)
+      if (nextTab === 'inspection') {
+        if (!inspectionState.active) {
+          window.panelApi.sendAction({ type: 'set-inspection-mode', active: true })
+        }
+      } else if (inspectionState.active) {
+        window.panelApi.sendAction({ type: 'set-inspection-mode', active: false })
+      }
+    },
+    [inspectionState.active]
+  )
+
   const toggleExpanded = useCallback((entryId: string): void => {
     setExpandedEntryIds((current) => {
       const next = new Set(current)
@@ -493,7 +507,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
           >
             <MotionTabs<DiagnosticsTab>
               value={activeTab}
-              onChange={setActiveTab}
+              onChange={handleDiagnosticsTabChange}
               layoutId="diagnostics-tab-indicator"
               ariaLabel="Diagnostics channels"
               tabClassName="px-2 py-1"
@@ -547,35 +561,16 @@ export function DiagnosticsPanel(): React.JSX.Element {
               <InspectionRail
                 record={inspectionState.record}
                 records={inspectionState.records}
-                state={inspectionState}
                 onClose={() =>
                   window.panelApi.sendAction({ type: 'set-inspection-mode', active: false })
                 }
               />
             ) : (
-              <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
-                <CursorArrowRaysIcon className="size-5 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  {inspectionState.active
-                    ? 'Move over an element in Preview, then click to inspect it.'
-                    : 'Select an element in Preview to inspect it.'}
-                </p>
-                <Button
-                  type="button"
-                  variant="soft"
-                  size="tiny"
-                  data-testid="inspection-start"
-                  aria-pressed={inspectionState.active}
-                  onClick={() =>
-                    window.panelApi.sendAction({
-                      type: 'set-inspection-mode',
-                      active: !inspectionState.active
-                    })
-                  }
-                >
-                  {inspectionState.active ? 'Exit Inspect mode' : 'Inspect an element'}
-                </Button>
-              </div>
+              <div
+                className="min-h-0 flex-1"
+                data-testid="inspection-preview-surface"
+                aria-label="Inspection preview"
+              />
             )
           ) : activeTab === 'rendering' ? (
             <RenderingControls />
