@@ -1,6 +1,7 @@
 import { BrowserWindow, ipcMain, shell } from 'electron'
 import { normalizeUrl } from '../shared/url'
 import type { ElementFingerprint } from '../shared/element-mirror'
+import type { InspectionPageSnapshot, InspectionTarget } from '../shared/inspection'
 import type { NewProjectInput } from '../shared/project'
 import type {
   PanelAction,
@@ -275,6 +276,13 @@ export function registerIpcHandlers(
     paneManager.setFocusedPane(paneId)
   })
 
+  ipcMain.handle('inspection:set-mode', async (_event, enabled: boolean) => {
+    await paneManager.setInspectionMode(enabled)
+    return paneManager.getInspectionState()
+  })
+
+  ipcMain.handle('inspection:get-state', () => paneManager.getInspectionState())
+
   ipcMain.handle('chrome:set-hidden', (_event, hidden: boolean) => {
     panelManager.setChromeHidden(hidden)
   })
@@ -412,6 +420,17 @@ export function registerIpcHandlers(
     paneManager.syncKey(paneId, key)
   })
 
+  ipcMain.on(
+    'pane:inspection-select',
+    (_event, paneId: PaneId, target: InspectionTarget, snapshot: InspectionPageSnapshot) => {
+      void paneManager.selectInspectionElement(paneId, target, snapshot)
+    }
+  )
+
+  ipcMain.on('pane:inspection-escape', () => {
+    paneManager.closeInspection()
+  })
+
   ipcMain.handle('pane:loading-states', () => {
     return paneManager.getLoadingStates()
   })
@@ -546,6 +565,11 @@ export function registerIpcHandlers(
 
     if (action.type === 'toggle-diagnostics') {
       panelManager.notifyToolbarPanel('panel:toggle-diagnostics')
+      return
+    }
+
+    if (action.type === 'set-inspection-mode') {
+      void paneManager.setInspectionMode(action.active)
       return
     }
 

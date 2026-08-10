@@ -91,6 +91,7 @@ export type PanelAction =
     }
   | { type: 'toggle-sidebar' }
   | { type: 'toggle-diagnostics' }
+  | { type: 'set-inspection-mode'; active: boolean }
   | { type: 'go-back' }
   | { type: 'go-forward' }
   | { type: 'reload' }

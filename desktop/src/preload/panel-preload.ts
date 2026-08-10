@@ -32,6 +32,7 @@ import type {
   LighthouseLabSelection
 } from '../shared/seo-audit'
 import type { WorkspaceView } from '../shared/sidebar'
+import type { InspectionState } from '../shared/inspection'
 
 export interface PanelOverlayApi {
   onShow: (callback: (message: PanelShowMessage) => void) => () => void
@@ -97,6 +98,8 @@ export interface PanelOverlayApi {
   getDiagnosticsWidth: () => Promise<number>
   resizeDockedPanel: (width: number, phase: 'preview' | 'commit') => void
   onDiagnosticsWidthChanged: (callback: (width: number) => void) => () => void
+  onInspectionState: (callback: (state: InspectionState) => void) => () => void
+  getInspectionState: () => Promise<InspectionState>
   takeSnapshot: (includeSeoAudit?: boolean) => Promise<SnapshotResult>
   onSnapshotTaken: (callback: (result: SnapshotResult) => void) => () => void
   onSafariChromeEnabledChanged: (callback: (enabled: boolean) => void) => () => void
@@ -290,6 +293,13 @@ const panelApi: PanelOverlayApi = {
     ipcRenderer.on('panel:diagnostics-width', listener)
     return () => ipcRenderer.removeListener('panel:diagnostics-width', listener)
   },
+  onInspectionState: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, state: InspectionState): void =>
+      callback(state)
+    ipcRenderer.on('inspection:state', listener)
+    return () => ipcRenderer.removeListener('inspection:state', listener)
+  },
+  getInspectionState: () => ipcRenderer.invoke('inspection:get-state'),
   takeSnapshot: (includeSeoAudit = false) => ipcRenderer.invoke('snapshot:take', includeSeoAudit),
   onSnapshotTaken: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, result: SnapshotResult): void =>

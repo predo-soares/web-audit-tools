@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { EngineView } from '../../src/main/engine-view'
 import type { MirrorFailureLog } from '../../src/shared/element-mirror'
 import type { ConsoleEvidenceEntry } from '../../src/shared/runtime-evidence'
+import type { InspectionTarget } from '../../src/shared/inspection'
 
 /**
  * Observation port the contract suite uses to inspect an adapter's state
@@ -235,6 +236,27 @@ export function describeEngineViewContract(
       const result = await harness.engine.captureScreenshot()
 
       expect(Buffer.isBuffer(result)).toBe(true)
+    })
+
+    it('inspection mode has a typed no-live-page contract', async () => {
+      const harness = createHarness()
+      const target: InspectionTarget = {
+        descriptor: {
+          tagName: 'button',
+          id: 'inspect-me',
+          testId: null,
+          accessibleName: 'Inspect me',
+          role: 'button',
+          visibleText: 'Inspect me',
+          structuralPath: 'body > button:nth-child(1)'
+        },
+        layers: [{ type: 'id', value: 'inspect-me' }],
+        strongestIdentity: { type: 'id', value: 'inspect-me' }
+      }
+
+      await expect(harness.engine.setInspectionMode(true)).resolves.toBeUndefined()
+      await expect(harness.engine.inspectElement(target)).resolves.toBeNull()
+      await expect(harness.engine.setInspectionMode(false)).resolves.toBeUndefined()
     })
 
     it('bindRuntimeEvidence delivers pushConsole entries through the binding', () => {

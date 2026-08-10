@@ -1,0 +1,532 @@
+import type { DeviceProfile, PaneId } from './types'
+
+export type InspectionMatchStatus = 'matched' | 'not-found' | 'ambiguous' | 'unavailable' | 'stale'
+
+export type InspectionIdentityLayer =
+  | { type: 'id'; value: string }
+  | { type: 'test-id'; value: string }
+  | { type: 'accessible-name'; tagName: string; role: string; value: string }
+  | { type: 'visible-text'; tagName: string; value: string }
+  | { type: 'structural-path'; value: string }
+
+export interface InspectionElementDescriptor {
+  tagName: string
+  id: string | null
+  testId: string | null
+  accessibleName: string | null
+  role: string | null
+  visibleText: string | null
+  structuralPath: string | null
+}
+
+export interface InspectionTarget {
+  descriptor: InspectionElementDescriptor
+  layers: InspectionIdentityLayer[]
+  strongestIdentity: InspectionIdentityLayer | null
+  indexAmongMatches?: number
+}
+
+export interface InspectionResolution {
+  status: InspectionMatchStatus
+  index: number | null
+  layer: InspectionIdentityLayer | null
+  provenance: string | null
+}
+
+export interface InspectionGeometry {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface InspectionVisibility {
+  visible: boolean
+  clipped: boolean
+  offscreen: boolean
+}
+
+export interface InspectionLayout {
+  display: string
+  position: string
+  width: string
+  height: string
+  overflow: string
+  flex: string | null
+  grid: string | null
+}
+
+export interface InspectionStyles {
+  margin: string
+  padding: string
+  color: string
+  background: string
+  font: string
+  fontSize: string
+  lineHeight: string
+  fontWeight: string
+  zIndex: string
+  minWidth: string
+  maxWidth: string
+  minHeight: string
+  maxHeight: string
+}
+
+export interface InspectionPageSnapshot {
+  target: InspectionTarget
+  selector: string | null
+  domPath: string | null
+  geometry: InspectionGeometry
+  visibility: InspectionVisibility
+  layout: InspectionLayout
+  styles: InspectionStyles
+  url: string
+  capturedAt: number
+}
+
+export interface InspectionDeviceContext {
+  paneId: PaneId
+  preset: string
+  viewport: { width: number; height: number }
+  dpr: number
+  touch: boolean
+  url: string
+  capturedAt: number
+}
+
+export interface InspectionRecord {
+  paneId: PaneId
+  source: boolean
+  status: InspectionMatchStatus
+  device: InspectionDeviceContext
+  target: InspectionTarget
+  snapshot: InspectionPageSnapshot | null
+  provenance: string | null
+  error?: string
+}
+
+export interface InspectionState {
+  active: boolean
+  record: InspectionRecord | null
+  records: InspectionRecord[]
+}
+
+export const EMPTY_INSPECTION_STATE: InspectionState = {
+  active: false,
+  record: null,
+  records: []
+}
+
+function normalize(value: string | null | undefined): string {
+  return (value ?? '').replace(/\s+/g, ' ').trim()
+}
+
+function layerValue(layer: InspectionIdentityLayer): string {
+  if (layer.type === 'accessible-name') return `${layer.tagName}:${layer.role}:${layer.value}`
+  if (layer.type === 'visible-text') return `${layer.tagName}:${layer.value}`
+  return layer.value
+}
+
+export function buildInspectionLayers(
+  descriptor: InspectionElementDescriptor
+): InspectionIdentityLayer[] {
+  const tagName = normalize(descriptor.tagName).toLowerCase()
+  const layers: InspectionIdentityLayer[] = []
+  const id = normalize(descriptor.id)
+  const testId = normalize(descriptor.testId)
+  const accessibleName = normalize(descriptor.accessibleName)
+  const role = normalize(descriptor.role) || tagName
+  const visibleText = normalize(descriptor.visibleText)
+  const structuralPath = normalize(descriptor.structuralPath)
+
+  if (id) layers.push({ type: 'id', value: id })
+  if (testId) layers.push({ type: 'test-id', value: testId })
+  if (accessibleName) {
+    layers.push({ type: 'accessible-name', tagName, role, value: accessibleName })
+  }
+  if (tagName && visibleText) layers.push({ type: 'visible-text', tagName, value: visibleText })
+  if (structuralPath) layers.push({ type: 'structural-path', value: structuralPath })
+  return layers
+}
+
+export function buildInspectionTarget(
+  descriptor: InspectionElementDescriptor,
+  candidates: readonly InspectionElementDescriptor[] = [],
+  candidateIndex = -1
+): InspectionTarget {
+  const layers = buildInspectionLayers(descriptor)
+  let indexAmongMatches: number | undefined
+
+  for (const layer of layers) {
+    const matches = candidates.flatMap((candidate, index) =>
+      matchesInspectionLayer(layer, candidate) ? [index] : []
+    )
+    if (matches.length <= 1) continue
+    const position = matches.indexOf(candidateIndex)
+    if (position !== -1) {
+      indexAmongMatches = position
+      break
+    }
+  }
+
+  return {
+    descriptor,
+    layers,
+    strongestIdentity: layers[0] ?? null,
+    ...(indexAmongMatches === undefined ? {} : { indexAmongMatches })
+  }
+}
+
+export function matchesInspectionLayer(
+  layer: InspectionIdentityLayer,
+  candidate: InspectionElementDescriptor
+): boolean {
+  const tagName = normalize(candidate.tagName).toLowerCase()
+  if (layer.type === 'id') return normalize(candidate.id) === layer.value
+  if (layer.type === 'test-id') return normalize(candidate.testId) === layer.value
+  if (layer.type === 'accessible-name') {
+    return (
+      tagName === layer.tagName &&
+      (normalize(candidate.role) || tagName) === layer.role &&
+      normalize(candidate.accessibleName) === layer.value
+    )
+  }
+  if (layer.type === 'visible-text') {
+    return tagName === layer.tagName && normalize(candidate.visibleText) === layer.value
+  }
+  return normalize(candidate.structuralPath) === layer.value
+}
+
+export function resolveInspectionTarget(
+  target: InspectionTarget,
+  candidates: readonly InspectionElementDescriptor[]
+): InspectionResolution {
+  let sawIdentityMatch = false
+  let sawAmbiguousIdentity = false
+  let structuralMatch: { index: number; layer: InspectionIdentityLayer } | null = null
+
+  for (const layer of target.layers) {
+    const matches = candidates.flatMap((candidate, index) =>
+      matchesInspectionLayer(layer, candidate) ? [index] : []
+    )
+    if (matches.length === 0) continue
+
+    if (layer.type === 'structural-path') {
+      if (matches.length === 1) structuralMatch = { index: matches[0], layer }
+      continue
+    }
+
+    sawIdentityMatch = true
+    if (matches.length === 1) {
+      return {
+        status: 'matched',
+        index: matches[0],
+        layer,
+        provenance: layerValue(layer)
+      }
+    }
+
+    if (
+      target.indexAmongMatches !== undefined &&
+      target.indexAmongMatches >= 0 &&
+      target.indexAmongMatches < matches.length
+    ) {
+      const index = matches[target.indexAmongMatches]
+      return { status: 'matched', index, layer, provenance: layerValue(layer) }
+    }
+
+    sawAmbiguousIdentity = true
+  }
+
+  if (structuralMatch && !sawIdentityMatch) {
+    return {
+      status: 'matched',
+      index: structuralMatch.index,
+      layer: structuralMatch.layer,
+      provenance: layerValue(structuralMatch.layer)
+    }
+  }
+
+  if (sawAmbiguousIdentity) {
+    return { status: 'ambiguous', index: null, layer: null, provenance: null }
+  }
+
+  return { status: 'not-found', index: null, layer: null, provenance: null }
+}
+
+export function createInspectionDeviceContext(
+  paneId: PaneId,
+  profile: DeviceProfile,
+  url: string,
+  capturedAt = Date.now()
+): InspectionDeviceContext {
+  return {
+    paneId,
+    preset: profile.name,
+    viewport: { width: profile.width, height: profile.height },
+    dpr: profile.deviceScaleFactor,
+    touch: profile.touch,
+    url,
+    capturedAt
+  }
+}
+
+export function createInspectionRecord(input: {
+  paneId: PaneId
+  source: boolean
+  target: InspectionTarget
+  profile: DeviceProfile
+  url: string
+  snapshot?: InspectionPageSnapshot | null
+  status?: InspectionMatchStatus
+  provenance?: string | null
+  error?: string
+}): InspectionRecord {
+  const strongestIdentity = input.snapshot?.target.strongestIdentity ?? null
+  return {
+    paneId: input.paneId,
+    source: input.source,
+    status: input.status ?? (input.snapshot ? 'matched' : 'unavailable'),
+    device: createInspectionDeviceContext(input.paneId, input.profile, input.url),
+    target: input.target,
+    snapshot: input.snapshot ?? null,
+    provenance: input.provenance ?? (strongestIdentity ? layerValue(strongestIdentity) : null),
+    ...(input.error ? { error: input.error } : {})
+  }
+}
+
+/**
+ * Page-world inspection resolver. It is serialized by the engine and therefore
+ * deliberately has no references to module scope. It returns evidence only;
+ * it never mutates the page or uses coordinates to identify a target.
+ */
+export function createInspectionPageResolver(target: InspectionTarget): {
+  status: InspectionMatchStatus
+  snapshot: InspectionPageSnapshot | null
+  provenance: string | null
+} {
+  const normalizePage = (value: string | null | undefined): string =>
+    (value ?? '').replace(/\s+/g, ' ').trim()
+
+  const structuralPath = (element: Element): string => {
+    const parts: string[] = []
+    let current: Element | null = element
+    while (current && current !== document.body) {
+      const parent = current.parentElement
+      const index = parent ? Array.from(parent.children).indexOf(current) + 1 : 1
+      parts.unshift(`${current.tagName.toLowerCase()}:nth-child(${index})`)
+      current = parent
+    }
+    return parts.join(' > ')
+  }
+
+  const accessibleName = (element: Element): string | null => {
+    const ariaLabel = normalizePage(element.getAttribute('aria-label'))
+    if (ariaLabel) return ariaLabel
+    const labelledBy = normalizePage(element.getAttribute('aria-labelledby'))
+    if (labelledBy) {
+      const text = labelledBy
+        .split(/\s+/)
+        .map((id) => document.getElementById(id)?.textContent ?? '')
+        .join(' ')
+      if (normalizePage(text)) return normalizePage(text)
+    }
+    if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+      const label = element.labels?.[0]?.textContent
+      if (normalizePage(label)) return normalizePage(label)
+      if (normalizePage(element.getAttribute('placeholder'))) {
+        return normalizePage(element.getAttribute('placeholder'))
+      }
+    }
+    const title = normalizePage(element.getAttribute('title'))
+    if (title) return title
+    return null
+  }
+
+  const describe = (element: Element): InspectionElementDescriptor => {
+    const tagName = element.tagName.toLowerCase()
+    const text =
+      element instanceof HTMLInputElement && ['button', 'submit', 'reset'].includes(element.type)
+        ? element.value
+        : element instanceof HTMLElement
+          ? element.innerText
+          : element.textContent
+    const formField =
+      element instanceof HTMLInputElement ||
+      element instanceof HTMLTextAreaElement ||
+      element instanceof HTMLSelectElement
+    return {
+      tagName,
+      id: normalizePage(element.id) || null,
+      testId:
+        normalizePage(element.getAttribute('data-testid')) ||
+        (formField ? normalizePage(element.getAttribute('name')) : '') ||
+        null,
+      accessibleName: accessibleName(element),
+      role: normalizePage(element.getAttribute('role')) || tagName,
+      visibleText: normalizePage(text) || null,
+      structuralPath: structuralPath(element)
+    }
+  }
+
+  const elements = Array.from(document.querySelectorAll('*'))
+  const descriptors = elements.map(describe)
+  const matches = (layer: InspectionIdentityLayer): number[] => {
+    const equal = (candidate: InspectionElementDescriptor): boolean => {
+      const tagName = normalizePage(candidate.tagName).toLowerCase()
+      if (layer.type === 'id') return normalizePage(candidate.id) === layer.value
+      if (layer.type === 'test-id') return normalizePage(candidate.testId) === layer.value
+      if (layer.type === 'accessible-name') {
+        return (
+          tagName === layer.tagName &&
+          (normalizePage(candidate.role) || tagName) === layer.role &&
+          normalizePage(candidate.accessibleName) === layer.value
+        )
+      }
+      if (layer.type === 'visible-text') {
+        return tagName === layer.tagName && normalizePage(candidate.visibleText) === layer.value
+      }
+      return normalizePage(candidate.structuralPath) === layer.value
+    }
+    return descriptors.flatMap((candidate, index) => (equal(candidate) ? [index] : []))
+  }
+
+  let selectedIndex: number | null = null
+  let selectedLayer: InspectionIdentityLayer | null = null
+  let sawIdentityMatch = false
+  let sawAmbiguous = false
+  for (const layer of target.layers) {
+    const candidates = matches(layer)
+    if (!candidates.length) continue
+    if (layer.type === 'structural-path') {
+      if (candidates.length === 1 && !sawIdentityMatch) {
+        selectedIndex = candidates[0]
+        selectedLayer = layer
+      }
+      continue
+    }
+    sawIdentityMatch = true
+    if (candidates.length === 1) {
+      selectedIndex = candidates[0]
+      selectedLayer = layer
+      break
+    }
+    if (
+      target.indexAmongMatches !== undefined &&
+      target.indexAmongMatches >= 0 &&
+      target.indexAmongMatches < candidates.length
+    ) {
+      selectedIndex = candidates[target.indexAmongMatches]
+      selectedLayer = layer
+      break
+    }
+    sawAmbiguous = true
+  }
+
+  if (selectedIndex === null || !elements[selectedIndex]) {
+    return {
+      status: sawAmbiguous ? 'ambiguous' : 'not-found',
+      snapshot: null,
+      provenance: null
+    }
+  }
+
+  const element = elements[selectedIndex]
+  const rect = element.getBoundingClientRect()
+  const style = window.getComputedStyle(element)
+  const pageLayerValue = (layer: InspectionIdentityLayer): string => {
+    if (layer.type === 'accessible-name') return `${layer.tagName}:${layer.role}:${layer.value}`
+    if (layer.type === 'visible-text') return `${layer.tagName}:${layer.value}`
+    return layer.value
+  }
+  const buildPageTarget = (nextDescriptor: InspectionElementDescriptor): InspectionTarget => {
+    const tagName = normalizePage(nextDescriptor.tagName).toLowerCase()
+    const layers: InspectionIdentityLayer[] = []
+    const id = normalizePage(nextDescriptor.id)
+    const testId = normalizePage(nextDescriptor.testId)
+    const name = normalizePage(nextDescriptor.accessibleName)
+    const role = normalizePage(nextDescriptor.role) || tagName
+    const text = normalizePage(nextDescriptor.visibleText)
+    const path = normalizePage(nextDescriptor.structuralPath)
+    if (id) layers.push({ type: 'id', value: id })
+    if (testId) layers.push({ type: 'test-id', value: testId })
+    if (name) layers.push({ type: 'accessible-name', tagName, role, value: name })
+    if (tagName && text) layers.push({ type: 'visible-text', tagName, value: text })
+    if (path) layers.push({ type: 'structural-path', value: path })
+    return { descriptor: nextDescriptor, layers, strongestIdentity: layers[0] ?? null }
+  }
+  const viewportWidth = document.documentElement.clientWidth
+  const viewportHeight = document.documentElement.clientHeight
+  const visibleWidth = Math.max(0, Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0))
+  const visibleHeight = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0))
+  const descriptor = descriptors[selectedIndex]
+  const selector = descriptor.id
+    ? `#${CSS.escape(descriptor.id)}`
+    : descriptor.testId
+      ? `[data-testid="${CSS.escape(descriptor.testId)}"]`
+      : null
+  const snapshot: InspectionPageSnapshot = {
+    target: buildPageTarget(descriptor),
+    selector,
+    domPath: descriptor.structuralPath,
+    geometry: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+    visibility: {
+      visible: visibleWidth > 0 && visibleHeight > 0 && style.visibility !== 'hidden',
+      clipped: visibleWidth < rect.width || visibleHeight < rect.height,
+      offscreen:
+        rect.bottom < 0 || rect.right < 0 || rect.left > viewportWidth || rect.top > viewportHeight
+    },
+    layout: {
+      display: style.display,
+      position: style.position,
+      width: style.width,
+      height: style.height,
+      overflow: style.overflow,
+      flex: style.flex || null,
+      grid: style.grid || null
+    },
+    styles: {
+      margin: style.margin,
+      padding: style.padding,
+      color: style.color,
+      background: style.backgroundColor,
+      font: style.font,
+      fontSize: style.fontSize,
+      lineHeight: style.lineHeight,
+      fontWeight: style.fontWeight,
+      zIndex: style.zIndex,
+      minWidth: style.minWidth,
+      maxWidth: style.maxWidth,
+      minHeight: style.minHeight,
+      maxHeight: style.maxHeight
+    },
+    url: window.location.href,
+    capturedAt: Date.now()
+  }
+
+  return {
+    status: 'matched',
+    snapshot,
+    provenance: selectedLayer ? pageLayerValue(selectedLayer) : null
+  }
+}
+
+export function getInspectionPageExpression(target: InspectionTarget): string {
+  return `(${createInspectionPageResolver.toString()})(${JSON.stringify(target)})`
+}
+
+export function formatInspectionStatus(status: InspectionMatchStatus): string {
+  if (status === 'not-found') return 'Not found'
+  if (status === 'ambiguous') return 'Ambiguous'
+  if (status === 'unavailable') return 'Unavailable'
+  if (status === 'stale') return 'Stale'
+  return 'Matched'
+}
+
+export function formatInspectionIdentity(target: InspectionTarget): string {
+  const layer = target.strongestIdentity
+  if (!layer) return 'No stable identity signal'
+  if (layer.type === 'accessible-name') return `${layer.type}: ${layer.value}`
+  if (layer.type === 'visible-text') return `${layer.type}: ${layer.value}`
+  return `${layer.type}: ${layer.value}`
+}

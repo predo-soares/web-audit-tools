@@ -33,6 +33,7 @@ import { cn } from '@renderer/lib/utils'
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SnapshotResult } from '../../../../../shared/snapshot'
 import type { HistoryEntry } from '../../../../../shared/history'
+import type { InspectionState } from '../../../../../shared/inspection'
 import { matchesAppShortcut } from '../../../../../shared/shortcuts'
 import { isLocalhostUrl } from '../../../../../shared/dev-context'
 
@@ -117,6 +118,7 @@ export function ToolbarPanel(): React.JSX.Element {
   const [urlInputFocused, setUrlInputFocused] = useState(false)
   const [activeHistoryIndex, setActiveHistoryIndex] = useState(-1)
   const [urlBarWidth, setUrlBarWidth] = useState(0)
+  const [inspectionActive, setInspectionActive] = useState(false)
   const urlBarRef = useRef<HTMLFormElement>(null)
   const [snapshotToast, setSnapshotToast] = useState<string | null>(null)
   const snapshotToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -432,6 +434,14 @@ export function ToolbarPanel(): React.JSX.Element {
     return unsubscribeToggleDiagnostics
   }, [toggleDiagnostics])
 
+  useEffect(() => {
+    void window.panelApi.getInspectionState().then((state) => setInspectionActive(state.active))
+    const unsubscribe = window.panelApi.onInspectionState((state: InspectionState) => {
+      setInspectionActive(state.active)
+    })
+    return unsubscribe
+  }, [])
+
   const showSnapshotToast = useCallback((result: SnapshotResult): void => {
     if (snapshotToastTimerRef.current) clearTimeout(snapshotToastTimerRef.current)
     setSnapshotToast(snapshotToastMessage(result))
@@ -588,6 +598,20 @@ export function ToolbarPanel(): React.JSX.Element {
           onClick={toggleZoomPopover}
         >
           <Icon icon={ZoomInAreaIcon} size={14} />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          data-testid="inspection-toggle"
+          aria-label={inspectionActive ? 'Exit Inspect mode' : 'Inspect an element'}
+          aria-pressed={inspectionActive}
+          onClick={() =>
+            window.panelApi.sendAction({ type: 'set-inspection-mode', active: !inspectionActive })
+          }
+          className={cn(inspectionActive && 'bg-accent text-accent-foreground')}
+        >
+          <Icon icon={SourceCodeIcon} size={14} />
         </Button>
         <Button
           type="button"

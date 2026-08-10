@@ -2,6 +2,13 @@ import { dialog, session, type BrowserWindow, type WebContents } from 'electron'
 import { writeFile } from 'fs/promises'
 import { DEVICE_PRESETS, PANE_IDS } from '../../shared/device-presets'
 import type { ElementFingerprint } from '../../shared/element-mirror'
+import {
+  createInspectionRecord,
+  EMPTY_INSPECTION_STATE,
+  type InspectionPageSnapshot,
+  type InspectionState,
+  type InspectionTarget
+} from '../../shared/inspection'
 import type {
   DeviceProfile,
   MediaFeatureState,
@@ -83,6 +90,7 @@ export class PaneManager {
   private sharedSession: Electron.Session | null = null
   private deviceReady: Promise<void> = Promise.resolve()
   private readonly lastMount = new Map<PaneId, PaneMount>()
+  private readonly paneProfiles = new Map<PaneId, DeviceProfile>()
   private panesVisible = true
   // When set, only this pane's native view is shown; the others are hidden even
   // while the workspace-level panes are visible. Kept in the main process so it
@@ -120,6 +128,8 @@ export class PaneManager {
   private readonly mirrorLinkTargetPanes = new Set<PaneId>()
   private devContext: DevContext | null | undefined = undefined
   private devContextPromise: Promise<void> | null = null
+  private inspectionMode = false
+  private inspectionState: InspectionState = EMPTY_INSPECTION_STATE
 
   setHistoryHooks(hooks: NavigationHistoryHooks | null): void {
     this.historyHooks = hooks
@@ -220,6 +230,9 @@ export class PaneManager {
   }
 
   private notifyPaneDocumentChange(paneId: PaneId): void {
+    if (this.inspectionState.record?.paneId === paneId) {
+      this.clearInspectionSelection()
+    }
     for (const listener of this.paneDocumentChangeListeners) {
       listener(paneId)
     }
@@ -843,8 +856,76 @@ export class PaneManager {
   }
 
   async setDeviceProfile(paneId: PaneId, profile: DeviceProfile): Promise<void> {
+    this.paneProfiles.set(paneId, profile)
     await this.deviceReady
     await this.getEngine(paneId).setDevice(profile)
+    if (this.inspectionState.record?.paneId === paneId) {
+      this.clearInspectionSelection()
+    }
+  }
+
+  getInspectionState(): InspectionState {
+    return {
+      active: this.inspectionMode,
+      record: this.inspectionState.record,
+      records: [...this.inspectionState.records]
+    }
+  }
+
+  async setInspectionMode(enabled: boolean): Promise<void> {
+    await this.deviceReady
+    this.inspectionMode = enabled
+    if (!enabled) {
+      this.inspectionState = { ...EMPTY_INSPECTION_STATE }
+    }
+
+    await Promise.all(
+      PANE_IDS.map((paneId) =>
+        this.getEngine(paneId).setInspectionMode(enabled && this.isPaneVisible(paneId))
+      )
+    )
+    this.broadcastRendererEvent('inspection:state', this.getInspectionState())
+  }
+
+  async selectInspectionElement(
+    paneId: PaneId,
+    target: InspectionTarget,
+    snapshot: InspectionPageSnapshot
+  ): Promise<void> {
+    if (!this.inspectionMode) return
+
+    const profile = this.paneProfiles.get(paneId) ?? DEVICE_PRESETS[paneId]
+    const url = this.getEngine(paneId).getCurrentUrl()
+    const record = createInspectionRecord({
+      paneId,
+      source: true,
+      target,
+      profile,
+      url,
+      snapshot,
+      status: 'matched',
+      provenance: snapshot.target.strongestIdentity ? null : 'page selection'
+    })
+    this.inspectionState = {
+      active: true,
+      record,
+      records: [record]
+    }
+    this.broadcastRendererEvent('inspection:state', this.getInspectionState())
+  }
+
+  clearInspectionSelection(): void {
+    if (!this.inspectionState.record && !this.inspectionState.records.length) return
+    this.inspectionState = {
+      active: this.inspectionMode,
+      record: null,
+      records: []
+    }
+    this.broadcastRendererEvent('inspection:state', this.getInspectionState())
+  }
+
+  closeInspection(): void {
+    void this.setInspectionMode(false)
   }
 
   async setThemePreference(preference: ThemePreference): Promise<void> {
@@ -912,12 +993,22 @@ export class PaneManager {
     this.panesVisible = visible
     this.safariChromeHooks?.setPanesVisible(visible)
     this.applyPaneVisibility()
+    if (this.inspectionMode) {
+      for (const paneId of PANE_IDS) {
+        void this.getEngine(paneId).setInspectionMode(this.isPaneVisible(paneId))
+      }
+    }
   }
 
   setFocusedPane(paneId: PaneId | null): void {
     if (this.focusedPane === paneId) return
     this.focusedPane = paneId
     this.applyPaneVisibility()
+    if (this.inspectionMode) {
+      for (const id of PANE_IDS) {
+        void this.getEngine(id).setInspectionMode(this.isPaneVisible(id))
+      }
+    }
   }
 
   /** The soloed pane, or null when every pane is visible. */
@@ -977,6 +1068,8 @@ export class PaneManager {
     }
     this.engines.clear()
     this.runtimeEvidence.clear()
+    this.inspectionMode = false
+    this.inspectionState = { ...EMPTY_INSPECTION_STATE }
     this.webContentsToPane.clear()
     this.mainWindow = null
     this.sharedSession = null
@@ -1055,9 +1148,12 @@ export class PaneManager {
     }
 
     try {
-      await engine.setDevice(DEVICE_PRESETS[paneId])
+      const profile = this.paneProfiles.get(paneId) ?? DEVICE_PRESETS[paneId]
+      this.paneProfiles.set(paneId, profile)
+      await engine.setDevice(profile)
       await engine.setThemePreference(this.themePreference)
       await engine.setMediaFeatures(this.mediaFeatures)
+      await engine.setInspectionMode(this.inspectionMode && this.isPaneVisible(paneId))
       const mount = this.lastMount.get(paneId)
       if (mount) {
         engine.mount(mount)

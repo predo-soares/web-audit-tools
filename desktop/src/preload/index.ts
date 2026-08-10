@@ -8,6 +8,7 @@ import type {
 } from '../shared/panel-types'
 import type { NewProjectInput, Project } from '../shared/project'
 import type { MirrorFailureLog } from '../shared/element-mirror'
+import type { InspectionState } from '../shared/inspection'
 import type { RuntimeEvidenceSnapshot } from '../shared/runtime-evidence'
 import type {
   DeviceProfile,
@@ -119,6 +120,9 @@ export interface PreviewApi {
   setDeviceProfile: (paneId: PaneId, profile: DeviceProfile) => Promise<void>
   setPanesVisible: (visible: boolean) => Promise<void>
   setFocusedPane: (paneId: PaneId | null) => Promise<void>
+  setInspectionMode: (enabled: boolean) => Promise<InspectionState>
+  getInspectionState: () => Promise<InspectionState>
+  onInspectionState: (callback: (state: InspectionState) => void) => () => void
   setChromeHidden: (hidden: boolean) => Promise<void>
 }
 
@@ -343,6 +347,14 @@ const api: PreviewApi = {
     ipcRenderer.invoke('pane:set-device-profile', paneId, profile),
   setPanesVisible: (visible) => ipcRenderer.invoke('pane:set-visible', visible),
   setFocusedPane: (paneId) => ipcRenderer.invoke('pane:set-focused', paneId),
+  setInspectionMode: (enabled) => ipcRenderer.invoke('inspection:set-mode', enabled),
+  getInspectionState: () => ipcRenderer.invoke('inspection:get-state'),
+  onInspectionState: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, state: InspectionState): void =>
+      callback(state)
+    ipcRenderer.on('inspection:state', listener)
+    return () => ipcRenderer.removeListener('inspection:state', listener)
+  },
   setChromeHidden: (hidden) => ipcRenderer.invoke('chrome:set-hidden', hidden)
 }
 

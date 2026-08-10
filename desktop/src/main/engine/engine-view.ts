@@ -6,6 +6,7 @@ import type {
   ThemePreference
 } from '../../shared/types'
 import type { ElementFingerprint, MirrorFailureLog } from '../../shared/element-mirror'
+import type { InspectionPageSnapshot, InspectionTarget } from '../../shared/inspection'
 import type { ConsoleEvidenceEntry, NetworkEvidenceEntry } from '../../shared/runtime-evidence'
 
 export interface ValueSyncPayload {
@@ -86,6 +87,10 @@ export interface EngineView {
    * global handlers). Fire-and-forget, like {@link dispatchClick}.
    */
   dispatchKey(key: MirroredKey): void
+  /** Enable the page-side Element picker controller for this pane. */
+  setInspectionMode(enabled: boolean): Promise<void>
+  /** Resolve and collect read-only inspection evidence in the page context. */
+  inspectElement(target: InspectionTarget): Promise<InspectionPageSnapshot | null>
   /** Show or hide the pane's view without detaching it from the window. */
   setVisible(visible: boolean): void
   /** Add the pane's view to the window's content view. */

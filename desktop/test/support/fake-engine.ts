@@ -7,6 +7,7 @@ import type {
   ThemePreference
 } from '../../src/shared/types'
 import type { ElementFingerprint, MirrorFailureLog } from '../../src/shared/element-mirror'
+import type { InspectionPageSnapshot, InspectionTarget } from '../../src/shared/inspection'
 import type {
   EngineView,
   EngineViewEventMap,
@@ -42,6 +43,8 @@ export class FakeEngine implements EngineView {
   visible = false
   attached = false
   focused = false
+  inspectionMode = false
+  inspectionResult: InspectionPageSnapshot | null = null
 
   readonly calls = {
     mount: [] as PaneMount[],
@@ -55,6 +58,8 @@ export class FakeEngine implements EngineView {
     submitForm: [] as ElementFingerprint[],
     dispatchClick: [] as Array<{ x: number; y: number }>,
     dispatchKey: [] as MirroredKey[],
+    setInspectionMode: [] as boolean[],
+    inspectElement: [] as InspectionTarget[],
     evaluate: [] as string[],
     captureScreenshot: 0,
     goBack: 0,
@@ -176,6 +181,16 @@ export class FakeEngine implements EngineView {
 
   dispatchKey(key: MirroredKey): void {
     this.calls.dispatchKey.push(key)
+  }
+
+  async setInspectionMode(enabled: boolean): Promise<void> {
+    this.inspectionMode = enabled
+    this.calls.setInspectionMode.push(enabled)
+  }
+
+  async inspectElement(target: InspectionTarget): Promise<InspectionPageSnapshot | null> {
+    this.calls.inspectElement.push(target)
+    return this.inspectionResult
   }
 
   getCurrentUrl(): string {
