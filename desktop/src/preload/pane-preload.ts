@@ -2,7 +2,9 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { createElementMirror } from '../shared/element-mirror'
 import {
   buildInspectionTarget,
+  createInspectionMarkupNode,
   resolveInspectionTarget,
+  type InspectionBoxModel,
   type InspectionElementDescriptor,
   type InspectionPageSnapshot,
   type InspectionTarget
@@ -19,6 +21,7 @@ const paneId = getPaneId()
 const mirror = createElementMirror()
 let disposeInspectionController: (() => void) | null = null
 let applyRemoteInspectionSelection: ((target: InspectionTarget | null) => void) | null = null
+let applyInspectionMismatch: ((missing: boolean) => void) | null = null
 
 function isValueSyncControl(
   target: EventTarget | null
@@ -150,6 +153,81 @@ function getInspectionSelector(descriptor: InspectionElementDescriptor): string 
   return null
 }
 
+function captureInspectionBoxModel(style: CSSStyleDeclaration): InspectionBoxModel {
+  return {
+    margin: {
+      top: style.marginTop,
+      right: style.marginRight,
+      bottom: style.marginBottom,
+      left: style.marginLeft
+    },
+    border: {
+      top: style.borderTopWidth,
+      right: style.borderRightWidth,
+      bottom: style.borderBottomWidth,
+      left: style.borderLeftWidth
+    },
+    padding: {
+      top: style.paddingTop,
+      right: style.paddingRight,
+      bottom: style.paddingBottom,
+      left: style.paddingLeft
+    },
+    content: { width: style.width, height: style.height },
+    boxSizing: style.boxSizing
+  }
+}
+
+function captureInspectionComputedProperties(
+  element: Element,
+  style: CSSStyleDeclaration
+): Array<{ name: string; value: string; isAuthored: boolean }> {
+  const inlineStyle = (element as Element & { style?: CSSStyleDeclaration }).style
+  const authoredStyles: CSSStyleDeclaration[] = inlineStyle ? [inlineStyle] : []
+  const collectRules = (rules: CSSRuleList): void => {
+    for (const rule of Array.from(rules)) {
+      if (rule.type === CSSRule.STYLE_RULE) {
+        const styleRule = rule as CSSStyleRule
+        try {
+          if (element.matches(styleRule.selectorText)) authoredStyles.push(styleRule.style)
+        } catch {
+          // Ignore selectors that the browser cannot match in this document.
+        }
+        continue
+      }
+      if ('cssRules' in rule) {
+        try {
+          collectRules((rule as CSSGroupingRule).cssRules)
+        } catch {
+          // Cross-origin stylesheets can reject cssRules access.
+        }
+      }
+    }
+  }
+  for (const sheet of Array.from(document.styleSheets)) {
+    try {
+      collectRules(sheet.cssRules)
+    } catch {
+      // Cross-origin stylesheets can reject cssRules access.
+    }
+  }
+
+  const hasAuthoredValue = (name: string): boolean =>
+    authoredStyles.some((authoredStyle) => authoredStyle.getPropertyValue(name) !== '')
+  const properties: Array<{ name: string; value: string; isAuthored: boolean }> = []
+  for (let index = 0; index < style.length; index += 1) {
+    const name = style.item(index)
+    if (name) {
+      properties.push({
+        name,
+        value: style.getPropertyValue(name),
+        isAuthored: hasAuthoredValue(name)
+      })
+    }
+  }
+  return properties
+}
+
 function captureInspectionSnapshot(element: Element): InspectionPageSnapshot {
   const elements = Array.from(document.querySelectorAll('*'))
   const descriptors = elements.map(describeInspectionElement)
@@ -196,8 +274,11 @@ function captureInspectionSnapshot(element: Element): InspectionPageSnapshot {
       minWidth: style.minWidth,
       maxWidth: style.maxWidth,
       minHeight: style.minHeight,
-      maxHeight: style.maxHeight
+      maxHeight: style.maxHeight,
+      computedProperties: captureInspectionComputedProperties(element, style)
     },
+    boxModel: captureInspectionBoxModel(style),
+    markup: createInspectionMarkupNode(element, 'root', 2),
     outerHTML: element.outerHTML,
     url: window.location.href,
     capturedAt: Date.now()
@@ -213,17 +294,29 @@ function installInspectionController(): void {
     'position:fixed;inset:0;z-index:2147483647;pointer-events:none;overflow:hidden;'
   const hover = document.createElement('div')
   const selected = document.createElement('div')
+  const mismatch = document.createElement('div')
   hover.setAttribute('data-audit-screens-inspection-hover', '')
   selected.setAttribute('data-audit-screens-inspection-selected', '')
+  mismatch.setAttribute('data-audit-screens-inspection-mismatch', '')
+  mismatch.setAttribute('aria-hidden', 'true')
   hover.style.cssText =
     'position:fixed;display:none;pointer-events:none;border:1px solid rgba(129,140,248,.9);background:transparent;box-sizing:border-box;'
   selected.style.cssText =
     'position:fixed;display:none;pointer-events:none;border:2px solid rgba(251,191,36,.95);background:transparent;box-sizing:border-box;'
-  root.append(hover, selected)
+  mismatch.style.cssText =
+    'position:fixed;inset:0;display:none;align-items:center;justify-content:center;pointer-events:none;background:rgba(9,9,11,.58);backdrop-filter:blur(1px);box-sizing:border-box;'
+  const mismatchLabel = document.createElement('div')
+  mismatchLabel.style.cssText =
+    'border:1px solid rgba(255,255,255,.12);background:rgba(9,9,11,.72);padding:8px 12px;color:rgba(255,255,255,.58);font:500 11px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.04em;'
+  mismatchLabel.textContent = 'Element not found'
+  mismatch.append(mismatchLabel)
+  root.append(mismatch, hover, selected)
   document.documentElement.append(root)
 
   let selectedElement: Element | null = null
   let hoverElement: Element | null = null
+  let previewedElement: Element | null = null
+  let previewTimer: number | null = null
   let staleReported = false
   let frame = 0
 
@@ -251,14 +344,52 @@ function installInspectionController(): void {
           ipcRenderer.send('pane:inspection-stale', paneId)
         }
       }
+      if (previewedElement && !previewedElement.isConnected) {
+        previewedElement = null
+        if (!staleReported) {
+          staleReported = true
+          ipcRenderer.send('pane:inspection-stale', paneId)
+        }
+      }
       paint(hoverElement, hover)
       paint(selectedElement, selected)
     })
   }
 
+  const schedulePreview = (): void => {
+    if (previewTimer !== null) window.clearTimeout(previewTimer)
+    previewTimer = window.setTimeout(() => {
+      previewTimer = null
+      const target = hoverElement
+      if (
+        !target ||
+        target === previewedElement ||
+        !target.isConnected ||
+        target === document.documentElement ||
+        target === document.body
+      ) {
+        return
+      }
+      previewedElement = target
+      staleReported = false
+      const snapshot = captureInspectionSnapshot(target)
+      ipcRenderer.send('pane:inspection-preview', paneId, snapshot.target, snapshot)
+    }, 60)
+  }
+
   const handlePointerMove = (event: PointerEvent): void => {
     const target = event.target
-    hoverElement = target instanceof Element && target !== root ? target : null
+    const nextElement =
+      target instanceof Element &&
+      target !== root &&
+      target !== document.documentElement &&
+      target !== document.body
+        ? target
+        : null
+    if (nextElement !== hoverElement) {
+      hoverElement = nextElement
+      schedulePreview()
+    }
     schedulePaint()
   }
 
@@ -303,6 +434,10 @@ function installInspectionController(): void {
     schedulePaint()
   }
 
+  const applyMismatch = (missing: boolean): void => {
+    mismatch.style.display = missing ? 'flex' : 'none'
+  }
+
   const handleEscape = (event: KeyboardEvent): void => {
     if (event.key !== 'Escape') return
     ipcRenderer.send('pane:inspection-escape', paneId)
@@ -320,6 +455,7 @@ function installInspectionController(): void {
     childList: true
   })
   applyRemoteInspectionSelection = applySelection
+  applyInspectionMismatch = applyMismatch
 
   disposeInspectionController = () => {
     window.removeEventListener('pointermove', handlePointerMove, true)
@@ -331,9 +467,12 @@ function installInspectionController(): void {
     mutationObserver.disconnect()
     if (frame) cancelAnimationFrame(frame)
     root.remove()
+    if (previewTimer !== null) window.clearTimeout(previewTimer)
     selectedElement = null
     hoverElement = null
+    previewedElement = null
     applyRemoteInspectionSelection = null
+    applyInspectionMismatch = null
     disposeInspectionController = null
   }
 }
@@ -345,6 +484,10 @@ ipcRenderer.on('pane:inspection-mode', (_event, enabled: boolean) => {
 
 ipcRenderer.on('pane:inspection-selection', (_event, target: InspectionTarget | null) => {
   applyRemoteInspectionSelection?.(target)
+})
+
+ipcRenderer.on('pane:inspection-mismatch', (_event, missing: boolean) => {
+  applyInspectionMismatch?.(missing)
 })
 
 window.addEventListener(

@@ -5,6 +5,8 @@ import type { ElementFingerprint } from '../../shared/element-mirror'
 import {
   createInspectionRecord,
   EMPTY_INSPECTION_STATE,
+  getInspectionMarkupChildrenExpression,
+  type InspectionMarkupNode,
   type InspectionPageSnapshot,
   type InspectionState,
   type InspectionTarget
@@ -129,6 +131,7 @@ export class PaneManager {
   private devContext: DevContext | null | undefined = undefined
   private devContextPromise: Promise<void> | null = null
   private inspectionMode = false
+  private inspectionRequestId = 0
   private inspectionState: InspectionState = EMPTY_INSPECTION_STATE
 
   setHistoryHooks(hooks: NavigationHistoryHooks | null): void {
@@ -875,6 +878,7 @@ export class PaneManager {
 
   async setInspectionMode(enabled: boolean): Promise<void> {
     await this.deviceReady
+    this.inspectionRequestId += 1
     this.inspectionMode = enabled
     if (!enabled) {
       this.inspectionState = { ...EMPTY_INSPECTION_STATE }
@@ -891,9 +895,11 @@ export class PaneManager {
   async selectInspectionElement(
     paneId: PaneId,
     target: InspectionTarget,
-    snapshot: InspectionPageSnapshot
+    snapshot: InspectionPageSnapshot,
+    applySelection = true
   ): Promise<void> {
     if (!this.inspectionMode) return
+    const requestId = ++this.inspectionRequestId
 
     const profile = this.paneProfiles.get(paneId) ?? DEVICE_PRESETS[paneId]
     const url = this.getEngine(paneId).getCurrentUrl()
@@ -940,6 +946,8 @@ export class PaneManager {
       })
     )
 
+    if (!this.inspectionMode || requestId !== this.inspectionRequestId) return
+
     const records = targetResults.map((result) => {
       if (result.paneId === paneId) return sourceRecord
       const profile = this.paneProfiles.get(result.paneId) ?? DEVICE_PRESETS[result.paneId]
@@ -959,11 +967,13 @@ export class PaneManager {
     })
 
     await Promise.all(
-      targetResults.map((result) =>
-        this.getEngine(result.paneId).setInspectionSelection(
-          result.status === 'matched' ? target : null
+      targetResults.map(async (result) => {
+        const engine = this.getEngine(result.paneId)
+        await engine.setInspectionMismatch(result.status !== 'matched')
+        await engine.setInspectionSelection(
+          applySelection && result.status === 'matched' ? target : null
         )
-      )
+      })
     )
 
     this.inspectionState = {
@@ -974,9 +984,40 @@ export class PaneManager {
     this.broadcastRendererEvent('inspection:state', this.getInspectionState())
   }
 
+  async previewInspectionElement(
+    paneId: PaneId,
+    target: InspectionTarget,
+    snapshot: InspectionPageSnapshot
+  ): Promise<void> {
+    await this.selectInspectionElement(paneId, target, snapshot, false)
+  }
+
+  async loadInspectionMarkupChildren(
+    paneId: PaneId,
+    nodeId: string
+  ): Promise<InspectionMarkupNode[]> {
+    if (!this.inspectionMode || !/^root(?:\.\d+)*$/.test(nodeId)) return []
+    const record = this.inspectionState.records.find((candidate) => candidate.paneId === paneId)
+    if (!record || record.status !== 'matched' || !record.snapshot) return []
+
+    const engine = this.getEngine(paneId)
+    if (engine.getCurrentUrl() === 'about:blank' || this.loadingState.get(paneId)) return []
+
+    try {
+      const children = await engine.evaluate<InspectionMarkupNode[]>(
+        getInspectionMarkupChildrenExpression(record.target, nodeId)
+      )
+      return Array.isArray(children) ? children : []
+    } catch {
+      return []
+    }
+  }
+
   clearInspectionSelection(): void {
     if (!this.inspectionState.record && !this.inspectionState.records.length) return
+    this.inspectionRequestId += 1
     for (const paneId of PANE_IDS) {
+      void this.getEngine(paneId).setInspectionMismatch(false)
       void this.getEngine(paneId).setInspectionSelection(null)
     }
     this.inspectionState = {
@@ -1002,6 +1043,7 @@ export class PaneManager {
       records
     }
     void this.getEngine(paneId).setInspectionSelection(null)
+    void this.getEngine(paneId).setInspectionMismatch(true)
     this.broadcastRendererEvent('inspection:state', this.getInspectionState())
   }
 
@@ -1065,11 +1107,13 @@ export class PaneManager {
     })
 
     await Promise.all(
-      targetResults.map((result) =>
-        this.getEngine(result.paneId).setInspectionSelection(
+      targetResults.map(async (result) => {
+        const engine = this.getEngine(result.paneId)
+        await engine.setInspectionMismatch(result.status !== 'matched')
+        await engine.setInspectionSelection(
           result.status === 'matched' ? sourceRecord.target : null
         )
-      )
+      })
     )
     this.inspectionState = { ...this.inspectionState, records }
     this.broadcastRendererEvent('inspection:state', this.getInspectionState())
@@ -1112,6 +1156,7 @@ export class PaneManager {
           record.source ? refreshedSource : record
         )
       }
+      await engine.setInspectionMismatch(false)
       await engine.setInspectionSelection(result.snapshot.target)
       this.broadcastRendererEvent('inspection:state', this.getInspectionState())
     } catch {

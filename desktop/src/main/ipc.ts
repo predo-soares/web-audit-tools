@@ -427,6 +427,17 @@ export function registerIpcHandlers(
     }
   )
 
+  ipcMain.on(
+    'pane:inspection-preview',
+    (_event, paneId: PaneId, target: InspectionTarget, snapshot: InspectionPageSnapshot) => {
+      void paneManager.previewInspectionElement(paneId, target, snapshot)
+    }
+  )
+
+  ipcMain.handle('inspection:markup-children', (_event, paneId: PaneId, nodeId: string) =>
+    paneManager.loadInspectionMarkupChildren(paneId, nodeId)
+  )
+
   ipcMain.on('pane:inspection-escape', () => {
     paneManager.closeInspection()
   })

@@ -76,6 +76,25 @@ export interface InspectionStyles {
   maxWidth: string
   minHeight: string
   maxHeight: string
+  computedProperties?: Array<{ name: string; value: string; isAuthored?: boolean }>
+}
+
+export type InspectionMarkupNode = {
+  id: string
+  type: 'element' | 'text' | 'comment'
+  tagName?: string
+  attributes?: Array<{ name: string; value: string }>
+  text?: string
+  children?: InspectionMarkupNode[]
+  hasChildren: boolean
+}
+
+export interface InspectionBoxModel {
+  margin: { top: string; right: string; bottom: string; left: string }
+  border: { top: string; right: string; bottom: string; left: string }
+  padding: { top: string; right: string; bottom: string; left: string }
+  content: { width: string; height: string }
+  boxSizing: string
 }
 
 export interface InspectionPageSnapshot {
@@ -86,9 +105,53 @@ export interface InspectionPageSnapshot {
   visibility: InspectionVisibility
   layout: InspectionLayout
   styles: InspectionStyles
+  boxModel: InspectionBoxModel
+  markup: InspectionMarkupNode
   outerHTML: string
   url: string
   capturedAt: number
+}
+
+/**
+ * Capture one markup node without serializing or reparsing outerHTML. When
+ * includeChildren is false, callers get a cheap node summary that can be
+ * expanded later through the page-context children resolver.
+ */
+export function createInspectionMarkupNode(
+  node: Node,
+  id: string,
+  childrenDepth: number | boolean = false
+): InspectionMarkupNode {
+  const depth =
+    childrenDepth === true ? 1 : childrenDepth === false ? 0 : Math.max(0, childrenDepth)
+  if (node.nodeType === Node.TEXT_NODE) {
+    return { id, type: 'text', text: node.textContent ?? '', hasChildren: false }
+  }
+
+  if (node.nodeType === Node.COMMENT_NODE) {
+    return { id, type: 'comment', text: node.textContent ?? '', hasChildren: false }
+  }
+
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    return { id, type: 'text', text: node.textContent ?? '', hasChildren: false }
+  }
+
+  const element = node as Element
+  const childNodes = Array.from(element.childNodes)
+  return {
+    id,
+    type: 'element',
+    tagName: element.tagName.toLowerCase(),
+    attributes: Array.from(element.attributes).map(({ name, value }) => ({ name, value })),
+    ...(depth > 0
+      ? {
+          children: childNodes.map((child, index) =>
+            createInspectionMarkupNode(child, `${id}.${index}`, depth - 1)
+          )
+        }
+      : {}),
+    hasChildren: childNodes.length > 0
+  }
 }
 
 export interface InspectionDeviceContext {
@@ -466,6 +529,104 @@ export function createInspectionPageResolver(target: InspectionTarget): Inspecti
     if (path) layers.push({ type: 'structural-path', value: path })
     return { descriptor: nextDescriptor, layers, strongestIdentity: layers[0] ?? null }
   }
+  const captureMarkupNode = (node: Node, id: string, childrenDepth = 0): InspectionMarkupNode => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return { id, type: 'text', text: node.textContent ?? '', hasChildren: false }
+    }
+    if (node.nodeType === Node.COMMENT_NODE) {
+      return { id, type: 'comment', text: node.textContent ?? '', hasChildren: false }
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return { id, type: 'text', text: node.textContent ?? '', hasChildren: false }
+    }
+    const markupElement = node as Element
+    const childNodes = Array.from(markupElement.childNodes)
+    return {
+      id,
+      type: 'element',
+      tagName: markupElement.tagName.toLowerCase(),
+      attributes: Array.from(markupElement.attributes).map(({ name, value }) => ({ name, value })),
+      ...(childrenDepth > 0
+        ? {
+            children: childNodes.map((child, index) =>
+              captureMarkupNode(child, `${id}.${index}`, childrenDepth - 1)
+            )
+          }
+        : {}),
+      hasChildren: childNodes.length > 0
+    }
+  }
+  const captureComputedProperties = (
+    element: Element,
+    style: CSSStyleDeclaration
+  ): Array<{ name: string; value: string; isAuthored: boolean }> => {
+    const inlineStyle = (element as Element & { style?: CSSStyleDeclaration }).style
+    const authoredStyles: CSSStyleDeclaration[] = inlineStyle ? [inlineStyle] : []
+    const collectRules = (rules: CSSRuleList): void => {
+      for (const rule of Array.from(rules)) {
+        if (rule.type === CSSRule.STYLE_RULE) {
+          const styleRule = rule as CSSStyleRule
+          try {
+            if (element.matches(styleRule.selectorText)) authoredStyles.push(styleRule.style)
+          } catch {
+            // Ignore selectors that the browser cannot match in this document.
+          }
+          continue
+        }
+        if ('cssRules' in rule) {
+          try {
+            collectRules((rule as CSSGroupingRule).cssRules)
+          } catch {
+            // Cross-origin stylesheets can reject cssRules access.
+          }
+        }
+      }
+    }
+    for (const sheet of Array.from(document.styleSheets)) {
+      try {
+        collectRules(sheet.cssRules)
+      } catch {
+        // Cross-origin stylesheets can reject cssRules access.
+      }
+    }
+
+    const hasAuthoredValue = (name: string): boolean =>
+      authoredStyles.some((authoredStyle) => authoredStyle.getPropertyValue(name) !== '')
+    const properties: Array<{ name: string; value: string; isAuthored: boolean }> = []
+    for (let index = 0; index < style.length; index += 1) {
+      const name = style.item(index)
+      if (name) {
+        properties.push({
+          name,
+          value: style.getPropertyValue(name),
+          isAuthored: hasAuthoredValue(name)
+        })
+      }
+    }
+    return properties
+  }
+  const captureBoxModel = (style: CSSStyleDeclaration): InspectionBoxModel => ({
+    margin: {
+      top: style.marginTop,
+      right: style.marginRight,
+      bottom: style.marginBottom,
+      left: style.marginLeft
+    },
+    border: {
+      top: style.borderTopWidth,
+      right: style.borderRightWidth,
+      bottom: style.borderBottomWidth,
+      left: style.borderLeftWidth
+    },
+    padding: {
+      top: style.paddingTop,
+      right: style.paddingRight,
+      bottom: style.paddingBottom,
+      left: style.paddingLeft
+    },
+    content: { width: style.width, height: style.height },
+    boxSizing: style.boxSizing
+  })
   const viewportWidth = document.documentElement.clientWidth
   const viewportHeight = document.documentElement.clientHeight
   const visibleWidth = Math.max(0, Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0))
@@ -509,8 +670,11 @@ export function createInspectionPageResolver(target: InspectionTarget): Inspecti
       minWidth: style.minWidth,
       maxWidth: style.maxWidth,
       minHeight: style.minHeight,
-      maxHeight: style.maxHeight
+      maxHeight: style.maxHeight,
+      computedProperties: captureComputedProperties(element, style)
     },
+    boxModel: captureBoxModel(style),
+    markup: captureMarkupNode(element, 'root', 2),
     outerHTML: element.outerHTML,
     url: window.location.href,
     capturedAt: Date.now()
@@ -525,6 +689,175 @@ export function createInspectionPageResolver(target: InspectionTarget): Inspecti
 
 export function getInspectionPageExpression(target: InspectionTarget): string {
   return `(${createInspectionPageResolver.toString()})(${JSON.stringify(target)})`
+}
+
+/**
+ * Resolve one node in the selected element's subtree and return only its
+ * direct children. This stays page-context-local so expanding a tree node does
+ * not require serializing the complete subtree into the initial snapshot.
+ */
+export function createInspectionMarkupChildrenResolver(
+  target: InspectionTarget,
+  nodeId: string
+): InspectionMarkupNode[] {
+  const normalizePage = (value: string | null | undefined): string =>
+    (value ?? '').replace(/\s+/g, ' ').trim()
+
+  const structuralPath = (element: Element): string => {
+    const parts: string[] = []
+    let current: Element | null = element
+    while (current && current !== document.body) {
+      const parent = current.parentElement
+      const index = parent ? Array.from(parent.children).indexOf(current) + 1 : 1
+      parts.unshift(`${current.tagName.toLowerCase()}:nth-child(${index})`)
+      current = parent
+    }
+    return parts.join(' > ')
+  }
+
+  const accessibleName = (element: Element): string | null => {
+    const ariaLabel = normalizePage(element.getAttribute('aria-label'))
+    if (ariaLabel) return ariaLabel
+    const labelledBy = normalizePage(element.getAttribute('aria-labelledby'))
+    if (labelledBy) {
+      const text = labelledBy
+        .split(/\s+/)
+        .map((id) => document.getElementById(id)?.textContent ?? '')
+        .join(' ')
+      if (normalizePage(text)) return normalizePage(text)
+    }
+    if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+      const label = element.labels?.[0]?.textContent
+      if (normalizePage(label)) return normalizePage(label)
+      if (normalizePage(element.getAttribute('placeholder'))) {
+        return normalizePage(element.getAttribute('placeholder'))
+      }
+    }
+    const title = normalizePage(element.getAttribute('title'))
+    if (title) return title
+    return null
+  }
+
+  const describe = (element: Element): InspectionElementDescriptor => {
+    const tagName = element.tagName.toLowerCase()
+    const text =
+      element instanceof HTMLInputElement && ['button', 'submit', 'reset'].includes(element.type)
+        ? element.value
+        : element instanceof HTMLElement
+          ? element.innerText
+          : element.textContent
+    const formField =
+      element instanceof HTMLInputElement ||
+      element instanceof HTMLTextAreaElement ||
+      element instanceof HTMLSelectElement
+    return {
+      tagName,
+      id: normalizePage(element.id) || null,
+      testId:
+        normalizePage(element.getAttribute('data-testid')) ||
+        (formField ? normalizePage(element.getAttribute('name')) : '') ||
+        null,
+      accessibleName: accessibleName(element),
+      role: normalizePage(element.getAttribute('role')) || tagName,
+      visibleText: normalizePage(text) || null,
+      structuralPath: structuralPath(element)
+    }
+  }
+
+  const elements = Array.from(document.querySelectorAll('*'))
+  const descriptors = elements.map(describe)
+  const matches = (layer: InspectionIdentityLayer): number[] => {
+    const equal = (candidate: InspectionElementDescriptor): boolean => {
+      const tagName = normalizePage(candidate.tagName).toLowerCase()
+      if (layer.type === 'id') return normalizePage(candidate.id) === layer.value
+      if (layer.type === 'test-id') return normalizePage(candidate.testId) === layer.value
+      if (layer.type === 'accessible-name') {
+        return (
+          tagName === layer.tagName &&
+          (normalizePage(candidate.role) || tagName) === layer.role &&
+          normalizePage(candidate.accessibleName) === layer.value
+        )
+      }
+      if (layer.type === 'visible-text') {
+        return tagName === layer.tagName && normalizePage(candidate.visibleText) === layer.value
+      }
+      return normalizePage(candidate.structuralPath) === layer.value
+    }
+    return descriptors.flatMap((candidate, index) => (equal(candidate) ? [index] : []))
+  }
+
+  let selectedIndex: number | null = null
+  let sawIdentityMatch = false
+  let sawAmbiguous = false
+  for (const layer of target.layers) {
+    const candidates = matches(layer)
+    if (!candidates.length) continue
+    if (layer.type === 'structural-path') {
+      if (candidates.length === 1 && !sawIdentityMatch) selectedIndex = candidates[0]
+      continue
+    }
+    sawIdentityMatch = true
+    if (candidates.length === 1) {
+      selectedIndex = candidates[0]
+      break
+    }
+    if (
+      target.indexAmongMatches !== undefined &&
+      target.indexAmongMatches >= 0 &&
+      target.indexAmongMatches < candidates.length
+    ) {
+      selectedIndex = candidates[target.indexAmongMatches]
+      break
+    }
+    sawAmbiguous = true
+  }
+
+  if (
+    selectedIndex === null ||
+    sawAmbiguous ||
+    !elements[selectedIndex] ||
+    !/^root(?:\.\d+)*$/.test(nodeId)
+  ) {
+    return []
+  }
+
+  let node: Node = elements[selectedIndex]
+  for (const segment of nodeId.split('.').slice(1)) {
+    const index = Number(segment)
+    const next = node.childNodes[index]
+    if (!next) return []
+    node = next
+  }
+
+  if (node.nodeType !== Node.ELEMENT_NODE) return []
+  const element = node as Element
+  return Array.from(element.childNodes).map((child, index) => {
+    const childId = `${nodeId}.${index}`
+    if (child.nodeType === Node.TEXT_NODE) {
+      return { id: childId, type: 'text', text: child.textContent ?? '', hasChildren: false }
+    }
+    if (child.nodeType === Node.COMMENT_NODE) {
+      return { id: childId, type: 'comment', text: child.textContent ?? '', hasChildren: false }
+    }
+    if (child.nodeType !== Node.ELEMENT_NODE) {
+      return { id: childId, type: 'text', text: child.textContent ?? '', hasChildren: false }
+    }
+    const childElement = child as Element
+    return {
+      id: childId,
+      type: 'element',
+      tagName: childElement.tagName.toLowerCase(),
+      attributes: Array.from(childElement.attributes).map(({ name, value }) => ({ name, value })),
+      hasChildren: childElement.childNodes.length > 0
+    }
+  })
+}
+
+export function getInspectionMarkupChildrenExpression(
+  target: InspectionTarget,
+  nodeId: string
+): string {
+  return `(${createInspectionMarkupChildrenResolver.toString()})(${JSON.stringify(target)},${JSON.stringify(nodeId)})`
 }
 
 export function formatInspectionStatus(status: InspectionMatchStatus): string {

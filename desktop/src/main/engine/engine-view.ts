@@ -93,6 +93,8 @@ export interface EngineView {
   inspectElement(target: InspectionTarget): Promise<InspectionPageResolution>
   /** Apply/remove the selected outline after a cross-pane inspection match. */
   setInspectionSelection(target: InspectionTarget | null): Promise<void>
+  /** Show/hide the in-pane missing-element overlay for an unmatched comparison. */
+  setInspectionMismatch(missing: boolean): Promise<void>
   /** Show or hide the pane's view without detaching it from the window. */
   setVisible(visible: boolean): void
   /** Add the pane's view to the window's content view. */

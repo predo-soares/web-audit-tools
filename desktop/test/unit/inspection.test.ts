@@ -1,7 +1,11 @@
+// @vitest-environment happy-dom
+
 import { describe, expect, it } from 'vitest'
 import {
   buildInspectionTarget,
   buildInspectionLayers,
+  createInspectionMarkupChildrenResolver,
+  createInspectionMarkupNode,
   createInspectionRecord,
   formatInspectionContext,
   getInspectionDifferences,
@@ -160,6 +164,21 @@ describe('inspection identity', () => {
         minHeight: '0px',
         maxHeight: 'none'
       },
+      boxModel: {
+        margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' },
+        border: { top: '0px', right: '0px', bottom: '0px', left: '0px' },
+        padding: { top: '8px', right: '8px', bottom: '8px', left: '8px' },
+        content: { width: '200px', height: '80px' },
+        boxSizing: 'border-box'
+      },
+      markup: {
+        id: 'root',
+        type: 'element',
+        tagName: 'div',
+        attributes: [{ name: 'id', value: 'layout' }],
+        children: [{ id: 'root.0', type: 'text', text: 'Target', hasChildren: false }],
+        hasChildren: true
+      },
       outerHTML: '<div id="layout">Target</div>',
       url: 'https://fixture.test/',
       capturedAt: 1,
@@ -208,5 +227,98 @@ describe('inspection identity', () => {
     expect(context).toContain('markup:')
     expect(context).toContain('<div id="layout">Target</div>')
     expect(context).toContain('width=200px')
+  })
+})
+
+describe('inspection markup capture', () => {
+  it('captures nested elements, attributes, text, comments, and empty text nodes structurally', () => {
+    const root = document.createElement('section')
+    root.setAttribute('data-testid', 'markup-root')
+    const button = document.createElement('button')
+    button.className = 'primary'
+    button.append(document.createTextNode('Save'))
+    root.append(document.createTextNode(''))
+    root.append(button)
+    root.append(document.createComment('keep this comment'))
+    document.body.append(root)
+
+    const summary = createInspectionMarkupNode(root, 'root')
+    expect(summary).toMatchObject({
+      id: 'root',
+      type: 'element',
+      tagName: 'section',
+      attributes: [{ name: 'data-testid', value: 'markup-root' }],
+      hasChildren: true
+    })
+    expect(summary.children).toBeUndefined()
+
+    const expanded = createInspectionMarkupNode(root, 'root', true)
+    expect(expanded.children).toEqual([
+      { id: 'root.0', type: 'text', text: '', hasChildren: false },
+      {
+        id: 'root.1',
+        type: 'element',
+        tagName: 'button',
+        attributes: [{ name: 'class', value: 'primary' }],
+        hasChildren: true
+      },
+      { id: 'root.2', type: 'comment', text: 'keep this comment', hasChildren: false }
+    ])
+
+    const twoLevels = createInspectionMarkupNode(root, 'root', 2)
+    expect(twoLevels.children?.[1]).toMatchObject({
+      id: 'root.1',
+      type: 'element',
+      tagName: 'button',
+      children: [{ id: 'root.1.0', type: 'text', text: 'Save', hasChildren: false }]
+    })
+  })
+
+  it('loads only direct children for a requested node path', () => {
+    document.body.innerHTML =
+      '<main><div id="layout"><button class="primary">Save</button><span></span></div></main>'
+    const target = buildInspectionTarget(
+      descriptor({
+        tagName: 'div',
+        id: 'layout',
+        visibleText: 'Save',
+        structuralPath: 'main > div:nth-child(1)'
+      })
+    )
+
+    expect(createInspectionMarkupChildrenResolver(target, 'root')).toEqual([
+      {
+        id: 'root.0',
+        type: 'element',
+        tagName: 'button',
+        attributes: [{ name: 'class', value: 'primary' }],
+        hasChildren: true
+      },
+      {
+        id: 'root.1',
+        type: 'element',
+        tagName: 'span',
+        attributes: [],
+        hasChildren: false
+      }
+    ])
+    expect(createInspectionMarkupChildrenResolver(target, 'root.0')).toEqual([
+      { id: 'root.0.0', type: 'text', text: 'Save', hasChildren: false }
+    ])
+    expect(createInspectionMarkupChildrenResolver(target, 'root.0.0')).toEqual([])
+  })
+
+  it('keeps large and deep roots lazy instead of recursively materializing them', () => {
+    const root = document.createElement('div')
+    let current = root
+    for (let index = 0; index < 500; index += 1) {
+      const child = document.createElement('div')
+      current.append(child)
+      current = child
+    }
+
+    const summary = createInspectionMarkupNode(root, 'root')
+    expect(summary.hasChildren).toBe(true)
+    expect(summary.children).toBeUndefined()
   })
 })

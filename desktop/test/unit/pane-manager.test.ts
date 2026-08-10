@@ -58,6 +58,7 @@ function createMockEngineShape() {
     attach: vi.fn(),
     detach: vi.fn(),
     focus: vi.fn(),
+    setInspectionMismatch: vi.fn(),
     on: vi.fn(() => () => {}),
     getWebContentsId: vi.fn(() => Math.floor(Math.random() * 10000)),
     destroy: vi.fn(),
@@ -183,6 +184,20 @@ function createInspectionSnapshot(): InspectionPageSnapshot {
       minHeight: '0px',
       maxHeight: 'none'
     },
+    boxModel: {
+      margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' },
+      border: { top: '0px', right: '0px', bottom: '0px', left: '0px' },
+      padding: { top: '0px', right: '0px', bottom: '0px', left: '0px' },
+      content: { width: '120px', height: '40px' },
+      boxSizing: 'border-box'
+    },
+    markup: {
+      id: 'root',
+      type: 'element',
+      tagName: 'div',
+      attributes: [{ name: 'id', value: 'inspection-target' }],
+      hasChildren: true
+    },
     outerHTML: '<div id="inspection-target">Target</div>',
     url: 'https://example.com/',
     capturedAt: 1
@@ -217,6 +232,8 @@ describe('PaneManager inspection lifecycle', () => {
     )
     expect(ipad.calls.setInspectionSelection.at(-1)).toBeNull()
     expect(desktop.calls.setInspectionSelection.at(-1)).toEqual(snapshot.target)
+    expect(ipad.calls.setInspectionMismatch.at(-1)).toBe(true)
+    expect(desktop.calls.setInspectionMismatch.at(-1)).toBe(false)
 
     paneManager.markInspectionPaneStale('desktop')
 
@@ -226,6 +243,32 @@ describe('PaneManager inspection lifecycle', () => {
       snapshot: null
     })
     expect(desktop.calls.setInspectionSelection.at(-1)).toBeNull()
+  })
+
+  it('loads direct markup children from the matched pane on demand', async () => {
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithFakeEngines()
+    await Promise.all([
+      iphone.navigate('https://example.com/'),
+      ipad.navigate('https://example.com/'),
+      desktop.navigate('https://example.com/')
+    ])
+    const snapshot = createInspectionSnapshot()
+    const resolution = { status: 'matched' as const, snapshot, provenance: 'fake' }
+    iphone.inspectionResolution = resolution
+    ipad.inspectionResolution = resolution
+    desktop.inspectionResolution = resolution
+    desktop.evaluateResult = [{ id: 'root.0', type: 'text', text: 'Target', hasChildren: false }]
+
+    await paneManager.setInspectionMode(true)
+    await paneManager.selectInspectionElement('desktop', snapshot.target, snapshot)
+
+    await expect(paneManager.loadInspectionMarkupChildren('desktop', 'root')).resolves.toEqual([
+      { id: 'root.0', type: 'text', text: 'Target', hasChildren: false }
+    ])
+    expect(desktop.calls.evaluate.at(-1)).toContain('root')
+    await expect(
+      paneManager.loadInspectionMarkupChildren('desktop', 'root.invalid')
+    ).resolves.toEqual([])
   })
 })
 

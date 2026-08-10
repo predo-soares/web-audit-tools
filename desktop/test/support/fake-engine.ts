@@ -70,6 +70,7 @@ export class FakeEngine implements EngineView {
     setInspectionMode: [] as boolean[],
     inspectElement: [] as InspectionTarget[],
     setInspectionSelection: [] as Array<InspectionTarget | null>,
+    setInspectionMismatch: [] as boolean[],
     evaluate: [] as string[],
     captureScreenshot: 0,
     goBack: 0,
@@ -207,6 +208,10 @@ export class FakeEngine implements EngineView {
 
   async setInspectionSelection(target: InspectionTarget | null): Promise<void> {
     this.calls.setInspectionSelection.push(target)
+  }
+
+  async setInspectionMismatch(missing: boolean): Promise<void> {
+    this.calls.setInspectionMismatch.push(missing)
   }
 
   getCurrentUrl(): string {

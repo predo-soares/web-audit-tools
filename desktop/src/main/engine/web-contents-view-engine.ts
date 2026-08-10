@@ -548,6 +548,11 @@ export class WebContentsViewEngine implements EngineView {
     this.webContents.send('pane:inspection-selection', target)
   }
 
+  async setInspectionMismatch(missing: boolean): Promise<void> {
+    if (this.webContents.isDestroyed()) return
+    this.webContents.send('pane:inspection-mismatch', missing)
+  }
+
   async evaluate<T = unknown>(expression: string): Promise<T> {
     return this.webContents.executeJavaScript(expression) as Promise<T>
   }
