@@ -57,9 +57,9 @@ export function InspectionRail({
   return (
     <aside
       id="inspection-rail"
-      aria-label="Inspection rail"
+      aria-label="Inspection details"
       data-testid="inspection-rail"
-      className="flex h-full min-h-0 w-[360px] shrink-0 flex-col border-l border-white/10 bg-zinc-950/90 text-zinc-100 shadow-2xl backdrop-blur-xl"
+      className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col bg-background text-foreground"
     >
       <div className="flex shrink-0 items-start justify-between gap-3 border-b border-white/10 px-4 py-3">
         <div className="min-w-0">
@@ -74,7 +74,7 @@ export function InspectionRail({
           type="button"
           variant="ghost"
           size="tiny"
-          aria-label="Close inspection rail"
+          aria-label="Close inspection"
           data-testid="inspection-close"
           onClick={onClose}
         >

@@ -42,8 +42,10 @@ import {
 import { MotionTabs } from '@renderer/components/ui/motion-tabs'
 import { ApplicationPanel } from './application-panel'
 import { RenderingControls } from './rendering-controls'
+import { InspectionRail } from '@renderer/components/inspection-rail'
+import type { InspectionState } from '../../../../../shared/inspection'
 
-type DiagnosticsTab = RuntimeEvidenceChannel | 'rendering' | 'application'
+type DiagnosticsTab = RuntimeEvidenceChannel | 'rendering' | 'application' | 'inspection'
 type ConsoleLevelFilter = 'all' | 'errors' | 'warnings' | 'info'
 type NetworkOutcomeFilter = 'all' | 'failed' | '4xx' | '5xx'
 type NetworkDurationFilter = 'all' | '100' | '500' | '1000' | '3000'
@@ -205,6 +207,11 @@ export function DiagnosticsPanel(): React.JSX.Element {
   const [capturePaused, setCapturePaused] = useState(false)
   const [hasPendingEvidence, setHasPendingEvidence] = useState(false)
   const [isAtLatest, setIsAtLatest] = useState(true)
+  const [inspectionState, setInspectionState] = useState<InspectionState>({
+    active: false,
+    record: null,
+    records: []
+  })
   const capturePausedRef = useRef(false)
   const pendingEvidenceRef = useRef<RuntimeEvidenceSnapshot | null>(null)
 
@@ -283,16 +290,39 @@ export function DiagnosticsPanel(): React.JSX.Element {
   }, [])
 
   useEffect(() => {
-    void window.panelApi.getRuntimeEvidence().then((snapshot) => {
-      setActiveTab(selectPreferredDiagnosticsTab(snapshot))
+    void Promise.all([
+      window.panelApi.getRuntimeEvidence(),
+      window.panelApi.getInspectionState()
+    ]).then(([snapshot, nextInspectionState]) => {
+      setInspectionState(nextInspectionState)
+      setActiveTab(
+        nextInspectionState.record ? 'inspection' : selectPreferredDiagnosticsTab(snapshot)
+      )
     })
+  }, [])
+
+  useEffect(() => {
+    const unsubscribeInspection = window.panelApi.onInspectionState((nextState) => {
+      setInspectionState(nextState)
+      setActiveTab((currentTab) => {
+        if (nextState.record) return 'inspection'
+        return currentTab === 'inspection' ? 'console' : currentTab
+      })
+    })
+    return unsubscribeInspection
   }, [])
 
   useEffect(() => {
     const unsubscribeShow = window.panelApi.onShow((message) => {
       if (message.panelId !== 'diagnostics-right' || message.mode !== 'docked') return
-      void window.panelApi.getRuntimeEvidence().then((snapshot) => {
-        setActiveTab(selectPreferredDiagnosticsTab(snapshot))
+      void Promise.all([
+        window.panelApi.getRuntimeEvidence(),
+        window.panelApi.getInspectionState()
+      ]).then(([snapshot, nextInspectionState]) => {
+        setInspectionState(nextInspectionState)
+        setActiveTab(
+          nextInspectionState.record ? 'inspection' : selectPreferredDiagnosticsTab(snapshot)
+        )
       })
     })
     return unsubscribeShow
@@ -481,11 +511,35 @@ export function DiagnosticsPanel(): React.JSX.Element {
                   value: 'application',
                   label: 'Application',
                   testId: 'diagnostics-tab-application'
-                }
+                },
+                ...(inspectionState.record
+                  ? [
+                      {
+                        value: 'inspection' as const,
+                        label: 'Inspection',
+                        testId: 'diagnostics-tab-inspection'
+                      }
+                    ]
+                  : [])
               ]}
             />
           </header>
-          {activeTab === 'rendering' ? (
+          {activeTab === 'inspection' ? (
+            inspectionState.record ? (
+              <InspectionRail
+                record={inspectionState.record}
+                records={inspectionState.records}
+                state={inspectionState}
+                onClose={() =>
+                  window.panelApi.sendAction({ type: 'set-inspection-mode', active: false })
+                }
+              />
+            ) : (
+              <div className="flex min-h-0 flex-1 items-center justify-center px-4 text-center text-sm text-muted-foreground">
+                Select an element in Preview to inspect it.
+              </div>
+            )
+          ) : activeTab === 'rendering' ? (
             <RenderingControls />
           ) : activeTab === 'application' ? (
             <ApplicationPanel />

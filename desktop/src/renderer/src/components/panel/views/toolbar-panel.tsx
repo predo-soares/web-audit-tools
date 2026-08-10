@@ -435,12 +435,16 @@ export function ToolbarPanel(): React.JSX.Element {
   }, [toggleDiagnostics])
 
   useEffect(() => {
-    void window.panelApi.getInspectionState().then((state) => setInspectionActive(state.active))
+    void window.panelApi.getInspectionState().then((state) => {
+      setInspectionActive(state.active)
+      if (state.record && isBrowserView) setDiagnosticsOpen(true)
+    })
     const unsubscribe = window.panelApi.onInspectionState((state: InspectionState) => {
       setInspectionActive(state.active)
+      if (state.record && isBrowserView) setDiagnosticsOpen(true)
     })
     return unsubscribe
-  }, [])
+  }, [isBrowserView])
 
   const showSnapshotToast = useCallback((result: SnapshotResult): void => {
     if (snapshotToastTimerRef.current) clearTimeout(snapshotToastTimerRef.current)

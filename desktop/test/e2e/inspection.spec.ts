@@ -21,6 +21,11 @@ test('Element picker selects a page element without leaving Preview', async ({ f
 
     await evaluateInPane(window, 'desktop', `document.getElementById('fixture-home')?.click()`)
 
+    await expect(window.getByTestId('diagnostics-drawer')).toBeVisible()
+    await expect(window.getByTestId('diagnostics-tab-inspection')).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
     await expect(window.getByTestId('inspection-rail')).toBeVisible()
     await expect(window.getByTestId('inspection-status')).toHaveText('Matched')
     await expect(window.getByTestId('inspection-rail')).toContainText('desktop')
