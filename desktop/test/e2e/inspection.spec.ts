@@ -57,3 +57,26 @@ test('Element picker compares visible panes independently of interaction links',
     await close()
   }
 })
+
+test('Element picker marks a removed node stale without blocking page lifecycle', async ({
+  fixturePort
+}) => {
+  const { window, close } = await launchApp()
+
+  try {
+    await navigateTo(window, fixtureUrl(fixturePort, '/long-scroll'))
+    await waitForAllPanes(window)
+    const toolbar = await getToolbarPage(window)
+    await toolbar.getByTestId('inspection-toggle').click()
+    await evaluateInPane(window, 'desktop', `document.getElementById('section-0')?.click()`)
+    await expect(window.getByTestId('inspection-status')).toHaveText('Matched')
+
+    await evaluateInPane(window, 'desktop', `document.getElementById('section-0')?.remove()`)
+    await expect(window.getByTestId('inspection-status')).toHaveText('Stale')
+
+    await evaluateInPane(window, 'desktop', `window.scrollTo({ top: 400, behavior: 'instant' })`)
+    await expect(window.getByTestId('inspection-rail')).toBeVisible()
+  } finally {
+    await close()
+  }
+})

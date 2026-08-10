@@ -223,6 +223,7 @@ function installInspectionController(): void {
 
   let selectedElement: Element | null = null
   let hoverElement: Element | null = null
+  let staleReported = false
   let frame = 0
 
   const paint = (node: Element | null, outline: HTMLDivElement): void => {
@@ -242,6 +243,13 @@ function installInspectionController(): void {
     if (frame) return
     frame = requestAnimationFrame(() => {
       frame = 0
+      if (selectedElement && !selectedElement.isConnected) {
+        selectedElement = null
+        if (!staleReported) {
+          staleReported = true
+          ipcRenderer.send('pane:inspection-stale', paneId)
+        }
+      }
       paint(hoverElement, hover)
       paint(selectedElement, selected)
     })
@@ -270,6 +278,7 @@ function installInspectionController(): void {
       return
     }
     selectedElement = target
+    staleReported = false
     const snapshot = captureInspectionSnapshot(target)
     ipcRenderer.send('pane:inspection-select', paneId, snapshot.target, snapshot)
     schedulePaint()
@@ -278,6 +287,7 @@ function installInspectionController(): void {
   const applySelection = (target: InspectionTarget | null): void => {
     if (!target) {
       selectedElement = null
+      staleReported = false
       schedulePaint()
       return
     }
@@ -288,6 +298,7 @@ function installInspectionController(): void {
       resolution.status === 'matched' && resolution.index !== null
         ? (elements[resolution.index] ?? null)
         : null
+    staleReported = false
     schedulePaint()
   }
 
@@ -302,6 +313,11 @@ function installInspectionController(): void {
   window.addEventListener('keydown', handleEscape, true)
   window.addEventListener('scroll', schedulePaint, { passive: true })
   window.addEventListener('resize', schedulePaint)
+  const mutationObserver = new MutationObserver(schedulePaint)
+  mutationObserver.observe(document.documentElement, {
+    subtree: true,
+    childList: true
+  })
   applyRemoteInspectionSelection = applySelection
 
   disposeInspectionController = () => {
@@ -311,6 +327,7 @@ function installInspectionController(): void {
     window.removeEventListener('keydown', handleEscape, true)
     window.removeEventListener('scroll', schedulePaint)
     window.removeEventListener('resize', schedulePaint)
+    mutationObserver.disconnect()
     if (frame) cancelAnimationFrame(frame)
     root.remove()
     selectedElement = null

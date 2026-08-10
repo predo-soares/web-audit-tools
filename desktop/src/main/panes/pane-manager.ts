@@ -230,9 +230,7 @@ export class PaneManager {
   }
 
   private notifyPaneDocumentChange(paneId: PaneId): void {
-    if (this.inspectionState.record?.paneId === paneId) {
-      this.clearInspectionSelection()
-    }
+    this.markInspectionPaneStatus(paneId, 'stale')
     for (const listener of this.paneDocumentChangeListeners) {
       listener(paneId)
     }
@@ -859,8 +857,11 @@ export class PaneManager {
     this.paneProfiles.set(paneId, profile)
     await this.deviceReady
     await this.getEngine(paneId).setDevice(profile)
-    if (this.inspectionState.record?.paneId === paneId) {
-      this.clearInspectionSelection()
+    if (this.inspectionMode) {
+      if (this.inspectionState.record?.paneId === paneId) {
+        await this.refreshInspectionSource()
+      }
+      void this.refreshInspectionTargets()
     }
   }
 
@@ -986,6 +987,138 @@ export class PaneManager {
     this.broadcastRendererEvent('inspection:state', this.getInspectionState())
   }
 
+  markInspectionPaneStale(paneId: PaneId): void {
+    this.markInspectionPaneStatus(paneId, 'stale')
+  }
+
+  private markInspectionPaneStatus(paneId: PaneId, status: 'stale' | 'unavailable'): void {
+    if (!this.inspectionState.records.length) return
+    const records = this.inspectionState.records.map((record) =>
+      record.paneId === paneId ? { ...record, status, snapshot: null, provenance: null } : record
+    )
+    this.inspectionState = {
+      ...this.inspectionState,
+      record: records.find((record) => record.source) ?? this.inspectionState.record,
+      records
+    }
+    void this.getEngine(paneId).setInspectionSelection(null)
+    this.broadcastRendererEvent('inspection:state', this.getInspectionState())
+  }
+
+  private async refreshInspectionTargets(): Promise<void> {
+    if (!this.inspectionMode) return
+    const sourceRecord = this.inspectionState.records.find((record) => record.source)
+    if (!sourceRecord?.snapshot || sourceRecord.status !== 'matched') return
+
+    const visiblePanes = PANE_IDS.filter((id) => this.isPaneVisible(id))
+    const targetResults = await Promise.all(
+      visiblePanes
+        .filter((paneId) => paneId !== sourceRecord.paneId)
+        .map(async (paneId) => {
+          const engine = this.getEngine(paneId)
+          if (engine.getCurrentUrl() === 'about:blank' || this.loadingState.get(paneId)) {
+            return {
+              paneId,
+              status: 'unavailable' as const,
+              snapshot: null,
+              provenance: null
+            }
+          }
+          try {
+            return { paneId, ...(await engine.inspectElement(sourceRecord.target)) }
+          } catch {
+            return {
+              paneId,
+              status: 'unavailable' as const,
+              snapshot: null,
+              provenance: null
+            }
+          }
+        })
+    )
+
+    const refreshed = targetResults.map((result) => {
+      const profile = this.paneProfiles.get(result.paneId) ?? DEVICE_PRESETS[result.paneId]
+      return createInspectionRecord({
+        paneId: result.paneId,
+        source: false,
+        target: sourceRecord.target,
+        profile,
+        url: this.getEngine(result.paneId).getCurrentUrl(),
+        snapshot: result.snapshot,
+        status: result.status,
+        provenance: result.provenance,
+        error:
+          result.status === 'unavailable' ? 'Pane did not return inspection evidence' : undefined
+      })
+    })
+    const byPane = new Map(
+      this.inspectionState.records
+        .filter((record) => !visiblePanes.includes(record.paneId))
+        .map((record) => [record.paneId, record])
+    )
+    byPane.set(sourceRecord.paneId, sourceRecord)
+    for (const record of refreshed) byPane.set(record.paneId, record)
+    const records = PANE_IDS.flatMap((paneId) => {
+      const record = byPane.get(paneId)
+      return record ? [record] : []
+    })
+
+    await Promise.all(
+      targetResults.map((result) =>
+        this.getEngine(result.paneId).setInspectionSelection(
+          result.status === 'matched' ? sourceRecord.target : null
+        )
+      )
+    )
+    this.inspectionState = { ...this.inspectionState, records }
+    this.broadcastRendererEvent('inspection:state', this.getInspectionState())
+  }
+
+  private async refreshInspectionSource(): Promise<void> {
+    const sourceRecord = this.inspectionState.records.find((record) => record.source)
+    if (!sourceRecord) return
+    const engine = this.getEngine(sourceRecord.paneId)
+    if (engine.getCurrentUrl() === 'about:blank' || this.loadingState.get(sourceRecord.paneId)) {
+      this.markInspectionPaneStatus(sourceRecord.paneId, 'unavailable')
+      return
+    }
+
+    try {
+      const result = await engine.inspectElement(sourceRecord.target)
+      if (result.status !== 'matched' || !result.snapshot) {
+        this.markInspectionPaneStatus(
+          sourceRecord.paneId,
+          result.status === 'unavailable' ? 'unavailable' : 'stale'
+        )
+        return
+      }
+      const profile =
+        this.paneProfiles.get(sourceRecord.paneId) ?? DEVICE_PRESETS[sourceRecord.paneId]
+      const refreshedSource = createInspectionRecord({
+        paneId: sourceRecord.paneId,
+        source: true,
+        target: result.snapshot.target,
+        profile,
+        url: engine.getCurrentUrl(),
+        snapshot: result.snapshot,
+        status: 'matched',
+        provenance: result.provenance
+      })
+      this.inspectionState = {
+        ...this.inspectionState,
+        record: refreshedSource,
+        records: this.inspectionState.records.map((record) =>
+          record.source ? refreshedSource : record
+        )
+      }
+      await engine.setInspectionSelection(result.snapshot.target)
+      this.broadcastRendererEvent('inspection:state', this.getInspectionState())
+    } catch {
+      this.markInspectionPaneStatus(sourceRecord.paneId, 'unavailable')
+    }
+  }
+
   closeInspection(): void {
     void this.setInspectionMode(false)
   }
@@ -1059,6 +1192,7 @@ export class PaneManager {
       for (const paneId of PANE_IDS) {
         void this.getEngine(paneId).setInspectionMode(this.isPaneVisible(paneId))
       }
+      void this.refreshInspectionTargets()
     }
   }
 
@@ -1070,6 +1204,7 @@ export class PaneManager {
       for (const id of PANE_IDS) {
         void this.getEngine(id).setInspectionMode(this.isPaneVisible(id))
       }
+      void this.refreshInspectionTargets()
     }
   }
 
@@ -1302,6 +1437,7 @@ export class PaneManager {
       // is about to change, so notify audit owners before the old page's
       // evidence can be attributed to the new one.
       this.notifyPaneDocumentChange(paneId)
+      if (this.inspectionMode) this.markInspectionPaneStatus(paneId, 'unavailable')
     })
     engine.on('page-title-updated', (title) => {
       if (this.tracker.didTitleUpdate(paneId, title)) {
@@ -1340,6 +1476,7 @@ export class PaneManager {
       // Electron's navigation history, which may not be fully updated at
       // did-navigate time (e.g. after goBack/goForward).
       this.emitNavigationState()
+      if (this.inspectionMode) void this.refreshInspectionTargets()
     })
     engine.on('focus', () => {
       if (this.pendingProgrammaticNavigation.has(paneId)) return
@@ -1429,6 +1566,7 @@ export class PaneManager {
       // ERR_ABORTED (-3) is a cancelled navigation, not a real failure.
       // Sub-frame failures don't affect the page's main content.
       if (errorCode === -3 || !isMainFrame) return
+      if (this.inspectionMode) this.markInspectionPaneStatus(paneId, 'unavailable')
       // Hide the WebContentsView: Chromium's built-in error page is a native
       // layer that sits above all React HTML, so the error overlay in the
       // renderer would be invisible behind it. Setting the view invisible lets

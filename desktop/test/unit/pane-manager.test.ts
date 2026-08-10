@@ -7,6 +7,7 @@ import { RUNTIME_EVIDENCE_EMIT_WINDOW_MS } from '../../src/shared/runtime-eviden
 import type { EngineView } from '../../src/main/engine/engine-view'
 import type { PaneId } from '../../src/shared/types'
 import { FakeEngine } from '../support/fake-engine'
+import { buildInspectionTarget, type InspectionPageSnapshot } from '../../src/shared/inspection'
 
 function createDeferred<T>(): {
   promise: Promise<T>
@@ -140,6 +141,92 @@ function createPaneManagerWithFakeEngines(): {
 
   return { paneManager, iphone, ipad, desktop }
 }
+
+function createInspectionSnapshot(): InspectionPageSnapshot {
+  const descriptor = {
+    tagName: 'div',
+    id: 'inspection-target',
+    testId: null,
+    accessibleName: null,
+    role: null,
+    visibleText: 'Target',
+    structuralPath: 'main > div:nth-child(1)'
+  }
+  const target = buildInspectionTarget(descriptor)
+  return {
+    target,
+    selector: '#inspection-target',
+    domPath: descriptor.structuralPath,
+    geometry: { x: 0, y: 0, width: 120, height: 40 },
+    visibility: { visible: true, clipped: false, offscreen: false },
+    layout: {
+      display: 'block',
+      position: 'static',
+      width: '120px',
+      height: '40px',
+      overflow: 'visible',
+      flex: null,
+      grid: null
+    },
+    styles: {
+      margin: '0px',
+      padding: '0px',
+      color: 'white',
+      background: 'black',
+      font: '16px system-ui',
+      fontSize: '16px',
+      lineHeight: '24px',
+      fontWeight: '400',
+      zIndex: 'auto',
+      minWidth: '0px',
+      maxWidth: 'none',
+      minHeight: '0px',
+      maxHeight: 'none'
+    },
+    url: 'https://example.com/',
+    capturedAt: 1
+  }
+}
+
+describe('PaneManager inspection lifecycle', () => {
+  it('keeps partial target failures explicit and removes stale pane highlights', async () => {
+    const { paneManager, iphone, ipad, desktop } = createPaneManagerWithFakeEngines()
+    await Promise.all([
+      iphone.navigate('https://example.com/'),
+      ipad.navigate('https://example.com/'),
+      desktop.navigate('https://example.com/')
+    ])
+    ipad.inspectionResolution = { status: 'ambiguous', snapshot: null, provenance: null }
+    desktop.inspectionResolution = {
+      status: 'matched',
+      snapshot: createInspectionSnapshot(),
+      provenance: 'id:inspection-target'
+    }
+
+    await paneManager.setInspectionMode(true)
+    const snapshot = createInspectionSnapshot()
+    await paneManager.selectInspectionElement('desktop', snapshot.target, snapshot)
+
+    expect(paneManager.getInspectionState().records).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ paneId: 'desktop', status: 'matched' }),
+        expect.objectContaining({ paneId: 'ipad', status: 'ambiguous' }),
+        expect.objectContaining({ paneId: 'iphone', status: 'unavailable' })
+      ])
+    )
+    expect(ipad.calls.setInspectionSelection.at(-1)).toBeNull()
+    expect(desktop.calls.setInspectionSelection.at(-1)).toEqual(snapshot.target)
+
+    paneManager.markInspectionPaneStale('desktop')
+
+    expect(paneManager.getInspectionState().record).toMatchObject({
+      paneId: 'desktop',
+      status: 'stale',
+      snapshot: null
+    })
+    expect(desktop.calls.setInspectionSelection.at(-1)).toBeNull()
+  })
+})
 
 describe('PaneManager syncClick stale guards', () => {
   it('drops a resolved click when the target engine changes before dispatch', async () => {

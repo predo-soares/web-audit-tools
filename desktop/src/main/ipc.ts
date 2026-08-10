@@ -431,6 +431,10 @@ export function registerIpcHandlers(
     paneManager.closeInspection()
   })
 
+  ipcMain.on('pane:inspection-stale', (_event, paneId: PaneId) => {
+    paneManager.markInspectionPaneStale(paneId)
+  })
+
   ipcMain.handle('pane:loading-states', () => {
     return paneManager.getLoadingStates()
   })
