@@ -623,6 +623,119 @@ export function getInspectionDifferences(
   return rows
 }
 
+function formatInspectionGeometry(geometry: InspectionGeometry): string {
+  return `x=${geometry.x}; y=${geometry.y}; width=${geometry.width}; height=${geometry.height}`
+}
+
+function formatInspectionVisibility(visibility: InspectionVisibility): string {
+  return `visible=${visibility.visible}; clipped=${visibility.clipped}; offscreen=${visibility.offscreen}`
+}
+
+function formatInspectionLayout(layout: InspectionLayout): string {
+  return [
+    `display=${layout.display}`,
+    `position=${layout.position}`,
+    `width=${layout.width}`,
+    `height=${layout.height}`,
+    `overflow=${layout.overflow}`,
+    `flex=${layout.flex ?? 'none'}`,
+    `grid=${layout.grid ?? 'none'}`
+  ].join('; ')
+}
+
+function formatInspectionStyles(styles: InspectionStyles): string {
+  return [
+    `margin=${styles.margin}`,
+    `padding=${styles.padding}`,
+    `color=${styles.color}`,
+    `background=${styles.background}`,
+    `font=${styles.font}`,
+    `fontSize=${styles.fontSize}`,
+    `lineHeight=${styles.lineHeight}`,
+    `fontWeight=${styles.fontWeight}`,
+    `zIndex=${styles.zIndex}`,
+    `minWidth=${styles.minWidth}`,
+    `maxWidth=${styles.maxWidth}`,
+    `minHeight=${styles.minHeight}`,
+    `maxHeight=${styles.maxHeight}`
+  ].join('; ')
+}
+
+function formatInspectionRecordContext(record: InspectionRecord): string[] {
+  const lines = [
+    `- pane: ${record.paneId}${record.source ? ' (source)' : ''}`,
+    `  status: ${formatInspectionStatus(record.status)}`,
+    `  device: ${record.device.preset}`,
+    `  viewport: ${record.device.viewport.width}x${record.device.viewport.height}`,
+    `  dpr: ${record.device.dpr}`,
+    `  touch: ${record.device.touch}`,
+    `  url: ${record.device.url}`,
+    `  observedAtEpochMs: ${record.device.capturedAt}`,
+    `  matchProvenance: ${record.provenance ?? 'none'}`
+  ]
+  if (!record.snapshot) {
+    lines.push(`  evidence: none (${formatInspectionStatus(record.status)})`)
+    if (record.error) lines.push(`  error: ${record.error}`)
+    return lines
+  }
+
+  lines.push(`  selector: ${record.snapshot.selector ?? 'none'}`)
+  lines.push(`  domPath: ${record.snapshot.domPath ?? 'none'}`)
+  lines.push(`  geometry: ${formatInspectionGeometry(record.snapshot.geometry)}`)
+  lines.push(`  visibility: ${formatInspectionVisibility(record.snapshot.visibility)}`)
+  lines.push(`  layout: ${formatInspectionLayout(record.snapshot.layout)}`)
+  lines.push(`  styles: ${formatInspectionStyles(record.snapshot.styles)}`)
+  lines.push(`  pageCapturedAtEpochMs: ${record.snapshot.capturedAt}`)
+  return lines
+}
+
+export function formatInspectionContext(state: InspectionState): string {
+  const source = state.records.find((record) => record.source) ?? state.record
+  const target = source?.target
+  const lines = [
+    'Audit Screens inspection context',
+    'Evidence type: observed page evidence; this is not a guaranteed diagnosis or remediation.',
+    `Inspect mode: ${state.active ? 'active' : 'inactive'}`,
+    `Selection status: ${source ? formatInspectionStatus(source.status) : 'Unavailable'}`,
+    `Selected element: ${target ? `<${target.descriptor.tagName}>` : 'none'}`,
+    `Readable label: ${target?.descriptor.accessibleName ?? target?.descriptor.visibleText ?? 'none'}`,
+    `Strongest identity: ${target ? formatInspectionIdentity(target) : 'none'}`,
+    `Selector: ${source?.snapshot?.selector ?? 'none'}`,
+    `DOM path: ${source?.snapshot?.domPath ?? 'none'}`,
+    `Source freshness epoch ms: ${source?.device.capturedAt ?? 'none'}`,
+    '',
+    'Visible pane results:'
+  ]
+
+  if (!state.records.length) {
+    lines.push('- none (no selection)')
+  } else {
+    for (const record of state.records) lines.push(...formatInspectionRecordContext(record))
+  }
+
+  lines.push('', 'Cross-pane differences:')
+  const differences = getInspectionDifferences(state.records)
+  if (!differences.length) {
+    lines.push('- none measured or no matched target evidence')
+  } else {
+    for (const difference of differences) {
+      const targets = difference.targetValues
+        .map(({ paneId, value }) => `${paneId}=${value}`)
+        .join('; ')
+      lines.push(
+        `- ${difference.category}.${difference.key}: source=${difference.sourceValue}; ${targets}`
+      )
+    }
+  }
+
+  lines.push(
+    '',
+    'Remediation clues:',
+    '- Audit Screens does not infer a fix. Use the observed identity, geometry, layout, styles, and explicit match statuses as evidence for further investigation.'
+  )
+  return lines.join('\n')
+}
+
 export function formatInspectionIdentity(target: InspectionTarget): string {
   const layer = target.strongestIdentity
   if (!layer) return 'No stable identity signal'

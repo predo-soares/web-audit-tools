@@ -1,7 +1,9 @@
-import type { InspectionRecord } from '../../../shared/inspection'
+import { useState } from 'react'
+import type { InspectionRecord, InspectionState } from '../../../shared/inspection'
 import {
   formatInspectionIdentity,
   formatInspectionStatus,
+  formatInspectionContext,
   getInspectionDifferences
 } from '../../../shared/inspection'
 import { Button } from '@renderer/components/ui/button'
@@ -9,6 +11,7 @@ import { Button } from '@renderer/components/ui/button'
 interface InspectionRailProps {
   record: InspectionRecord
   records: InspectionRecord[]
+  state: InspectionState
   onClose: () => void
 }
 
@@ -34,10 +37,22 @@ function CopyValue({ value, label }: { value: string; label: string }): React.JS
 export function InspectionRail({
   record,
   records,
+  state,
   onClose
 }: InspectionRailProps): React.JSX.Element {
   const descriptor = record.target.descriptor
   const differences = getInspectionDifferences(records)
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
+
+  const copyInspectionContext = async (): Promise<void> => {
+    try {
+      if (!navigator.clipboard) throw new Error('Clipboard unavailable')
+      await navigator.clipboard.writeText(formatInspectionContext(state))
+      setCopyState('copied')
+    } catch {
+      setCopyState('failed')
+    }
+  }
 
   return (
     <aside
@@ -298,6 +313,37 @@ export function InspectionRail({
             </div>
           </section>
         ) : null}
+
+        <section className="space-y-2" aria-labelledby="inspection-agent-heading">
+          <h3
+            id="inspection-agent-heading"
+            className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500"
+          >
+            Agent handoff
+          </h3>
+          <Button
+            type="button"
+            variant="soft"
+            size="small"
+            className="w-full justify-center"
+            data-testid="inspection-copy-context"
+            aria-label="Copy inspection context"
+            onClick={() => void copyInspectionContext()}
+          >
+            Copy inspection context
+          </Button>
+          {copyState !== 'idle' ? (
+            <p
+              role="status"
+              data-testid="inspection-copy-status"
+              className={copyState === 'copied' ? 'text-emerald-300' : 'text-amber-300'}
+            >
+              {copyState === 'copied'
+                ? 'Inspection context copied'
+                : 'Clipboard unavailable — copy the evidence manually'}
+            </p>
+          ) : null}
+        </section>
       </div>
     </aside>
   )

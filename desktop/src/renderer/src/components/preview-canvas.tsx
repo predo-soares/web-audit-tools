@@ -167,6 +167,7 @@ export function PreviewCanvas({
             <InspectionRail
               record={inspectionState.record}
               records={inspectionState.records}
+              state={inspectionState}
               onClose={() => void window.api.setInspectionMode(false)}
             />
           </div>

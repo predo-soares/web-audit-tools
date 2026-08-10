@@ -26,6 +26,15 @@ test('Element picker selects a page element without leaving Preview', async ({ f
     await expect(window.getByTestId('inspection-rail')).toContainText('desktop')
     await expect(window.getByTestId('preview-canvas')).toBeVisible()
 
+    await window.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+    await window.getByTestId('inspection-copy-context').click()
+    await expect(window.getByTestId('inspection-copy-status')).toHaveText(
+      'Inspection context copied'
+    )
+    const copiedContext = await window.evaluate(() => navigator.clipboard.readText())
+    expect(copiedContext).toContain('Audit Screens inspection context')
+    expect(copiedContext).toContain('fixture-home')
+
     await window.getByTestId('inspection-close').click()
     await expect(window.getByTestId('inspection-rail')).toHaveCount(0)
     await expect(toolbar.getByTestId('inspection-toggle')).toHaveAttribute('aria-pressed', 'false')

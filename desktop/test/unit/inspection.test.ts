@@ -3,6 +3,7 @@ import {
   buildInspectionTarget,
   buildInspectionLayers,
   createInspectionRecord,
+  formatInspectionContext,
   getInspectionDifferences,
   matchesInspectionLayer,
   resolveInspectionTarget,
@@ -187,5 +188,22 @@ describe('inspection identity', () => {
     const differences = getInspectionDifferences([source, targetRecord])
     expect(differences.slice(0, 2).map((difference) => difference.key)).toEqual(['x', 'width'])
     expect(differences.at(-1)).toMatchObject({ category: 'styles', key: 'color' })
+
+    const unavailable = createInspectionRecord({
+      paneId: 'ipad',
+      source: false,
+      target,
+      profile: DEVICE_PRESETS.ipad,
+      url: 'https://fixture.test/',
+      status: 'unavailable',
+      error: 'pane loading'
+    })
+    const state = { active: true, record: source, records: [source, targetRecord, unavailable] }
+    const context = formatInspectionContext(state)
+    expect(formatInspectionContext(state)).toBe(context)
+    expect(context).toContain('status: Unavailable')
+    expect(context).toContain('evidence: none (Unavailable)')
+    expect(context).toContain('observed page evidence; this is not a guaranteed diagnosis')
+    expect(context).toContain('width=200px')
   })
 })
