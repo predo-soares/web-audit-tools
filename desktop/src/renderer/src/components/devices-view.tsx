@@ -78,6 +78,7 @@ function DevicePresetCard({
   const paneActive = selectedPresets[entry.paneId] !== undefined
   const thisActive = selectedPresets[entry.paneId] === entry.presetId
   const isLastVisible = thisActive && visibleCount === 1
+  const isMuted = !thisActive || isLastVisible
 
   return (
     <button
@@ -104,20 +105,38 @@ function DevicePresetCard({
       onClick={() => onTogglePreset(entry.presetId)}
       className={cn(
         'group flex shrink-0 flex-col items-start gap-3 rounded-sm   text-left transition-opacity duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
-        thisActive ? '' : 'opacity-30 hover:opacity-100',
-        isLastVisible && 'cursor-not-allowed opacity-45'
+        isLastVisible && 'cursor-not-allowed'
       )}
     >
-      <DeviceFrame
-        paneId={entry.paneId}
-        profile={entry}
-        scale={0.25}
-        showDynamicIsland={entry.paneId === 'iphone'}
+      <div
+        className={cn(
+          'transition-opacity duration-150 ease-out',
+          !thisActive && 'opacity-30 group-hover:opacity-100',
+          isLastVisible && 'opacity-70'
+        )}
       >
-        <div className="h-full w-full bg-linear-to-b backdrop-blur-md from-zinc-900/50  to-black" />
-      </DeviceFrame>
+        <DeviceFrame
+          paneId={entry.paneId}
+          profile={entry}
+          scale={0.25}
+          showDynamicIsland={entry.paneId === 'iphone'}
+          frameClassName={isMuted ? 'bg-zinc-900' : undefined}
+        >
+          <div
+            className={cn(
+              'h-full w-full bg-linear-to-b',
+              isMuted ? 'from-zinc-950/70 via-zinc-950 to-black' : 'from-zinc-900/50 to-black'
+            )}
+          />
+        </DeviceFrame>
+      </div>
 
-      <div className="flex w-full min-w-0 items-start justify-between gap-3">
+      <div
+        className={cn(
+          'flex w-full min-w-0 items-start justify-between gap-3 transition-opacity duration-150 ease-out',
+          isMuted && 'opacity-30 group-hover:opacity-100'
+        )}
+      >
         <div className="min-w-0">
           <p className="truncate text-sm font-medium tracking-[-0.04em] text-white/90">{entry.name}</p>
           <p className="mt-1 whitespace-nowrap text-[10px] leading-tight text-white/45">

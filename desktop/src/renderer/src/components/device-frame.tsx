@@ -73,7 +73,7 @@ export function DeviceFrame({
 
         <div
           ref={screenRef}
-          className={cn('relative shrink-0 overflow-hidden bg-black', screenClassName)}
+          className={cn('relative shrink-0 overflow-hidden bg-black  ', screenClassName)}
           style={{
             width: dimensions.screenWidth,
             height: dimensions.screenHeight,
