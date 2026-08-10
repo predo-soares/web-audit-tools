@@ -95,6 +95,14 @@ function formatClipboardLocation(entry: ConsoleEvidenceEntry): string | null {
   return parts.join(':')
 }
 
+function formatConsoleEntry(entry: ConsoleEvidenceEntry): string {
+  const lines = [`[${entry.level.toUpperCase()}] ${entry.message}`]
+  const location = formatClipboardLocation(entry)
+  if (location) lines.push(`    at ${location}`)
+  if (entry.stack) lines.push(entry.stack)
+  return lines.join('\n')
+}
+
 function formatDuration(durationMs?: number): string {
   if (durationMs === undefined) return '—'
   if (durationMs < 1000) return `${durationMs}ms`
@@ -135,14 +143,14 @@ function IconTooltipButton({
   )
 }
 
-const LEVEL_CLASS: Record<ConsoleEvidenceEntry['level'], string> = {
-  error: 'text-destructive',
-  warn: 'text-amber-500',
-  info: 'text-sky-500',
-  log: 'text-muted-foreground',
-  debug: 'text-muted-foreground/70',
-  exception: 'text-destructive',
-  rejection: 'text-destructive'
+const LEVEL_DOT_CLASS: Record<ConsoleEvidenceEntry['level'], string> = {
+  error: 'bg-destructive',
+  warn: 'bg-amber-500',
+  info: 'bg-sky-500',
+  log: 'bg-muted-foreground',
+  debug: 'bg-muted-foreground/70',
+  exception: 'bg-destructive',
+  rejection: 'bg-destructive'
 }
 
 function matchesConsoleLevel(entry: ConsoleEvidenceEntry, filter: ConsoleLevelFilter): boolean {
@@ -364,19 +372,8 @@ export function DiagnosticsPanel(): React.JSX.Element {
     })
   }, [])
 
-  const copySourceLocation = useCallback((entry: ConsoleEvidenceEntry): void => {
-    const location = formatClipboardLocation(entry)
-    if (!location) return
-    void navigator.clipboard.writeText(location)
-  }, [])
-
-  const copyConsoleMessage = useCallback((entry: ConsoleEvidenceEntry): void => {
-    void navigator.clipboard.writeText(entry.message)
-  }, [])
-
-  const copyConsoleStack = useCallback((entry: ConsoleEvidenceEntry): void => {
-    if (!entry.stack) return
-    void navigator.clipboard.writeText(entry.stack)
+  const copyConsoleEntry = useCallback((entry: ConsoleEvidenceEntry): void => {
+    void navigator.clipboard.writeText(formatConsoleEntry(entry))
   }, [])
 
   const openSourceLocation = useCallback((entry: ConsoleEvidenceEntry): void => {
@@ -727,10 +724,14 @@ export function DiagnosticsPanel(): React.JSX.Element {
                               )}
                               <span
                                 data-testid="diagnostics-console-level"
-                                className={cn('shrink-0 uppercase', LEVEL_CLASS[entry.level])}
-                              >
-                                {entry.level}
-                              </span>
+                                role="img"
+                                aria-label={entry.level}
+                                title={entry.level}
+                                className={cn(
+                                  'mt-1 size-2 shrink-0 rounded-full',
+                                  LEVEL_DOT_CLASS[entry.level]
+                                )}
+                              />
                               <div className="min-w-0 flex-1">
                                 <p className="flex items-start gap-2 break-words text-foreground">
                                   <span className="min-w-0 flex-1">{entry.message}</span>
@@ -756,14 +757,6 @@ export function DiagnosticsPanel(): React.JSX.Element {
                                       {source}
                                     </button>
                                     <IconTooltipButton
-                                      data-testid="diagnostics-console-copy-source"
-                                      className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-white/10 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50 group-hover:opacity-100"
-                                      label="Copy source location"
-                                      onClick={() => copySourceLocation(entry)}
-                                    >
-                                      <Icon icon={Copy01Icon} className="size-3" />
-                                    </IconTooltipButton>
-                                    <IconTooltipButton
                                       data-testid="diagnostics-console-open-source"
                                       className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-white/10 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50 group-hover:opacity-100"
                                       label="Open source location"
@@ -784,23 +777,13 @@ export function DiagnosticsPanel(): React.JSX.Element {
                               </div>
                               <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
                                 <IconTooltipButton
-                                  data-testid="diagnostics-console-copy-message"
+                                  data-testid="diagnostics-console-copy-error"
                                   className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-white/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-                                  label="Copy message"
-                                  onClick={() => copyConsoleMessage(entry)}
+                                  label="Copy formatted error"
+                                  onClick={() => copyConsoleEntry(entry)}
                                 >
                                   <Icon icon={Copy01Icon} className="size-3" />
                                 </IconTooltipButton>
-                                {entry.stack ? (
-                                  <IconTooltipButton
-                                    data-testid="diagnostics-console-copy-stack"
-                                    className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-white/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-                                    label="Copy stack trace"
-                                    onClick={() => copyConsoleStack(entry)}
-                                  >
-                                    <Icon icon={Copy01Icon} className="size-3" />
-                                  </IconTooltipButton>
-                                ) : null}
                               </div>
                             </div>
                           </li>

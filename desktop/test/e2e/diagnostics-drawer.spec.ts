@@ -36,7 +36,16 @@ test('diagnostics drawer shows console errors from the active pane', async ({ fi
       .filter({ hasText: 'fixture-runtime-error' })
     await expect(errorEntry).toBeVisible()
     await expect(errorEntry.getByText('deliberate test error')).toBeVisible()
-    await expect(errorEntry.getByTestId('diagnostics-console-level')).toHaveText('error')
+    await expect(errorEntry.getByTestId('diagnostics-console-level')).toHaveAttribute(
+      'aria-label',
+      'error'
+    )
+    await expect(errorEntry.getByTestId('diagnostics-console-level')).toHaveAttribute(
+      'title',
+      'error'
+    )
+    await expect(errorEntry.getByTestId('diagnostics-console-level')).toHaveClass(/rounded-full/)
+    await expect(errorEntry.getByTestId('diagnostics-console-level')).toHaveClass(/bg-destructive/)
   } finally {
     await close()
   }
@@ -274,7 +283,7 @@ test('diagnostics network row expands to show headers', async ({ fixturePort }) 
   }
 })
 
-test('diagnostics console source link copies location to clipboard', async ({ fixturePort }) => {
+test('diagnostics console copies a formatted error to the clipboard', async ({ fixturePort }) => {
   const { window, close } = await launchApp()
 
   try {
@@ -302,11 +311,14 @@ test('diagnostics console source link copies location to clipboard', async ({ fi
     const entry = drawer
       .getByTestId('diagnostics-console-entry')
       .filter({ hasText: 'fixture-runtime-error' })
-    await entry.getByTestId('diagnostics-console-source-link').click()
+    const copyButton = entry.getByTestId('diagnostics-console-copy-error')
+    await expect(copyButton).toHaveAttribute('aria-label', 'Copy formatted error')
+    await copyButton.click()
 
     const copied = await drawer.evaluate(
       () => (window as unknown as { __clipboardWrites?: string[] }).__clipboardWrites?.[0] ?? ''
     )
+    expect(copied).toMatch(/\[ERROR\] fixture-runtime-error deliberate test error/)
     expect(copied).toMatch(/runtime-evidence:\d+:\d+/)
   } finally {
     await close()
