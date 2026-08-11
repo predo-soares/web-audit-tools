@@ -1,5 +1,4 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { IPC } from '../shared/ipc-channels'
 import type { SafariChromeState } from '../shared/safari-chrome'
 
 export interface SafariChromeApi {
@@ -11,8 +10,8 @@ const safariChromeApi: SafariChromeApi = {
     const listener = (_event: Electron.IpcRendererEvent, state: SafariChromeState): void => {
       callback(state)
     }
-    ipcRenderer.on(IPC.safariChrome.state, listener)
-    return () => ipcRenderer.removeListener(IPC.safariChrome.state, listener)
+    ipcRenderer.on('safari-chrome:state', listener)
+    return () => ipcRenderer.removeListener('safari-chrome:state', listener)
   }
 }
 

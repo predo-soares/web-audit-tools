@@ -1,5 +1,4 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { IPC } from '../shared/ipc-channels'
 import { createElementMirror } from '../shared/element-mirror'
 import {
   buildInspectionTarget,
@@ -86,7 +85,7 @@ function reportScroll(): void {
   )
 
   if (!programmatic && max <= 0) return
-  ipcRenderer.send(IPC.pane.scroll, paneId, ratio, programmatic, window.scrollY)
+  ipcRenderer.send('pane:scroll', paneId, ratio, programmatic, window.scrollY)
 }
 
 function normalizeInspectionText(value: string | null | undefined): string {
@@ -342,14 +341,14 @@ function installInspectionController(): void {
         selectedElement = null
         if (!staleReported) {
           staleReported = true
-          ipcRenderer.send(IPC.pane.inspectionStale, paneId)
+          ipcRenderer.send('pane:inspection-stale', paneId)
         }
       }
       if (previewedElement && !previewedElement.isConnected) {
         previewedElement = null
         if (!staleReported) {
           staleReported = true
-          ipcRenderer.send(IPC.pane.inspectionStale, paneId)
+          ipcRenderer.send('pane:inspection-stale', paneId)
         }
       }
       paint(hoverElement, hover)
@@ -374,7 +373,7 @@ function installInspectionController(): void {
       previewedElement = target
       staleReported = false
       const snapshot = captureInspectionSnapshot(target)
-      ipcRenderer.send(IPC.pane.inspectionPreview, paneId, snapshot.target, snapshot)
+      ipcRenderer.send('pane:inspection-preview', paneId, snapshot.target, snapshot)
     }, 60)
   }
 
@@ -413,7 +412,7 @@ function installInspectionController(): void {
     selectedElement = target
     staleReported = false
     const snapshot = captureInspectionSnapshot(target)
-    ipcRenderer.send(IPC.pane.inspectionSelect, paneId, snapshot.target, snapshot)
+    ipcRenderer.send('pane:inspection-select', paneId, snapshot.target, snapshot)
     schedulePaint()
   }
 
@@ -441,7 +440,7 @@ function installInspectionController(): void {
 
   const handleEscape = (event: KeyboardEvent): void => {
     if (event.key !== 'Escape') return
-    ipcRenderer.send(IPC.pane.inspectionEscape, paneId)
+    ipcRenderer.send('pane:inspection-escape', paneId)
   }
 
   window.addEventListener('pointermove', handlePointerMove, true)
@@ -478,16 +477,16 @@ function installInspectionController(): void {
   }
 }
 
-ipcRenderer.on(IPC.pane.inspectionMode, (_event, enabled: boolean) => {
+ipcRenderer.on('pane:inspection-mode', (_event, enabled: boolean) => {
   if (enabled) installInspectionController()
   else disposeInspectionController?.()
 })
 
-ipcRenderer.on(IPC.pane.inspectionSelection, (_event, target: InspectionTarget | null) => {
+ipcRenderer.on('pane:inspection-selection', (_event, target: InspectionTarget | null) => {
   applyRemoteInspectionSelection?.(target)
 })
 
-ipcRenderer.on(IPC.pane.inspectionMismatch, (_event, missing: boolean) => {
+ipcRenderer.on('pane:inspection-mismatch', (_event, missing: boolean) => {
   applyInspectionMismatch?.(missing)
 })
 
@@ -532,13 +531,13 @@ window.addEventListener(
       if (inputTarget.type === 'checkbox' || inputTarget.type === 'radio') {
         setTimeout(() => {
           fingerprint.checkedState = inputTarget.checked
-          ipcRenderer.send(IPC.pane.click, paneId, fingerprint)
+          ipcRenderer.send('pane:click', paneId, fingerprint)
         }, 0)
         return
       }
     }
 
-    ipcRenderer.send(IPC.pane.click, paneId, fingerprint)
+    ipcRenderer.send('pane:click', paneId, fingerprint)
   },
   true
 )
@@ -555,7 +554,7 @@ window.addEventListener(
   (e: KeyboardEvent) => {
     if (!(e.metaKey || e.ctrlKey || e.altKey)) return
     if (e.key === 'Meta' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Shift') return
-    ipcRenderer.send(IPC.pane.key, paneId, {
+    ipcRenderer.send('pane:key', paneId, {
       key: e.key,
       code: e.code,
       ctrlKey: e.ctrlKey,
@@ -584,7 +583,7 @@ window.addEventListener(
       if ((window as Window & { __suppressValueReport?: boolean }).__suppressValueReport) return
       const fingerprint = mirror.buildFingerprint(target, getValueSyncCandidates())
       if (!fingerprint) return
-      ipcRenderer.send(IPC.pane.value, paneId, fingerprint, target.value)
+      ipcRenderer.send('pane:value', paneId, fingerprint, target.value)
     }, 100)
 
     inputTimers.set(target, timer)
@@ -601,7 +600,7 @@ window.addEventListener(
 
     const fingerprint = mirror.buildFingerprint(target, getValueSyncCandidates())
     if (!fingerprint) return
-    ipcRenderer.send(IPC.pane.select, paneId, fingerprint, target.value, target.selectedIndex)
+    ipcRenderer.send('pane:select', paneId, fingerprint, target.value, target.selectedIndex)
   },
   true
 )
@@ -616,7 +615,7 @@ window.addEventListener(
 
     const fingerprint = mirror.buildFingerprint(form, Array.from(document.querySelectorAll('form')))
     if (!fingerprint) return
-    ipcRenderer.send(IPC.pane.submit, paneId, fingerprint)
+    ipcRenderer.send('pane:submit', paneId, fingerprint)
   },
   true
 )
