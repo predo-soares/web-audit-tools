@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, Menu } from 'electron'
+import { app, shell, BrowserWindow, Menu, nativeImage } from 'electron'
 import localShortcut from 'electron-localshortcut'
 import { electronAccelerator } from '../shared/shortcuts'
 import { join } from 'path'
@@ -210,6 +210,25 @@ function createWindow(): BrowserWindow {
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.audit-screens')
   Menu.setApplicationMenu(null)
+
+  // In dev the app runs unpackaged, so the Dock shows Electron's default icon
+  // (the packaged `build/icon.icns` only applies to a built app). Set it at
+  // runtime so the branded icon shows during local development too.
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setIcon(nativeImage.createFromPath(icon))
+  }
+
+  // Native "About Audit Web Tools" panel (⌘-app-menu on macOS) so the packaged
+  // app reports proper metadata and the branded icon instead of Electron defaults.
+  app.setAboutPanelOptions({
+    applicationName: 'Audit Web Tools',
+    applicationVersion: app.getVersion(),
+    version: app.getVersion(),
+    copyright: 'Copyright © 2026 Pedro Soares',
+    credits:
+      'Preview and audit websites across multiple device sizes with synchronized interactions and agent handoff.',
+    iconPath: icon
+  })
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
