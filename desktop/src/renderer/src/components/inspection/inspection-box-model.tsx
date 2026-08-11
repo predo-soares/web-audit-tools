@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import type { InspectionBoxModel, InspectionPageSnapshot } from '../../../shared/inspection'
+import type { InspectionBoxModel, InspectionPageSnapshot } from '../../../../shared/inspection'
 import { cn } from '@renderer/lib/utils'
 
 type BoxSideValues = InspectionBoxModel['margin']

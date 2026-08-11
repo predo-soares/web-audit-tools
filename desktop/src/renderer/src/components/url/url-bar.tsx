@@ -1,8 +1,8 @@
 import { FormEvent, useEffect, useState, KeyboardEvent } from 'react'
 import { Input } from '@renderer/components/ui/input'
 import { Button } from '@renderer/components/ui/button'
-import { SaveProjectButton } from '@renderer/components/save-project-button'
-import { DevBadge } from '@renderer/components/dev-badge'
+import { SaveProjectButton } from '@renderer/components/projects/save-project-button'
+import { DevBadge } from '@renderer/components/window-chrome/dev-badge'
 import { cn } from '@renderer/lib/utils'
 import {
   ArrowLeft01Icon,

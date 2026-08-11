@@ -6,7 +6,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@renderer/components/ui/select'
-import { TargetUrlBar } from '@renderer/components/target-url-bar'
+import { TargetUrlBar } from '@renderer/components/url/target-url-bar'
 import { cn } from '@renderer/lib/utils'
 import type { SeoAuditPresentation } from '@renderer/hooks/use-seo-audit-presentation'
 import { CARD } from './lib/styles'
@@ -48,7 +48,7 @@ export function AuditControls({
   handleCancel
 }: AuditControlsProps): React.JSX.Element {
   return (
-    <div className={cn(CARD, 'relative z-20 px-3 py-3')}>
+    <div className={cn(CARD, 'relative z-20 p-2')}>
       <TargetUrlBar
         url={url}
         history={history}

@@ -1,4 +1,4 @@
-import type { PaneId } from './types'
+import type { PaneId } from './pane-types'
 import { isLocalhostUrl } from './dev-context'
 
 // Bump when the set of rules, their identity, or their outcome semantics

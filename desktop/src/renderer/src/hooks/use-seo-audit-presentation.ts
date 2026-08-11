@@ -9,7 +9,7 @@ import {
   type FindingOutcome,
   type IndexingIntent
 } from '../../../shared/seo-audit'
-import type { PaneNavigationState } from '../../../shared/types'
+import type { PaneNavigationState } from '../../../shared/pane-types'
 import type { SnapshotResult } from '../../../shared/snapshot'
 import type { HistoryEntry } from '../../../shared/history'
 

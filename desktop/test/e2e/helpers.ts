@@ -6,7 +6,7 @@ import { join } from 'path'
 import electronPath from 'electron'
 import { chromium, expect, type Browser, type Page } from '@playwright/test'
 import type { MirrorFailureLog } from '../../src/shared/element-mirror'
-import type { PaneId } from '../../src/shared/types'
+import type { PaneId } from '../../src/shared/pane-types'
 
 interface LaunchedApp {
   window: Page

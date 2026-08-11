@@ -18,8 +18,8 @@ import type {
   PaneMount,
   PaneNavigationState,
   ThemePreference
-} from '../../shared/types'
-import { DEFAULT_MEDIA_FEATURES } from '../../shared/types'
+} from '../../shared/pane-types'
+import { DEFAULT_MEDIA_FEATURES } from '../../shared/pane-types'
 import { normalizeMediaFeatures } from '../../shared/media-features'
 import {
   RUNTIME_EVIDENCE_EMIT_WINDOW_MS,

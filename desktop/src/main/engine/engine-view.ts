@@ -4,7 +4,7 @@ import type {
   MediaFeatureState,
   PaneMount,
   ThemePreference
-} from '../../shared/types'
+} from '../../shared/pane-types'
 import type { ElementFingerprint, MirrorFailureLog } from '../../shared/element-mirror'
 import type { InspectionPageResolution, InspectionTarget } from '../../shared/inspection'
 import type { ConsoleEvidenceEntry, NetworkEvidenceEntry } from '../../shared/runtime-evidence'

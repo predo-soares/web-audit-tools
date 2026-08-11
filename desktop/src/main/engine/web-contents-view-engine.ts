@@ -8,8 +8,8 @@ import type {
   PaneMount,
   Size,
   ThemePreference
-} from '../../shared/types'
-import { DEFAULT_MEDIA_FEATURES } from '../../shared/types'
+} from '../../shared/pane-types'
+import { DEFAULT_MEDIA_FEATURES } from '../../shared/pane-types'
 import { buildEmulatedMedia, normalizeMediaFeatures } from '../../shared/media-features'
 import {
   createElementMirror,

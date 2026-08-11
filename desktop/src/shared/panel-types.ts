@@ -1,5 +1,5 @@
-import type { ThemePreference } from './types'
-import type { Size } from './types'
+import type { ThemePreference } from './pane-types'
+import type { Size } from './pane-types'
 import { DIAGNOSTICS_DRAWER_WIDTH_PX, type RuntimeEvidenceChannel } from './runtime-evidence'
 import type { HistoryEntry } from './history'
 

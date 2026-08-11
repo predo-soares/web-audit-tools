@@ -10,7 +10,7 @@
  * Grows one method per issue as tools are added; keep it thin.
  */
 
-import type { PaneId } from '../../shared/types'
+import type { PaneId } from '../../shared/pane-types'
 import type { DevContext } from '../../shared/dev-context'
 import type { RuntimeEvidenceSnapshot } from '../../shared/runtime-evidence'
 import type { AuditJobState, AuditRunResult, IndexingIntent } from '../../shared/seo-audit'

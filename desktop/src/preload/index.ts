@@ -17,7 +17,7 @@ import type {
   PaneId,
   PaneNavigationState,
   ThemePreference
-} from '../shared/types'
+} from '../shared/pane-types'
 import type { SnapshotResult } from '../shared/snapshot'
 import type {
   AuditJobState,

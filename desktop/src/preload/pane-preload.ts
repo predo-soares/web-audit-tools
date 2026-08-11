@@ -9,7 +9,7 @@ import {
   type InspectionPageSnapshot,
   type InspectionTarget
 } from '../shared/inspection'
-import type { PaneId } from '../shared/types'
+import type { PaneId } from '../shared/pane-types'
 
 function getPaneId(): PaneId {
   const arg = process.argv.find((value) => value.startsWith('--pane-id='))

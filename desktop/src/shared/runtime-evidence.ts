@@ -1,4 +1,4 @@
-import type { PaneId } from './types'
+import type { PaneId } from './pane-types'
 
 export const CONSOLE_EVIDENCE_CAP = 300
 export const NETWORK_EVIDENCE_CAP = 150

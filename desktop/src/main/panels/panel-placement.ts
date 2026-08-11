@@ -1,5 +1,5 @@
 import type { PanelAlign, PanelAnchor, PanelPlacement } from '../../shared/panel-types'
-import type { Bounds, Size } from '../../shared/types'
+import type { Bounds, Size } from '../../shared/pane-types'
 
 const PANEL_GAP = 8
 

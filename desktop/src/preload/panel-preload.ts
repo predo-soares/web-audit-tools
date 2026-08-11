@@ -16,7 +16,7 @@ import type {
   PaneNavigationState,
   Size,
   ThemePreference
-} from '../shared/types'
+} from '../shared/pane-types'
 import type {
   RuntimeEvidenceChannel,
   RuntimeEvidenceProblemCount,

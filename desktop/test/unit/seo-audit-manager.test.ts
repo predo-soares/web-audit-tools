@@ -7,7 +7,7 @@ import {
   type AuditJobState,
   type RenderedAuditSnapshot
 } from '../../src/shared/seo-audit'
-import type { PaneId } from '../../src/shared/types'
+import type { PaneId } from '../../src/shared/pane-types'
 import { unavailableIndexability } from '../../src/main/seo/indexability'
 import { unavailableSocialSharing } from '../../src/main/seo/social-sharing'
 import { unavailableInternationalization } from '../../src/main/seo/internationalization'

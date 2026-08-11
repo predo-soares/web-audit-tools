@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildEmulatedMedia, normalizeMediaFeatures } from '../../src/shared/media-features'
-import { DEFAULT_MEDIA_FEATURES } from '../../src/shared/types'
-import type { MediaFeatureState } from '../../src/shared/types'
+import { DEFAULT_MEDIA_FEATURES } from '../../src/shared/pane-types'
+import type { MediaFeatureState } from '../../src/shared/pane-types'
 
 function featureMap(features: { name: string; value: string }[]): Record<string, string> {
   return Object.fromEntries(features.map((f) => [f.name, f.value]))

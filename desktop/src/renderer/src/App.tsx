@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { DeviceProfile, PaneId, PaneLoadError } from '../../shared/types'
+import type { DeviceProfile, PaneId, PaneLoadError } from '../../shared/pane-types'
 import { PANE_IDS } from '../../shared/device-presets'
 import {
   CATALOG_BY_PRESET,
@@ -7,9 +7,9 @@ import {
   type CatalogEntry
 } from '../../shared/device-catalog'
 import { isCommittedPageUrl } from '../../shared/project'
-import { PreviewCanvas } from '@renderer/components/preview-canvas'
+import { PreviewCanvas } from '@renderer/components/devices/preview-canvas'
 import { SeoView } from '@renderer/components/seo'
-import { DevicesView } from '@renderer/components/devices-view'
+import { DevicesView } from '@renderer/components/devices/devices-view'
 import { LighthouseView } from '@renderer/components/lighthouse'
 import { SettingsView } from '@renderer/components/settings-view'
 import { ToolbarProvider } from '@renderer/context/toolbar-context'

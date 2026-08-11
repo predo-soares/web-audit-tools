@@ -9,7 +9,7 @@ import type {
   PanelId,
   PanelOpenOptions
 } from '../shared/panel-types'
-import type { MediaFeatureState, PaneMount, PaneId, Size, ThemePreference } from '../shared/types'
+import type { MediaFeatureState, PaneMount, PaneId, Size, ThemePreference } from '../shared/pane-types'
 import type { MirroredKey } from './engine/engine-view'
 import type { PaneManager } from './panes/pane-manager'
 import type { PanelManager } from './panels/panel-manager'
@@ -289,8 +289,8 @@ export function registerIpcHandlers(
 
   ipcMain.handle('pane:set-device-profile', async (_event, paneId: string, profile: unknown) => {
     await paneManager.setDeviceProfile(
-      paneId as import('../shared/types').PaneId,
-      profile as import('../shared/types').DeviceProfile
+      paneId as import('../shared/pane-types').PaneId,
+      profile as import('../shared/pane-types').DeviceProfile
     )
   })
 

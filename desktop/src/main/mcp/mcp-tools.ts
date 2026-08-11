@@ -10,7 +10,7 @@ import {
   type IndexingIntent
 } from '../../shared/seo-audit'
 import { LIGHTHOUSE_PROFILES, type LighthouseAssessmentState } from '../../shared/lighthouse'
-import type { PaneId } from '../../shared/types'
+import type { PaneId } from '../../shared/pane-types'
 import { normalizeUrl } from '../../shared/url'
 import type { DeviceInfo, McpToolPort, ObservedContext } from './mcp-tool-port'
 

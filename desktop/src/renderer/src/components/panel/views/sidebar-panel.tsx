@@ -8,9 +8,9 @@ import {
   TOOLBAR_HEIGHT_PX,
   type WorkspaceView
 } from '../../../../../shared/sidebar'
-import { ClearHistoryDialog } from '@renderer/components/clear-history-dialog'
-import { HistoryRow } from '@renderer/components/history-row'
-import { ProjectRow } from '@renderer/components/project-row'
+import { ClearHistoryDialog } from '@renderer/components/history/clear-history-dialog'
+import { HistoryRow } from '@renderer/components/history/history-row'
+import { ProjectRow } from '@renderer/components/projects/project-row'
 import type { PanelAction } from '../../../../../shared/panel-types'
 import {
   Accordion,

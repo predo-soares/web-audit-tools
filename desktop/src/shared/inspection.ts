@@ -1,4 +1,4 @@
-import type { DeviceProfile, PaneId } from './types'
+import type { DeviceProfile, PaneId } from './pane-types'
 
 export type InspectionMatchStatus = 'matched' | 'not-found' | 'ambiguous' | 'unavailable' | 'stale'
 

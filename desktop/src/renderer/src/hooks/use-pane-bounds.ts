@@ -4,7 +4,7 @@ import { SIDEBAR_TRANSITION_MS } from '../../../shared/sidebar'
 import { useDiagnostics } from '@renderer/context/diagnostics-context'
 import { LAYOUT_SETTLED_EVENT, useSidebar } from '@renderer/context/sidebar-context'
 import { usePreviewCanvas } from '@renderer/context/preview-canvas-context'
-import type { Bounds, DeviceProfile, PaneId } from '../../../shared/types'
+import type { Bounds, DeviceProfile, PaneId } from '../../../shared/pane-types'
 
 export function usePaneBounds(
   paneId: PaneId,

@@ -19,7 +19,7 @@ import {
   sanitizeLighthouseError
 } from '../../shared/lighthouse'
 import { sanitizeUrl } from '../../shared/seo-sanitize'
-import type { PaneId } from '../../shared/types'
+import type { PaneId } from '../../shared/pane-types'
 
 export interface LighthouseRunInput {
   url: string

@@ -11,7 +11,7 @@ import {
   type SocialSharingResult
 } from '../../shared/seo-audit'
 import { sanitizeUrl } from '../../shared/seo-sanitize'
-import type { PaneId } from '../../shared/types'
+import type { PaneId } from '../../shared/pane-types'
 import { SEO_RULES, type Rule } from './rules'
 import { resolveSearchAppearance } from './search-appearance'
 import { analyzeStructuredData } from './structured-data'

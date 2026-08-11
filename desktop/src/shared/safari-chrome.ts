@@ -1,4 +1,4 @@
-import type { PaneId } from './types'
+import type { PaneId } from './pane-types'
 
 export const SAFARI_CHROME_COMPACT_SCROLL_Y = 40
 export const SAFARI_CHROME_EXPAND_SCROLL_Y = 8

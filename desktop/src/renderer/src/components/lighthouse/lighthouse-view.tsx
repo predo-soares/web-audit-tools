@@ -12,14 +12,14 @@ import {
 } from '../../../../shared/lighthouse'
 import type { HistoryEntry } from '../../../../shared/history'
 import { isAuditableUrl } from '../../../../shared/seo-audit'
-import { SIDEBAR_WIDTH_PX, TOOLBAR_HEIGHT_PX } from '../../../../shared/sidebar'
+import { SIDEBAR_WIDTH_PX } from '../../../../shared/sidebar'
 import { LaptopIcon, SmartPhone01Icon } from '@hugeicons/core-free-icons'
 import { useSidebar } from '@renderer/context/sidebar-context'
 import { CANVAS_GLASS_SURFACE_CLASS } from '@renderer/lib/glass-surface'
 import { cn } from '@renderer/lib/utils'
 import { Icon } from '@renderer/components/ui/icon'
 import { MotionTabs, type MotionTabItem } from '@renderer/components/ui/motion-tabs'
-import { TargetUrlBar } from '@renderer/components/target-url-bar'
+import { TargetUrlBar } from '@renderer/components/url/target-url-bar'
 import { CARD } from '@renderer/components/seo/lib/styles'
 import { LabSpecsPopover } from './lab-specs-popover'
 import { ProfileReport } from './profile-report'
@@ -115,26 +115,31 @@ export function LighthouseView({
           'relative z-10 box-border h-screen overflow-y-auto text-foreground',
           CANVAS_GLASS_SURFACE_CLASS
         )}
-        style={{ paddingTop: TOOLBAR_HEIGHT_PX, paddingLeft: sidebarOffset }}
+        style={{ paddingLeft: sidebarOffset }}
       >
         <div
           className={cn(
-            'w-full px-8 pb-32',
+            'w-full px-8 pt-16 pb-32 ',
             isEmptyState && 'flex min-h-full flex-col justify-center'
           )}
         >
-          <div className="grid w-full  grid-cols-1 gap-8 xl:grid-cols-[1fr_13rem] ">
-            <div className="mx-auto flex  min-w-3xl w-full max-w-4xl justify-self-center flex-col gap-5">
-              <header >
-                <h1 className="text-lg font-semibold tracking-tight text-white">
+          <div
+            className={cn(
+              'grid w-full grid-cols-1 gap-8 ',
+              result && 'xl:grid-cols-[1fr_13rem]'
+            )}
+          >
+            <div className="mx-auto flex  min-w-3xl w-full  max-w-4xl justify-self-center flex-col gap-5">
+              <header  className='px-2 space-y-2'>
+                <h1 className="text-3xl font-normal tracking-tight text-white">
                   Diagnose performance issues
                 </h1>
-                <p className="mt-1 text-xs text-white/45">
+                <p className=" text-base text-white/45">
                   Runs Lighthouse for both Mobile and Desktop with configurable lab specs.
                 </p>
               </header>
 
-              <section className={cn(CARD, 'relative  z-20 px-3 py-3')}>
+              <section className={cn(CARD, 'relative z-20 p-2 ')}>
                 <TargetUrlBar
                   url={url}
                   history={history}

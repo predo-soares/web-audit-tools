@@ -10,7 +10,7 @@ import type {
   McpToolPort,
   ObservedContext
 } from '../../src/main/mcp/mcp-tool-port'
-import type { PaneId } from '../../src/shared/types'
+import type { PaneId } from '../../src/shared/pane-types'
 import { IDLE_AUDIT_STATE, type AuditResult, type IndexingIntent } from '../../src/shared/seo-audit'
 import {
   EMPTY_LIGHTHOUSE_RESULTS,

@@ -1,6 +1,6 @@
-import { DEVICE_PRESETS } from '../../../shared/device-presets'
-import { getMockupDimensions, getScaledScreenCornerRadius } from '../../../shared/mockup-layout'
-import type { DeviceProfile, PaneId, PaneLoadError } from '../../../shared/types'
+import { DEVICE_PRESETS } from '../../../../shared/device-presets'
+import { getMockupDimensions, getScaledScreenCornerRadius } from '../../../../shared/mockup-layout'
+import type { DeviceProfile, PaneId, PaneLoadError } from '../../../../shared/pane-types'
 import { cn } from '@renderer/lib/utils'
 import { useSidebar } from '@renderer/context/sidebar-context'
 import { usePaneBounds } from '@renderer/hooks/use-pane-bounds'
@@ -16,7 +16,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
 import { Button } from '@renderer/components/ui/button'
-import { DeviceFrame } from '@renderer/components/device-frame'
+import { DeviceFrame } from '@renderer/components/devices/device-frame'
 import { useCallback } from 'react'
 
 interface DevicePaneProps {

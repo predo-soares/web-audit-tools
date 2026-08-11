@@ -42,7 +42,7 @@ import {
 import { MotionTabs } from '@renderer/components/ui/motion-tabs'
 import { ApplicationPanel } from './application-panel'
 import { RenderingControls } from './rendering-controls'
-import { InspectionRail } from '@renderer/components/inspection-rail'
+import { InspectionRail } from '@renderer/components/inspection/inspection-rail'
 import type { InspectionState } from '../../../../../shared/inspection'
 
 type DiagnosticsTab = RuntimeEvidenceChannel | 'rendering' | 'application' | 'inspection'

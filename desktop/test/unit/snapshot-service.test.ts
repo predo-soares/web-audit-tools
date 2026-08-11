@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { captureSnapshot, serializeSeoAudit } from '../../src/main/services/snapshot-service'
 import type { SnapshotPort, SnapshotDeps } from '../../src/main/services/snapshot-service'
 import type { RuntimeEvidenceSnapshot } from '../../src/shared/runtime-evidence'
-import type { PaneId } from '../../src/shared/types'
+import type { PaneId } from '../../src/shared/pane-types'
 import type { DevContext } from '../../src/shared/dev-context'
 
 const FIXED_PNG = Buffer.from('fake-png')

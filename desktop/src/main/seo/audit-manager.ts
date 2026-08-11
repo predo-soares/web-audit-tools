@@ -5,7 +5,7 @@ import {
   type AuditRunResult,
   type IndexingIntent
 } from '../../shared/seo-audit'
-import type { PaneId } from '../../shared/types'
+import type { PaneId } from '../../shared/pane-types'
 import {
   buildAuditResult,
   gatherReferencedEvidence,

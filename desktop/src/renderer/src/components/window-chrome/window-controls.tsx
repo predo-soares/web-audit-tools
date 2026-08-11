@@ -2,7 +2,7 @@ import {
   CloseWindowIcon,
   ExpandWindowIcon,
   MinimizeWindowIcon
-} from '@renderer/components/window-control-icons'
+} from '@renderer/components/window-chrome/window-control-icons'
 import { cn } from '@renderer/lib/utils'
 import { useWindowFocus } from '@renderer/hooks/use-window-focus'
 import { useEffect, useState } from 'react'

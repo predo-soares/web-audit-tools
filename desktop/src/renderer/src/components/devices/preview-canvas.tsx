@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
-import { PANE_IDS } from '../../../shared/device-presets'
-import { CANVAS_GAP, clampZoom, DEFAULT_ZOOM } from '../../../shared/mockup-layout'
-import { SIDEBAR_WIDTH_PX, TOOLBAR_HEIGHT_PX } from '../../../shared/sidebar'
-import type { DeviceProfile, PaneId, PaneLoadError } from '../../../shared/types'
-import { DevicePane } from '@renderer/components/device-pane'
+import { PANE_IDS } from '../../../../shared/device-presets'
+import { CANVAS_GAP, clampZoom, DEFAULT_ZOOM } from '../../../../shared/mockup-layout'
+import { SIDEBAR_WIDTH_PX, TOOLBAR_HEIGHT_PX } from '../../../../shared/sidebar'
+import type { DeviceProfile, PaneId, PaneLoadError } from '../../../../shared/pane-types'
+import { DevicePane } from '@renderer/components/devices/device-pane'
 import { CANVAS_GLASS_SURFACE_CLASS } from '@renderer/lib/glass-surface'
 import { cn } from '@renderer/lib/utils'
 import { PreviewCanvasContext } from '@renderer/context/preview-canvas-context'
 import { useDiagnostics } from '@renderer/context/diagnostics-context'
 import { useSidebar } from '@renderer/context/sidebar-context'
-import { isCommittedPageUrl } from '../../../shared/project'
+import { isCommittedPageUrl } from '../../../../shared/project'
 
 interface PreviewCanvasProps {
   loadingStates: Record<PaneId, boolean>

@@ -1,7 +1,7 @@
 import { Globe02Icon } from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
 import { useState } from 'react'
-import type { Project } from '../../../shared/project'
+import type { Project } from '../../../../shared/project'
 import { cn } from '@renderer/lib/utils'
 
 interface ProjectRowProps {

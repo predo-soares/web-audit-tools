@@ -3,7 +3,7 @@ import { join } from 'path'
 import { pathToFileURL } from 'url'
 import { is } from '@electron-toolkit/utils'
 import { DEVICE_PRESETS } from '../../shared/device-presets'
-import type { PaneId, PaneMount } from '../../shared/types'
+import type { PaneId, PaneMount } from '../../shared/pane-types'
 import {
   SAFARI_CHROME_COMPACT_SCROLL_Y,
   SAFARI_CHROME_EXPAND_SCROLL_Y,

@@ -1,8 +1,8 @@
 import { Delete02Icon, Globe02Icon, MoreHorizontalIcon } from '@hugeicons/core-free-icons'
 import { Icon } from '@renderer/components/ui/icon'
 import { useState } from 'react'
-import type { HistoryEntry } from '../../../shared/history'
-import { suggestProjectName } from '../../../shared/project'
+import type { HistoryEntry } from '../../../../shared/history'
+import { suggestProjectName } from '../../../../shared/project'
 import {
   DropdownMenu,
   DropdownMenuContent,

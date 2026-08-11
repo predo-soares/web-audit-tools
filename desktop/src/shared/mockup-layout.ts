@@ -1,5 +1,5 @@
 import { DEVICE_PRESETS, PANE_IDS } from './device-presets'
-import type { DeviceProfile, PaneId } from './types'
+import type { DeviceProfile, PaneId } from './pane-types'
 
 export const DEFAULT_ZOOM = 0.75
 export const MIN_ZOOM = 0.1

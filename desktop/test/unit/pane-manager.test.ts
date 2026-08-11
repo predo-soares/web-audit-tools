@@ -5,7 +5,7 @@ import { PaneManager } from '../../src/main/panes/pane-manager'
 import { createRuntimeEvidenceBuffer } from '../../src/main/evidence/runtime-evidence-buffer'
 import { RUNTIME_EVIDENCE_EMIT_WINDOW_MS } from '../../src/shared/runtime-evidence'
 import type { EngineView } from '../../src/main/engine/engine-view'
-import type { PaneId } from '../../src/shared/types'
+import type { PaneId } from '../../src/shared/pane-types'
 import { FakeEngine } from '../support/fake-engine'
 import { buildInspectionTarget, type InspectionPageSnapshot } from '../../src/shared/inspection'
 

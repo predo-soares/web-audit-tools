@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState, type KeyboardEvent } from 'react'
-import type { InspectionMarkupNode } from '../../../shared/inspection'
+import type { InspectionMarkupNode } from '../../../../shared/inspection'
 
 interface InspectionMarkupTreeProps {
   node: InspectionMarkupNode

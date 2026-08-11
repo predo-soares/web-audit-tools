@@ -5,7 +5,7 @@ import type {
   PaneId,
   PaneMount,
   ThemePreference
-} from '../../src/shared/types'
+} from '../../src/shared/pane-types'
 import type { ElementFingerprint, MirrorFailureLog } from '../../src/shared/element-mirror'
 import type {
   InspectionPageResolution,

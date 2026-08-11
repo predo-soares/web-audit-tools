@@ -1,8 +1,8 @@
 import { AlertCircleIcon, Cancel01Icon } from '@hugeicons/core-free-icons'
-import type { InspectionRecord } from '../../../shared/inspection'
-import { formatInspectionStatus, getInspectionDifferences } from '../../../shared/inspection'
-import { InspectionBoxModel } from '@renderer/components/inspection-box-model'
-import { InspectionMarkupTree } from '@renderer/components/inspection-markup-tree'
+import type { InspectionRecord } from '../../../../shared/inspection'
+import { formatInspectionStatus, getInspectionDifferences } from '../../../../shared/inspection'
+import { InspectionBoxModel } from '@renderer/components/inspection/inspection-box-model'
+import { InspectionMarkupTree } from '@renderer/components/inspection/inspection-markup-tree'
 import { Icon } from '@renderer/components/ui/icon'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip'
 

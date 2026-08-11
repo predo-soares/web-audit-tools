@@ -1,4 +1,4 @@
-import { DEFAULT_MEDIA_FEATURES, type MediaFeatureState, type ThemePreference } from './types'
+import { DEFAULT_MEDIA_FEATURES, type MediaFeatureState, type ThemePreference } from './pane-types'
 
 export interface EmulatedMediaFeature {
   name: string

@@ -1,4 +1,4 @@
-import type { DeviceProfile, PaneId } from './types'
+import type { DeviceProfile, PaneId } from './pane-types'
 
 export const PANE_IDS: PaneId[] = ['iphone', 'ipad', 'desktop']
 

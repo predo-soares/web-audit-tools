@@ -1,4 +1,4 @@
-import type { PaneId } from '../../shared/types'
+import type { PaneId } from '../../shared/pane-types'
 
 export type EchoKind = 'click' | 'submit' | 'scroll' | 'value' | 'key'
 

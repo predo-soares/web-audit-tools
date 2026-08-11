@@ -8,7 +8,7 @@ import {
   type NetworkEvidenceEntry,
   type RuntimeEvidenceSnapshot
 } from '../../shared/runtime-evidence'
-import type { PaneId } from '../../shared/types'
+import type { PaneId } from '../../shared/pane-types'
 
 export interface RuntimeEvidenceBuffer {
   pushConsole(

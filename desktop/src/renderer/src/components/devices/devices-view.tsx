@@ -3,12 +3,12 @@ import {
   SmartPhone01Icon,
   Tablet01Icon
 } from '@hugeicons/core-free-icons'
-import { SIDEBAR_WIDTH_PX } from '../../../shared/sidebar'
-import { DEVICE_CATALOG } from '../../../shared/device-catalog'
-import type { CatalogEntry } from '../../../shared/device-catalog'
-import type { PaneId } from '../../../shared/types'
+import { SIDEBAR_WIDTH_PX } from '../../../../shared/sidebar'
+import { DEVICE_CATALOG } from '../../../../shared/device-catalog'
+import type { CatalogEntry } from '../../../../shared/device-catalog'
+import type { PaneId } from '../../../../shared/pane-types'
 import { useSidebar } from '@renderer/context/sidebar-context'
-import { DeviceFrame } from '@renderer/components/device-frame'
+import { DeviceFrame } from '@renderer/components/devices/device-frame'
 import {
   Carousel,
   CarouselContent,
@@ -169,6 +169,13 @@ export function DevicesView({
       style={{ paddingLeft: sidebarOffset, scrollbarGutter: 'stable' }}
     >
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-12 px-8 pb-8 pt-24">
+        <header className="space-y-2 ">
+          <h1 className="text-3xl font-normal tracking-tight text-white">Device previews</h1>
+          <p className="text-base text-white/45">
+            Preview the current page across mobile, tablet, and desktop devices.
+          </p>
+        </header>
+
         {DEVICE_GROUPS.map(({ category, entries }) => {
           const activeEntry = entries.find(
             (entry) => selectedPresets[entry.paneId] === entry.presetId

@@ -1,9 +1,9 @@
 import { Button } from '@renderer/components/ui/button'
 import { Badge } from '@renderer/components/ui/badge'
-import { UrlBar } from '@renderer/components/url-bar'
+import { UrlBar } from '@renderer/components/url/url-bar'
 import { useOverlayPanel } from '@renderer/hooks/use-overlay-panel'
 import { DIAGNOSTICS_DRAWER_WIDTH_PX } from '../../../../../shared/runtime-evidence'
-import type { MediaFeatureState, ThemePreference } from '../../../../../shared/types'
+import type { MediaFeatureState, ThemePreference } from '../../../../../shared/pane-types'
 import { normalizeMediaFeatures } from '../../../../../shared/media-features'
 import {
   SIDEBAR_TRANSITION_MS,
@@ -17,8 +17,8 @@ import {
   suggestProjectName
 } from '../../../../../shared/project'
 import type { Project } from '../../../../../shared/project'
-import type { PaneId } from '../../../../../shared/types'
-import { WindowControls } from '@renderer/components/window-controls'
+import type { PaneId } from '../../../../../shared/pane-types'
+import { WindowControls } from '@renderer/components/window-chrome/window-controls'
 import {
   Monitor,
   Moon01Icon,

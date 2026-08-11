@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { getMockupDimensions } from '../../../shared/mockup-layout'
-import type { DeviceProfile, PaneId } from '../../../shared/types'
+import { getMockupDimensions } from '../../../../shared/mockup-layout'
+import type { DeviceProfile, PaneId } from '../../../../shared/pane-types'
 import { cn } from '@renderer/lib/utils'
 
 const DEVICE_FRAME_STYLES: Record<PaneId, string> = {

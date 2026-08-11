@@ -1,5 +1,5 @@
 import { PANE_IDS } from '../../shared/device-presets'
-import type { PaneId } from '../../shared/types'
+import type { PaneId } from '../../shared/pane-types'
 
 export interface ActivePaneSnapshot {
   activePane: PaneId | null

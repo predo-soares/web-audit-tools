@@ -26,7 +26,7 @@ import {
 } from '../../shared/runtime-evidence'
 import { computeFitZoom } from '../../shared/mockup-layout'
 import { matchesAppShortcut } from '../../shared/shortcuts'
-import type { Bounds, Size } from '../../shared/types'
+import type { Bounds, Size } from '../../shared/pane-types'
 import type { PaneManager } from '../panes/pane-manager'
 import { computePanelBounds } from './panel-placement'
 

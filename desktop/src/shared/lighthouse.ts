@@ -1,4 +1,4 @@
-import type { PaneId } from './types'
+import type { PaneId } from './pane-types'
 import type { LighthouseLabSpecSnapshot } from './lighthouse-lab'
 
 export type { LighthouseLabSpecSnapshot } from './lighthouse-lab'

@@ -1,4 +1,4 @@
-import type { PaneId } from './types'
+import type { PaneId } from './pane-types'
 
 export interface ApplicationStorageItem {
   key: string
