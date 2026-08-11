@@ -38,9 +38,9 @@ export function SettingsView(): React.JSX.Element {
       style={{ paddingTop: TOOLBAR_HEIGHT_PX, paddingLeft: sidebarOffset }}
     >
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-8 py-8">
-        <header>
-          <h1 className="text-lg font-semibold tracking-tight text-white">Settings</h1>
-          <p className="mt-1 text-xs text-white/45">
+        <header className="space-y-2 px-2">
+          <h1 className="text-3xl font-normal tracking-tight text-white">Settings</h1>
+          <p className="text-base text-white/45">
             Connection details for the tools that expose these panes to agents.
           </p>
         </header>

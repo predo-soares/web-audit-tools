@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { SIDEBAR_WIDTH_PX, TOOLBAR_HEIGHT_PX } from '../../../../shared/sidebar'
+import { SIDEBAR_WIDTH_PX } from '../../../../shared/sidebar'
 import { useSidebar } from '@renderer/context/sidebar-context'
 import { CANVAS_GLASS_SURFACE_CLASS } from '@renderer/lib/glass-surface'
 import { cn } from '@renderer/lib/utils'
@@ -57,25 +57,24 @@ export function SeoView({
       <div
         data-testid="seo-view"
         className={cn(
-          'absolute inset-0 z-10 box-border overflow-y-auto text-foreground',
+          'relative z-10 box-border h-screen overflow-y-auto text-foreground',
           CANVAS_GLASS_SURFACE_CLASS
         )}
         style={{
-          paddingTop: TOOLBAR_HEIGHT_PX,
           paddingLeft: sidebarOffset,
           scrollbarGutter: 'stable'
         }}
       >
         <div
           className={cn(
-            'mx-auto flex w-full flex-col px-8 py-8',
+            'mx-auto flex w-full flex-col px-8 pt-16 pb-32',
             isEmptyState && 'min-h-full justify-center'
           )}
         >
           <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
-            <header>
-              <h1 className="text-lg font-semibold tracking-tight text-white">Page SEO audit</h1>
-              <p className="mt-1 text-xs text-white/45">
+            <header className="px-2 space-y-2">
+              <h1 className="text-3xl font-normal tracking-tight text-white">Page SEO audit</h1>
+              <p className=" text-base text-white/45">
                 Check discoverability, metadata, and structured data for the current page.
               </p>
             </header>

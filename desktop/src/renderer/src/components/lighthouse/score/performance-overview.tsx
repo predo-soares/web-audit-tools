@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type {
   LighthouseAssessmentResult,
   LighthouseAuditDetail,
@@ -49,17 +50,15 @@ export function PerformanceOverview({
 }: {
   result: LighthouseAssessmentResult
 }): React.JSX.Element {
+  const [hoveredMetric, setHoveredMetric] = useState<LighthouseCoreMetricId | null>(null)
   const performance = result.categories.find((category) => category.id === 'performance')
   if (!performance) return <></>
 
+  const hoveredDetail = hoveredMetric ? metricAt(result, hoveredMetric) : null
+
   return (
     <section className=" border-t border-white/10 ">
-      <div
-        className={cn(
-          'grid items-center gap-6',
-          result.screenshotDataUrl && 'grid-cols-2'
-        )}
-      >
+      <div className={cn('grid items-center gap-6', result.screenshotDataUrl && 'grid-cols-2')}>
         <div className="flex flex-col items-center">
           <div
             data-testid="lighthouse-performance-overview"
@@ -83,9 +82,24 @@ export function PerformanceOverview({
                   return (
                     <g
                       key={id}
-                      className={SUBGAUGE_VISIBILITY}
+                      className={cn('pointer-events-auto cursor-default', SUBGAUGE_VISIBILITY)}
                       style={{ transitionDelay: `${index * STAGGER_STEP_MS}ms` }}
+                      onMouseEnter={() => setHoveredMetric(id)}
+                      onMouseLeave={() =>
+                        setHoveredMetric((current) => (current === id ? null : current))
+                      }
                     >
+                      <circle
+                        cx={CENTER}
+                        cy={CENTER}
+                        r={RADIUS}
+                        fill="none"
+                        stroke="transparent"
+                        strokeWidth={RING_STROKE * 4}
+                        strokeLinecap="round"
+                        strokeDasharray={`${SEGMENT} ${CIRCUMFERENCE - SEGMENT}`}
+                        transform={`rotate(${startAngle} ${CENTER} ${CENTER})`}
+                      />
                       <circle
                         cx={CENTER}
                         cy={CENTER}
@@ -116,17 +130,25 @@ export function PerformanceOverview({
               {METRIC_RING.map(({ id, label, angle }, index) => {
                 const metric = metricAt(result, id)
                 const radians = (angle * Math.PI) / 180
-                const labelRadius = 96
+                const labelRadius = 84
                 const xOffset = Math.cos(radians) * labelRadius
                 const yOffset = Math.sin(radians) * labelRadius
                 const tone = scoreTone(metric?.score ?? null)
                 return (
-                  <span
+                  <button
+                    type="button"
                     key={id}
                     data-testid="lighthouse-performance-subgauge"
                     data-metric-id={id}
+                    onMouseEnter={() => setHoveredMetric(id)}
+                    onMouseLeave={() =>
+                      setHoveredMetric((current) => (current === id ? null : current))
+                    }
+                    onFocus={() => setHoveredMetric(id)}
+                    onBlur={() => setHoveredMetric((current) => (current === id ? null : current))}
                     className={cn(
-                      'absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center',
+                      'pointer-events-auto absolute flex -translate-x-1/2 -translate-y-1/2 cursor-default items-center rounded-full px-2 py-1 text-xs font-medium leading-none outline-none tabular-nums',
+                      hoveredMetric === id ? TONE_TEXT[tone] : 'text-white/55 hover:text-white/80',
                       SUBGAUGE_VISIBILITY
                     )}
                     style={{
@@ -135,24 +157,25 @@ export function PerformanceOverview({
                       transitionDelay: `${index * STAGGER_STEP_MS}ms`
                     }}
                   >
-                    <span className="text-[9px] font-normal leading-none text-white/50">
-                      {label}
-                    </span>
-                    <span
-                      className={cn(
-                        'text-[9px] font-medium leading-none tabular-nums',
-                        TONE_TEXT[tone]
-                      )}
-                    >
-                      {formatScore(metric?.score ?? null)}
-                    </span>
-                  </span>
+                    {label}
+                  </button>
                 )
               })}
             </div>
 
-            <div className="absolute inset-0 z-10 flex items-center justify-center">
-              <ScoreGauge category={performance} size="lg" centered hideRingsOnInteraction />
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+              {hoveredDetail ? (
+                <strong
+                  className={cn(
+                    'text-4xl font-medium tabular-nums',
+                    TONE_TEXT[scoreTone(hoveredDetail.score)]
+                  )}
+                >
+                  {formatScore(hoveredDetail.score)}
+                </strong>
+              ) : (
+                <ScoreGauge category={performance} size="lg" centered hideRingsOnInteraction />
+              )}
             </div>
           </div>
           <ScoreLegend />
@@ -171,8 +194,6 @@ export function PerformanceOverview({
           </div>
         ) : null}
       </div>
-
-
     </section>
   )
 }
