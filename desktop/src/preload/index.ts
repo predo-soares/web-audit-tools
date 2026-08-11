@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import { IPC } from '../shared/ipc-channels'
 import type { HistoryEntry } from '../shared/history'
 import type {
   PanelAction,
@@ -127,235 +128,235 @@ export interface PreviewApi {
 }
 
 const api: PreviewApi = {
-  closeWindow: () => ipcRenderer.invoke('window:close'),
-  minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
-  toggleMaximizeWindow: () => ipcRenderer.invoke('window:toggle-maximize'),
-  isWindowFocused: () => ipcRenderer.invoke('window:is-focused'),
-  isWindowFullscreen: () => ipcRenderer.invoke('window:is-fullscreen'),
+  closeWindow: () => ipcRenderer.invoke(IPC.window.close),
+  minimizeWindow: () => ipcRenderer.invoke(IPC.window.minimize),
+  toggleMaximizeWindow: () => ipcRenderer.invoke(IPC.window.toggleMaximize),
+  isWindowFocused: () => ipcRenderer.invoke(IPC.window.isFocused),
+  isWindowFullscreen: () => ipcRenderer.invoke(IPC.window.isFullscreen),
   onWindowFocusChanged: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, focused: boolean): void =>
       callback(focused)
-    ipcRenderer.on('window:focus-changed', listener)
-    return () => ipcRenderer.removeListener('window:focus-changed', listener)
+    ipcRenderer.on(IPC.window.focusChanged, listener)
+    return () => ipcRenderer.removeListener(IPC.window.focusChanged, listener)
   },
   onWindowFullscreenChanged: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, fullscreen: boolean): void =>
       callback(fullscreen)
-    ipcRenderer.on('window:fullscreen-changed', listener)
-    return () => ipcRenderer.removeListener('window:fullscreen-changed', listener)
+    ipcRenderer.on(IPC.window.fullscreenChanged, listener)
+    return () => ipcRenderer.removeListener(IPC.window.fullscreenChanged, listener)
   },
-  mountPane: (paneId, mount) => ipcRenderer.invoke('pane:mount', paneId, mount),
-  navigate: (url) => ipcRenderer.invoke('preview:navigate', url),
-  reload: () => ipcRenderer.invoke('preview:reload'),
-  stopLoading: () => ipcRenderer.invoke('preview:stop'),
-  savePaneScreenshot: (paneId) => ipcRenderer.invoke('preview:screenshot', paneId),
+  mountPane: (paneId, mount) => ipcRenderer.invoke(IPC.pane.mount, paneId, mount),
+  navigate: (url) => ipcRenderer.invoke(IPC.preview.navigate, url),
+  reload: () => ipcRenderer.invoke(IPC.preview.reload),
+  stopLoading: () => ipcRenderer.invoke(IPC.preview.stop),
+  savePaneScreenshot: (paneId) => ipcRenderer.invoke(IPC.preview.screenshot, paneId),
   downloadMedia: (url, suggestedName) =>
-    ipcRenderer.invoke('media:download', { url, suggestedName }),
-  goBack: () => ipcRenderer.invoke('preview:go-back'),
-  goForward: () => ipcRenderer.invoke('preview:go-forward'),
-  getNavigationState: () => ipcRenderer.invoke('preview:navigation-state'),
-  recreatePanes: () => ipcRenderer.invoke('pane:recreate-all'),
-  setPaneLinked: (paneId, linked) => ipcRenderer.invoke('sync:set-pane-linked', paneId, linked),
-  getLinkedPanes: () => ipcRenderer.invoke('sync:get-linked-panes'),
+    ipcRenderer.invoke(IPC.media.download, { url, suggestedName }),
+  goBack: () => ipcRenderer.invoke(IPC.preview.goBack),
+  goForward: () => ipcRenderer.invoke(IPC.preview.goForward),
+  getNavigationState: () => ipcRenderer.invoke(IPC.preview.navigationState),
+  recreatePanes: () => ipcRenderer.invoke(IPC.pane.recreateAll),
+  setPaneLinked: (paneId, linked) => ipcRenderer.invoke(IPC.sync.setPaneLinked, paneId, linked),
+  getLinkedPanes: () => ipcRenderer.invoke(IPC.sync.getLinkedPanes),
   setPaneThemePreference: (preference) =>
-    ipcRenderer.invoke('pane-theme:set-preference', preference),
-  getMediaFeatures: () => ipcRenderer.invoke('media-features:get'),
-  setMediaFeatures: (state) => ipcRenderer.invoke('media-features:set', state),
-  getLoadingStates: () => ipcRenderer.invoke('pane:loading-states'),
-  listHistory: () => ipcRenderer.invoke('history:list'),
-  deleteHistoryEntry: (url) => ipcRenderer.invoke('history:delete', url),
-  clearHistory: () => ipcRenderer.invoke('history:clear'),
-  openPanel: (options) => ipcRenderer.invoke('panel:open', options),
-  closePanel: (panelId, options) => ipcRenderer.invoke('panel:close', panelId, options),
-  getOpenPanels: () => ipcRenderer.invoke('panel:get-open'),
+    ipcRenderer.invoke(IPC.paneTheme.setPreference, preference),
+  getMediaFeatures: () => ipcRenderer.invoke(IPC.mediaFeatures.get),
+  setMediaFeatures: (state) => ipcRenderer.invoke(IPC.mediaFeatures.set, state),
+  getLoadingStates: () => ipcRenderer.invoke(IPC.pane.loadingStates),
+  listHistory: () => ipcRenderer.invoke(IPC.history.list),
+  deleteHistoryEntry: (url) => ipcRenderer.invoke(IPC.history.delete, url),
+  clearHistory: () => ipcRenderer.invoke(IPC.history.clear),
+  openPanel: (options) => ipcRenderer.invoke(IPC.panel.open, options),
+  closePanel: (panelId, options) => ipcRenderer.invoke(IPC.panel.close, panelId, options),
+  getOpenPanels: () => ipcRenderer.invoke(IPC.panel.getOpen),
   onPanelAction: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, action: PanelAction): void =>
       callback(action)
-    ipcRenderer.on('panel:action', listener)
-    return () => ipcRenderer.removeListener('panel:action', listener)
+    ipcRenderer.on(IPC.panel.action, listener)
+    return () => ipcRenderer.removeListener(IPC.panel.action, listener)
   },
   onPanelClosed: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, panelId: PanelId): void =>
       callback(panelId)
-    ipcRenderer.on('panel:closed', listener)
-    return () => ipcRenderer.removeListener('panel:closed', listener)
+    ipcRenderer.on(IPC.panel.closed, listener)
+    return () => ipcRenderer.removeListener(IPC.panel.closed, listener)
   },
   onPanelThemeChanged: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, preference: ThemePreference): void =>
       callback(preference)
-    ipcRenderer.on('panel:theme-changed', listener)
-    return () => ipcRenderer.removeListener('panel:theme-changed', listener)
+    ipcRenderer.on(IPC.panel.themeChanged, listener)
+    return () => ipcRenderer.removeListener(IPC.panel.themeChanged, listener)
   },
   onMediaFeaturesChanged: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, state: MediaFeatureState): void =>
       callback(state)
-    ipcRenderer.on('panel:media-features-changed', listener)
-    return () => ipcRenderer.removeListener('panel:media-features-changed', listener)
+    ipcRenderer.on(IPC.panel.mediaFeaturesChanged, listener)
+    return () => ipcRenderer.removeListener(IPC.panel.mediaFeaturesChanged, listener)
   },
   onPanelTransition: (callback) => {
     const listener = (
       _event: Electron.IpcRendererEvent,
       state: { panelId: PanelId; transitioning: boolean }
     ): void => callback(state)
-    ipcRenderer.on('panel:transition', listener)
-    return () => ipcRenderer.removeListener('panel:transition', listener)
+    ipcRenderer.on(IPC.panel.transition, listener)
+    return () => ipcRenderer.removeListener(IPC.panel.transition, listener)
   },
   onPanelLayoutSettled: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, panelId: PanelId): void =>
       callback(panelId)
-    ipcRenderer.on('panel:layout-settled', listener)
-    return () => ipcRenderer.removeListener('panel:layout-settled', listener)
+    ipcRenderer.on(IPC.panel.layoutSettled, listener)
+    return () => ipcRenderer.removeListener(IPC.panel.layoutSettled, listener)
   },
   onPanelFocusSidebarToggle: (callback) => {
     const listener = (): void => callback()
-    ipcRenderer.on('panel:focus-sidebar-toggle', listener)
-    return () => ipcRenderer.removeListener('panel:focus-sidebar-toggle', listener)
+    ipcRenderer.on(IPC.panel.focusSidebarToggle, listener)
+    return () => ipcRenderer.removeListener(IPC.panel.focusSidebarToggle, listener)
   },
   onPanelToggleSidebar: (callback) => {
     const listener = (): void => callback()
-    ipcRenderer.on('panel:toggle-sidebar', listener)
-    return () => ipcRenderer.removeListener('panel:toggle-sidebar', listener)
+    ipcRenderer.on(IPC.panel.toggleSidebar, listener)
+    return () => ipcRenderer.removeListener(IPC.panel.toggleSidebar, listener)
   },
   onPaneLoading: (callback) => {
     const listener = (
       _event: Electron.IpcRendererEvent,
       state: { paneId: PaneId; loading: boolean }
     ): void => callback(state)
-    ipcRenderer.on('pane:loading', listener)
-    return () => ipcRenderer.removeListener('pane:loading', listener)
+    ipcRenderer.on(IPC.pane.loading, listener)
+    return () => ipcRenderer.removeListener(IPC.pane.loading, listener)
   },
   onPaneLoadError: (callback) => {
     const listener = (
       _event: Electron.IpcRendererEvent,
       state: { paneId: PaneId; error: { code: number; description: string } | null }
     ): void => callback(state)
-    ipcRenderer.on('pane:load-error', listener)
-    return () => ipcRenderer.removeListener('pane:load-error', listener)
+    ipcRenderer.on(IPC.pane.loadError, listener)
+    return () => ipcRenderer.removeListener(IPC.pane.loadError, listener)
   },
   onPaneNavigation: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, state: PaneNavigationState): void =>
       callback(state)
-    ipcRenderer.on('pane:navigation', listener)
-    return () => ipcRenderer.removeListener('pane:navigation', listener)
+    ipcRenderer.on(IPC.pane.navigation, listener)
+    return () => ipcRenderer.removeListener(IPC.pane.navigation, listener)
   },
-  listProjects: () => ipcRenderer.invoke('projects:list'),
-  toggleProject: (input) => ipcRenderer.invoke('projects:toggle', input),
+  listProjects: () => ipcRenderer.invoke(IPC.projects.list),
+  toggleProject: (input) => ipcRenderer.invoke(IPC.projects.toggle, input),
   onProjectsChanged: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, projects: Project[]): void =>
       callback(projects)
-    ipcRenderer.on('projects:changed', listener)
-    return () => ipcRenderer.removeListener('projects:changed', listener)
+    ipcRenderer.on(IPC.projects.changed, listener)
+    return () => ipcRenderer.removeListener(IPC.projects.changed, listener)
   },
   onHistoryUpdated: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, entries: HistoryEntry[]): void =>
       callback(entries)
-    ipcRenderer.on('history:updated', listener)
-    return () => ipcRenderer.removeListener('history:updated', listener)
+    ipcRenderer.on(IPC.history.updated, listener)
+    return () => ipcRenderer.removeListener(IPC.history.updated, listener)
   },
   evaluateInPane: (paneId, expression) =>
-    ipcRenderer.invoke('e2e:evaluate-in-pane', paneId, expression),
-  focusPane: (paneId) => ipcRenderer.invoke('e2e:focus-pane', paneId),
-  getMirrorFailureLogs: () => ipcRenderer.invoke('e2e:get-mirror-failure-logs'),
-  getSyncTraceLogs: () => ipcRenderer.invoke('e2e:get-sync-trace-logs'),
-  getRuntimeEvidence: () => ipcRenderer.invoke('runtime-evidence:get'),
+    ipcRenderer.invoke(IPC.e2e.evaluateInPane, paneId, expression),
+  focusPane: (paneId) => ipcRenderer.invoke(IPC.e2e.focusPane, paneId),
+  getMirrorFailureLogs: () => ipcRenderer.invoke(IPC.e2e.getMirrorFailureLogs),
+  getSyncTraceLogs: () => ipcRenderer.invoke(IPC.e2e.getSyncTraceLogs),
+  getRuntimeEvidence: () => ipcRenderer.invoke(IPC.runtimeEvidence.get),
   onRuntimeEvidenceChanged: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, snapshot: RuntimeEvidenceSnapshot): void =>
       callback(snapshot)
-    ipcRenderer.on('runtime-evidence:changed', listener)
-    return () => ipcRenderer.removeListener('runtime-evidence:changed', listener)
+    ipcRenderer.on(IPC.runtimeEvidence.changed, listener)
+    return () => ipcRenderer.removeListener(IPC.runtimeEvidence.changed, listener)
   },
   toggleDiagnosticsDrawer: () => {
-    ipcRenderer.send('diagnostics:toggle')
+    ipcRenderer.send(IPC.diagnostics.toggle)
   },
-  getDiagnosticsWidth: () => ipcRenderer.invoke('panel:get-diagnostics-width'),
+  getDiagnosticsWidth: () => ipcRenderer.invoke(IPC.panel.getDiagnosticsWidth),
   onDiagnosticsWidthChanged: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, width: number): void => callback(width)
-    ipcRenderer.on('panel:diagnostics-width', listener)
-    return () => ipcRenderer.removeListener('panel:diagnostics-width', listener)
+    ipcRenderer.on(IPC.panel.diagnosticsWidth, listener)
+    return () => ipcRenderer.removeListener(IPC.panel.diagnosticsWidth, listener)
   },
-  takeSnapshot: (includeSeoAudit = false) => ipcRenderer.invoke('snapshot:take', includeSeoAudit),
+  takeSnapshot: (includeSeoAudit = false) => ipcRenderer.invoke(IPC.snapshot.take, includeSeoAudit),
   shareDeviceWithAgent: (paneId, includeSeoAudit = false) =>
-    ipcRenderer.invoke('snapshot:share-pane', paneId, includeSeoAudit),
-  getSafariChromeEnabled: () => ipcRenderer.invoke('safari-chrome:get-enabled'),
+    ipcRenderer.invoke(IPC.snapshot.sharePane, paneId, includeSeoAudit),
+  getSafariChromeEnabled: () => ipcRenderer.invoke(IPC.safariChrome.getEnabled),
   onSafariChromeEnabledChanged: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, enabled: boolean): void =>
       callback(enabled)
-    ipcRenderer.on('safari-chrome:enabled-changed', listener)
-    return () => ipcRenderer.removeListener('safari-chrome:enabled-changed', listener)
+    ipcRenderer.on(IPC.safariChrome.enabledChanged, listener)
+    return () => ipcRenderer.removeListener(IPC.safariChrome.enabledChanged, listener)
   },
-  runSeoAudit: (indexingIntent) => ipcRenderer.invoke('seo-audit:run', indexingIntent),
-  cancelSeoAudit: () => ipcRenderer.invoke('seo-audit:cancel'),
-  getSeoAuditState: () => ipcRenderer.invoke('seo-audit:get-state'),
+  runSeoAudit: (indexingIntent) => ipcRenderer.invoke(IPC.seoAudit.run, indexingIntent),
+  cancelSeoAudit: () => ipcRenderer.invoke(IPC.seoAudit.cancel),
+  getSeoAuditState: () => ipcRenderer.invoke(IPC.seoAudit.getState),
   onSeoAuditState: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, state: AuditJobState): void =>
       callback(state)
-    ipcRenderer.on('seo-audit:state', listener)
-    return () => ipcRenderer.removeListener('seo-audit:state', listener)
+    ipcRenderer.on(IPC.seoAudit.state, listener)
+    return () => ipcRenderer.removeListener(IPC.seoAudit.state, listener)
   },
-  getLighthouseState: () => ipcRenderer.invoke('seo-lighthouse:get-state'),
-  runLighthouse: (labSelection) => ipcRenderer.invoke('seo-lighthouse:run', labSelection),
-  cancelLighthouse: () => ipcRenderer.invoke('seo-lighthouse:cancel'),
+  getLighthouseState: () => ipcRenderer.invoke(IPC.seoLighthouse.getState),
+  runLighthouse: (labSelection) => ipcRenderer.invoke(IPC.seoLighthouse.run, labSelection),
+  cancelLighthouse: () => ipcRenderer.invoke(IPC.seoLighthouse.cancel),
   onLighthouseState: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, state: LighthouseAssessmentState): void =>
       callback(state)
-    ipcRenderer.on('seo-lighthouse:state', listener)
-    return () => ipcRenderer.removeListener('seo-lighthouse:state', listener)
+    ipcRenderer.on(IPC.seoLighthouse.state, listener)
+    return () => ipcRenderer.removeListener(IPC.seoLighthouse.state, listener)
   },
   onEnterPreviewView: (callback) => {
     const listener = (): void => callback()
-    ipcRenderer.on('app:preview-view', listener)
-    return () => ipcRenderer.removeListener('app:preview-view', listener)
+    ipcRenderer.on(IPC.app.previewView, listener)
+    return () => ipcRenderer.removeListener(IPC.app.previewView, listener)
   },
   onEnterSeoView: (callback) => {
     const listener = (): void => callback()
-    ipcRenderer.on('app:seo-view', listener)
-    return () => ipcRenderer.removeListener('app:seo-view', listener)
+    ipcRenderer.on(IPC.app.seoView, listener)
+    return () => ipcRenderer.removeListener(IPC.app.seoView, listener)
   },
   onEnterLighthouseView: (callback) => {
     const listener = (): void => callback()
-    ipcRenderer.on('app:lighthouse-view', listener)
-    return () => ipcRenderer.removeListener('app:lighthouse-view', listener)
+    ipcRenderer.on(IPC.app.lighthouseView, listener)
+    return () => ipcRenderer.removeListener(IPC.app.lighthouseView, listener)
   },
   onEnterDevicesView: (callback) => {
     const listener = (): void => callback()
-    ipcRenderer.on('app:devices-view', listener)
-    return () => ipcRenderer.removeListener('app:devices-view', listener)
+    ipcRenderer.on(IPC.app.devicesView, listener)
+    return () => ipcRenderer.removeListener(IPC.app.devicesView, listener)
   },
   onEnterSettingsView: (callback) => {
     const listener = (): void => callback()
-    ipcRenderer.on('app:settings-view', listener)
-    return () => ipcRenderer.removeListener('app:settings-view', listener)
+    ipcRenderer.on(IPC.app.settingsView, listener)
+    return () => ipcRenderer.removeListener(IPC.app.settingsView, listener)
   },
-  setWorkspaceView: (view) => ipcRenderer.invoke('app:set-workspace-view', view),
-  getMcpStatus: () => ipcRenderer.invoke('mcp:get-status'),
+  setWorkspaceView: (view) => ipcRenderer.invoke(IPC.app.setWorkspaceView, view),
+  getMcpStatus: () => ipcRenderer.invoke(IPC.mcp.getStatus),
   onMcpStatus: (callback) => {
     const listener = (_event: unknown, status: McpServerStatus): void => callback(status)
-    ipcRenderer.on('app:mcp-status', listener)
-    return () => ipcRenderer.removeListener('app:mcp-status', listener)
+    ipcRenderer.on(IPC.app.mcpStatus, listener)
+    return () => ipcRenderer.removeListener(IPC.app.mcpStatus, listener)
   },
   onToggleChrome: (callback) => {
     const listener = (): void => callback()
-    ipcRenderer.on('app:toggle-chrome', listener)
-    return () => ipcRenderer.removeListener('app:toggle-chrome', listener)
+    ipcRenderer.on(IPC.app.toggleChrome, listener)
+    return () => ipcRenderer.removeListener(IPC.app.toggleChrome, listener)
   },
   onExitChrome: (callback) => {
     const listener = (): void => callback()
-    ipcRenderer.on('app:exit-chrome', listener)
-    return () => ipcRenderer.removeListener('app:exit-chrome', listener)
+    ipcRenderer.on(IPC.app.exitChrome, listener)
+    return () => ipcRenderer.removeListener(IPC.app.exitChrome, listener)
   },
   setDeviceProfile: (paneId, profile) =>
-    ipcRenderer.invoke('pane:set-device-profile', paneId, profile),
-  setPanesVisible: (visible) => ipcRenderer.invoke('pane:set-visible', visible),
-  setFocusedPane: (paneId) => ipcRenderer.invoke('pane:set-focused', paneId),
-  setInspectionMode: (enabled) => ipcRenderer.invoke('inspection:set-mode', enabled),
-  getInspectionState: () => ipcRenderer.invoke('inspection:get-state'),
+    ipcRenderer.invoke(IPC.pane.setDeviceProfile, paneId, profile),
+  setPanesVisible: (visible) => ipcRenderer.invoke(IPC.pane.setVisible, visible),
+  setFocusedPane: (paneId) => ipcRenderer.invoke(IPC.pane.setFocused, paneId),
+  setInspectionMode: (enabled) => ipcRenderer.invoke(IPC.inspection.setMode, enabled),
+  getInspectionState: () => ipcRenderer.invoke(IPC.inspection.getState),
   onInspectionState: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, state: InspectionState): void =>
       callback(state)
-    ipcRenderer.on('inspection:state', listener)
-    return () => ipcRenderer.removeListener('inspection:state', listener)
+    ipcRenderer.on(IPC.inspection.state, listener)
+    return () => ipcRenderer.removeListener(IPC.inspection.state, listener)
   },
-  setChromeHidden: (hidden) => ipcRenderer.invoke('chrome:set-hidden', hidden)
+  setChromeHidden: (hidden) => ipcRenderer.invoke(IPC.chrome.setHidden, hidden)
 }
 
 contextBridge.exposeInMainWorld('api', api)

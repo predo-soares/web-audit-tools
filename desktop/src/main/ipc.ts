@@ -1,4 +1,5 @@
 import { BrowserWindow, ipcMain, shell } from 'electron'
+import { IPC } from '../shared/ipc-channels'
 import { normalizeUrl } from '../shared/url'
 import type { ElementFingerprint } from '../shared/element-mirror'
 import type { InspectionPageSnapshot, InspectionTarget } from '../shared/inspection'
@@ -9,7 +10,13 @@ import type {
   PanelId,
   PanelOpenOptions
 } from '../shared/panel-types'
-import type { MediaFeatureState, PaneMount, PaneId, Size, ThemePreference } from '../shared/pane-types'
+import type {
+  MediaFeatureState,
+  PaneMount,
+  PaneId,
+  Size,
+  ThemePreference
+} from '../shared/pane-types'
 import type { MirroredKey } from './engine/engine-view'
 import type { PaneManager } from './panes/pane-manager'
 import type { PanelManager } from './panels/panel-manager'
@@ -176,18 +183,18 @@ export function registerIpcHandlers(
   lighthouseManager: LighthouseManager,
   getMcpStatus: () => McpServerStatus
 ): void {
-  ipcMain.handle('mcp:get-status', () => getMcpStatus())
+  ipcMain.handle(IPC.mcp.getStatus, () => getMcpStatus())
 
   // The active workspace lives in the main window's renderer, but the toolbar is a
   // separate panel; mirror it here so the toolbar can hide page-scoped chrome.
-  ipcMain.handle('app:set-workspace-view', (_event, view: WorkspaceView) => {
+  ipcMain.handle(IPC.app.setWorkspaceView, (_event, view: WorkspaceView) => {
     currentWorkspaceView = view
-    panelManager.notifyToolbarPanel('workspace:view-changed', view)
-    panelManager.notifyPanel('sidebar-left', 'workspace:view-changed', view)
+    panelManager.notifyToolbarPanel(IPC.workspace.viewChanged, view)
+    panelManager.notifyPanel('sidebar-left', IPC.workspace.viewChanged, view)
   })
-  ipcMain.handle('app:get-workspace-view', () => currentWorkspaceView)
+  ipcMain.handle(IPC.app.getWorkspaceView, () => currentWorkspaceView)
 
-  ipcMain.handle('snapshot:take', async (_event, includeSeoAudit = false) => {
+  ipcMain.handle(IPC.snapshot.take, async (_event, includeSeoAudit = false) => {
     return captureSnapshot(makeSnapshotPort(paneManager), undefined, {
       includeSeoAudit,
       seoAuditState: includeSeoAudit ? auditManager.getState() : undefined
@@ -196,27 +203,30 @@ export function registerIpcHandlers(
 
   // Share with agent is per-device: activate the requested pane first, then run
   // the existing active-pane capture so the bundle reflects that device.
-  ipcMain.handle('snapshot:share-pane', async (_event, paneId: PaneId, includeSeoAudit = false) => {
-    paneManager.focusPane(paneId)
-    return captureSnapshot(makeSnapshotPort(paneManager), undefined, {
-      includeSeoAudit,
-      seoAuditState: includeSeoAudit ? auditManager.getState() : undefined
-    })
-  })
+  ipcMain.handle(
+    IPC.snapshot.sharePane,
+    async (_event, paneId: PaneId, includeSeoAudit = false) => {
+      paneManager.focusPane(paneId)
+      return captureSnapshot(makeSnapshotPort(paneManager), undefined, {
+        includeSeoAudit,
+        seoAuditState: includeSeoAudit ? auditManager.getState() : undefined
+      })
+    }
+  )
 
-  ipcMain.handle('seo-audit:run', async (_event, indexingIntent: IndexingIntent) => {
+  ipcMain.handle(IPC.seoAudit.run, async (_event, indexingIntent: IndexingIntent) => {
     return auditManager.run({ indexingIntent })
   })
 
-  ipcMain.handle('seo-audit:cancel', () => {
+  ipcMain.handle(IPC.seoAudit.cancel, () => {
     auditManager.cancel()
   })
 
-  ipcMain.handle('seo-audit:get-state', () => {
+  ipcMain.handle(IPC.seoAudit.getState, () => {
     return auditManager.getState()
   })
-  ipcMain.handle('seo-lighthouse:get-state', () => lighthouseManager.getState())
-  ipcMain.handle('seo-lighthouse:run', async (_event, labSelection?: LighthouseLabSelection) => {
+  ipcMain.handle(IPC.seoLighthouse.getState, () => lighthouseManager.getState())
+  ipcMain.handle(IPC.seoLighthouse.run, async (_event, labSelection?: LighthouseLabSelection) => {
     const navigation = paneManager.getNavigationState()
     if (!navigation.barUrl) return lighthouseManager.getState()
     const headers: Record<string, string> = {
@@ -231,21 +241,21 @@ export function registerIpcHandlers(
       labSelection
     })
   })
-  ipcMain.handle('seo-lighthouse:cancel', () => lighthouseManager.cancel())
+  ipcMain.handle(IPC.seoLighthouse.cancel, () => lighthouseManager.cancel())
 
-  ipcMain.on('diagnostics:toggle', () => {
-    panelManager.notifyToolbarPanel('panel:toggle-diagnostics')
+  ipcMain.on(IPC.diagnostics.toggle, () => {
+    panelManager.notifyToolbarPanel(IPC.panel.toggleDiagnostics)
   })
 
-  ipcMain.handle('window:close', (event) => {
+  ipcMain.handle(IPC.window.close, (event) => {
     BrowserWindow.fromWebContents(event.sender)?.close()
   })
 
-  ipcMain.handle('window:minimize', (event) => {
+  ipcMain.handle(IPC.window.minimize, (event) => {
     BrowserWindow.fromWebContents(event.sender)?.minimize()
   })
 
-  ipcMain.handle('window:toggle-maximize', (event) => {
+  ipcMain.handle(IPC.window.toggleMaximize, (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     if (!window) return
 
@@ -256,63 +266,63 @@ export function registerIpcHandlers(
     }
   })
 
-  ipcMain.handle('window:is-focused', (event) => {
+  ipcMain.handle(IPC.window.isFocused, (event) => {
     return BrowserWindow.fromWebContents(event.sender)?.isFocused() ?? false
   })
 
-  ipcMain.handle('window:is-fullscreen', (event) => {
+  ipcMain.handle(IPC.window.isFullscreen, (event) => {
     return BrowserWindow.fromWebContents(event.sender)?.isFullScreen() ?? false
   })
 
-  ipcMain.handle('pane:mount', (_event, paneId: PaneId, mount: PaneMount) => {
+  ipcMain.handle(IPC.pane.mount, (_event, paneId: PaneId, mount: PaneMount) => {
     paneManager.mount(paneId, mount)
   })
 
-  ipcMain.handle('pane:set-visible', (_event, visible: boolean) => {
+  ipcMain.handle(IPC.pane.setVisible, (_event, visible: boolean) => {
     paneManager.setPanesVisible(visible)
   })
 
-  ipcMain.handle('pane:set-focused', (_event, paneId: PaneId | null) => {
+  ipcMain.handle(IPC.pane.setFocused, (_event, paneId: PaneId | null) => {
     paneManager.setFocusedPane(paneId)
   })
 
-  ipcMain.handle('inspection:set-mode', async (_event, enabled: boolean) => {
+  ipcMain.handle(IPC.inspection.setMode, async (_event, enabled: boolean) => {
     await paneManager.setInspectionMode(enabled)
     return paneManager.getInspectionState()
   })
 
-  ipcMain.handle('inspection:get-state', () => paneManager.getInspectionState())
+  ipcMain.handle(IPC.inspection.getState, () => paneManager.getInspectionState())
 
-  ipcMain.handle('chrome:set-hidden', (_event, hidden: boolean) => {
+  ipcMain.handle(IPC.chrome.setHidden, (_event, hidden: boolean) => {
     panelManager.setChromeHidden(hidden)
   })
 
-  ipcMain.handle('pane:set-device-profile', async (_event, paneId: string, profile: unknown) => {
+  ipcMain.handle(IPC.pane.setDeviceProfile, async (_event, paneId: string, profile: unknown) => {
     await paneManager.setDeviceProfile(
       paneId as import('../shared/pane-types').PaneId,
       profile as import('../shared/pane-types').DeviceProfile
     )
   })
 
-  ipcMain.handle('preview:navigate', async (_event, rawUrl: string) => {
+  ipcMain.handle(IPC.preview.navigate, async (_event, rawUrl: string) => {
     const url = normalizeUrl(rawUrl)
     await paneManager.navigateAll(url)
     return url
   })
 
-  ipcMain.handle('preview:navigation-state', () => {
+  ipcMain.handle(IPC.preview.navigationState, () => {
     return paneManager.getNavigationState()
   })
 
-  ipcMain.handle('preview:reload', async () => {
+  ipcMain.handle(IPC.preview.reload, async () => {
     await paneManager.reloadAll()
   })
 
-  ipcMain.handle('preview:stop', () => {
+  ipcMain.handle(IPC.preview.stop, () => {
     paneManager.stopLoadingAll()
   })
 
-  ipcMain.handle('preview:screenshot', async (event, paneId: PaneId) => {
+  ipcMain.handle(IPC.preview.screenshot, async (event, paneId: PaneId) => {
     const parentWindow = BrowserWindow.fromWebContents(event.sender)
     if (!parentWindow) {
       return { saved: false }
@@ -321,7 +331,7 @@ export function registerIpcHandlers(
   })
 
   ipcMain.handle(
-    'media:download',
+    IPC.media.download,
     async (event, payload: { url: string; suggestedName?: string }) => {
       if (!payload?.url) return { saved: false }
       const parentWindow = BrowserWindow.fromWebContents(event.sender)
@@ -334,73 +344,73 @@ export function registerIpcHandlers(
     }
   )
 
-  ipcMain.handle('preview:go-back', async () => {
+  ipcMain.handle(IPC.preview.goBack, async () => {
     await paneManager.goBack()
   })
 
-  ipcMain.handle('preview:go-forward', async () => {
+  ipcMain.handle(IPC.preview.goForward, async () => {
     await paneManager.goForward()
   })
 
-  ipcMain.handle('pane:recreate-all', async () => {
+  ipcMain.handle(IPC.pane.recreateAll, async () => {
     await paneManager.recreateAll()
   })
 
-  ipcMain.handle('sync:set-pane-linked', (_event, paneId: PaneId, linked: boolean) => {
+  ipcMain.handle(IPC.sync.setPaneLinked, (_event, paneId: PaneId, linked: boolean) => {
     paneManager.setPaneLinked(paneId, linked)
     return paneManager.getLinkedPanes()
   })
 
-  ipcMain.handle('sync:get-linked-panes', () => {
+  ipcMain.handle(IPC.sync.getLinkedPanes, () => {
     return paneManager.getLinkedPanes()
   })
 
-  ipcMain.handle('safari-chrome:set-enabled', (_event, enabled: boolean) => {
+  ipcMain.handle(IPC.safariChrome.setEnabled, (_event, enabled: boolean) => {
     return safariChromeManager.setEnabled(enabled)
   })
 
-  ipcMain.handle('safari-chrome:get-enabled', () => {
+  ipcMain.handle(IPC.safariChrome.getEnabled, () => {
     return safariChromeManager.isEnabled()
   })
 
-  ipcMain.handle('pane-theme:set-preference', async (_event, preference: ThemePreference) => {
+  ipcMain.handle(IPC.paneTheme.setPreference, async (_event, preference: ThemePreference) => {
     await paneManager.setThemePreference(preference)
     // Broadcast so a change from either the toolbar toggle or the Rendering tab
     // keeps every overlay panel's prefers-color-scheme control in sync.
-    panelManager.notifyOverlayPanels('panel:theme-changed', preference)
+    panelManager.notifyOverlayPanels(IPC.panel.themeChanged, preference)
     return preference
   })
 
-  ipcMain.handle('media-features:get', () => {
+  ipcMain.handle(IPC.mediaFeatures.get, () => {
     return paneManager.getMediaFeatures()
   })
 
-  ipcMain.handle('media-features:set', async (_event, state: MediaFeatureState) => {
+  ipcMain.handle(IPC.mediaFeatures.set, async (_event, state: MediaFeatureState) => {
     await paneManager.setMediaFeatures(state)
-    panelManager.notifyOverlayPanels('panel:media-features-changed', state)
+    panelManager.notifyOverlayPanels(IPC.panel.mediaFeaturesChanged, state)
     return state
   })
 
   ipcMain.on(
-    'pane:scroll',
+    IPC.pane.scroll,
     (_event, paneId: PaneId, ratio: number, programmatic: boolean, scrollY = 0) => {
       void paneManager.syncScroll(paneId, ratio, programmatic, scrollY)
     }
   )
 
-  ipcMain.on('pane:click', (_event, paneId: PaneId, fingerprint: ElementFingerprint) => {
+  ipcMain.on(IPC.pane.click, (_event, paneId: PaneId, fingerprint: ElementFingerprint) => {
     void paneManager.syncClick(paneId, fingerprint)
   })
 
   ipcMain.on(
-    'pane:value',
+    IPC.pane.value,
     (_event, paneId: PaneId, fingerprint: ElementFingerprint, value: string) => {
       void paneManager.syncValue(paneId, fingerprint, value)
     }
   )
 
   ipcMain.on(
-    'pane:select',
+    IPC.pane.select,
     (
       _event,
       paneId: PaneId,
@@ -412,57 +422,57 @@ export function registerIpcHandlers(
     }
   )
 
-  ipcMain.on('pane:submit', (_event, paneId: PaneId, fingerprint: ElementFingerprint) => {
+  ipcMain.on(IPC.pane.submit, (_event, paneId: PaneId, fingerprint: ElementFingerprint) => {
     void paneManager.syncSubmit(paneId, fingerprint)
   })
 
-  ipcMain.on('pane:key', (_event, paneId: PaneId, key: MirroredKey) => {
+  ipcMain.on(IPC.pane.key, (_event, paneId: PaneId, key: MirroredKey) => {
     paneManager.syncKey(paneId, key)
   })
 
   ipcMain.on(
-    'pane:inspection-select',
+    IPC.pane.inspectionSelect,
     (_event, paneId: PaneId, target: InspectionTarget, snapshot: InspectionPageSnapshot) => {
       void paneManager.selectInspectionElement(paneId, target, snapshot)
     }
   )
 
   ipcMain.on(
-    'pane:inspection-preview',
+    IPC.pane.inspectionPreview,
     (_event, paneId: PaneId, target: InspectionTarget, snapshot: InspectionPageSnapshot) => {
       void paneManager.previewInspectionElement(paneId, target, snapshot)
     }
   )
 
-  ipcMain.handle('inspection:markup-children', (_event, paneId: PaneId, nodeId: string) =>
+  ipcMain.handle(IPC.inspection.markupChildren, (_event, paneId: PaneId, nodeId: string) =>
     paneManager.loadInspectionMarkupChildren(paneId, nodeId)
   )
 
-  ipcMain.on('pane:inspection-escape', () => {
+  ipcMain.on(IPC.pane.inspectionEscape, () => {
     paneManager.closeInspection()
   })
 
-  ipcMain.on('pane:inspection-stale', (_event, paneId: PaneId) => {
+  ipcMain.on(IPC.pane.inspectionStale, (_event, paneId: PaneId) => {
     paneManager.markInspectionPaneStale(paneId)
   })
 
-  ipcMain.handle('pane:loading-states', () => {
+  ipcMain.handle(IPC.pane.loadingStates, () => {
     return paneManager.getLoadingStates()
   })
 
-  ipcMain.handle('runtime-evidence:get', () => {
+  ipcMain.handle(IPC.runtimeEvidence.get, () => {
     return paneManager.getRuntimeEvidenceSnapshot()
   })
 
-  ipcMain.handle('runtime-evidence:clear', (_event, channel: 'console' | 'network') => {
+  ipcMain.handle(IPC.runtimeEvidence.clear, (_event, channel: 'console' | 'network') => {
     return paneManager.clearRuntimeEvidence(channel)
   })
 
-  ipcMain.handle('application:get-data', () => paneManager.getApplicationData())
+  ipcMain.handle(IPC.application.getData, () => paneManager.getApplicationData())
 
-  ipcMain.handle('dev-context:get', () => paneManager.getDevContextAsync())
+  ipcMain.handle(IPC.devContext.get, () => paneManager.getDevContextAsync())
 
-  ipcMain.handle('url:open-external', async (_event, rawUrl: string) => {
+  ipcMain.handle(IPC.url.openExternal, async (_event, rawUrl: string) => {
     const url = new URL(rawUrl)
     if (!['http:', 'https:', 'file:'].includes(url.protocol)) {
       throw new Error('Only http, https, and file URLs can be opened externally')
@@ -470,53 +480,53 @@ export function registerIpcHandlers(
     await shell.openExternal(url.toString())
   })
 
-  ipcMain.handle('panel:open', async (_event, options: PanelOpenOptions) => {
+  ipcMain.handle(IPC.panel.open, async (_event, options: PanelOpenOptions) => {
     await panelManager.open(options)
   })
 
-  ipcMain.handle('panel:close', (_event, panelId: PanelId, options?: PanelCloseOptions) => {
+  ipcMain.handle(IPC.panel.close, (_event, panelId: PanelId, options?: PanelCloseOptions) => {
     panelManager.close(panelId, options)
   })
 
-  ipcMain.handle('panel:get-open', () => {
+  ipcMain.handle(IPC.panel.getOpen, () => {
     return panelManager.getOpenPanelIds()
   })
 
-  ipcMain.handle('panel:get-diagnostics-width', () => {
+  ipcMain.handle(IPC.panel.getDiagnosticsWidth, () => {
     return panelManager.getDiagnosticsWidth()
   })
 
-  ipcMain.on('panel:docked-resize', (event, width: number, phase: 'preview' | 'commit') => {
+  ipcMain.on(IPC.panel.dockedResize, (event, width: number, phase: 'preview' | 'commit') => {
     const panelId = panelManager.getPanelIdForWebContents(event.sender)
     if (!panelId) return
     panelManager.handleDockedResize(panelId, width, phase)
   })
 
-  ipcMain.on('panel:size', (event, size: Size) => {
+  ipcMain.on(IPC.panel.size, (event, size: Size) => {
     const panelId = panelManager.getPanelIdForWebContents(event.sender)
     if (!panelId) return
     panelManager.handleSizeReport(panelId, size)
   })
 
-  ipcMain.on('panel:exit-complete', (event) => {
+  ipcMain.on(IPC.panel.exitComplete, (event) => {
     const panelId = panelManager.getPanelIdForWebContents(event.sender)
     if (!panelId) return
     panelManager.handleExitComplete(panelId)
   })
 
-  ipcMain.on('panel:focus-on-close', (event) => {
+  ipcMain.on(IPC.panel.focusOnClose, (event) => {
     const panelId = panelManager.getPanelIdForWebContents(event.sender)
     if (!panelId) return
     panelManager.handleFocusOnClose(panelId)
   })
 
-  ipcMain.on('panel:ready', (event) => {
+  ipcMain.on(IPC.panel.ready, (event) => {
     const panelId = panelManager.getPanelIdForWebContents(event.sender)
     if (!panelId) return
     panelManager.handleRendererReady(panelId)
   })
 
-  ipcMain.on('panel:action', (event, action: PanelAction) => {
+  ipcMain.on(IPC.panel.action, (event, action: PanelAction) => {
     const panelId = panelManager.getPanelIdForWebContents(event.sender)
     if (!panelId) return
 
@@ -533,7 +543,7 @@ export function registerIpcHandlers(
     if (action.type === 'toggle-sidebar') {
       const mainWindow = BrowserWindow.getAllWindows()[0]
       if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
-        mainWindow.webContents.send('panel:toggle-sidebar')
+        mainWindow.webContents.send(IPC.panel.toggleSidebar)
       }
       return
     }
@@ -541,7 +551,7 @@ export function registerIpcHandlers(
     if (action.type === 'enter-preview-view') {
       const mainWindow = BrowserWindow.getAllWindows()[0]
       if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
-        mainWindow.webContents.send('app:preview-view')
+        mainWindow.webContents.send(IPC.app.previewView)
       }
       return
     }
@@ -549,7 +559,7 @@ export function registerIpcHandlers(
     if (action.type === 'enter-seo-view') {
       const mainWindow = BrowserWindow.getAllWindows()[0]
       if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
-        mainWindow.webContents.send('app:seo-view')
+        mainWindow.webContents.send(IPC.app.seoView)
       }
       return
     }
@@ -557,7 +567,7 @@ export function registerIpcHandlers(
     if (action.type === 'enter-devices-view') {
       const mainWindow = BrowserWindow.getAllWindows()[0]
       if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
-        mainWindow.webContents.send('app:devices-view')
+        mainWindow.webContents.send(IPC.app.devicesView)
       }
       return
     }
@@ -565,7 +575,7 @@ export function registerIpcHandlers(
     if (action.type === 'enter-lighthouse-view') {
       const mainWindow = BrowserWindow.getAllWindows()[0]
       if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
-        mainWindow.webContents.send('app:lighthouse-view')
+        mainWindow.webContents.send(IPC.app.lighthouseView)
       }
       return
     }
@@ -573,13 +583,13 @@ export function registerIpcHandlers(
     if (action.type === 'enter-settings-view') {
       const mainWindow = BrowserWindow.getAllWindows()[0]
       if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
-        mainWindow.webContents.send('app:settings-view')
+        mainWindow.webContents.send(IPC.app.settingsView)
       }
       return
     }
 
     if (action.type === 'toggle-diagnostics') {
-      panelManager.notifyToolbarPanel('panel:toggle-diagnostics')
+      panelManager.notifyToolbarPanel(IPC.panel.toggleDiagnostics)
       return
     }
 
@@ -591,7 +601,7 @@ export function registerIpcHandlers(
     if (action.type === 'toggle-chrome') {
       const mainWindow = BrowserWindow.getAllWindows()[0]
       if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
-        mainWindow.webContents.send('app:toggle-chrome')
+        mainWindow.webContents.send(IPC.app.toggleChrome)
       }
       return
     }
@@ -623,7 +633,7 @@ export function registerIpcHandlers(
       if (currentWorkspaceView !== 'browser') {
         const mainWindow = BrowserWindow.getAllWindows()[0]
         if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
-          mainWindow.webContents.send('panel:action', action)
+          mainWindow.webContents.send(IPC.panel.action, action)
         }
       }
       void paneManager.navigateAll(normalizeUrl(action.url))
@@ -655,39 +665,39 @@ export function registerIpcHandlers(
     }
   })
 
-  ipcMain.handle('history:list', () => {
+  ipcMain.handle(IPC.history.list, () => {
     return historyStore.list()
   })
 
-  ipcMain.handle('history:delete', (_event, url: string) => {
+  ipcMain.handle(IPC.history.delete, (_event, url: string) => {
     historyStore.remove(url)
   })
 
-  ipcMain.handle('history:clear', () => {
+  ipcMain.handle(IPC.history.clear, () => {
     historyStore.clear()
   })
 
-  ipcMain.handle('e2e:evaluate-in-pane', async (_event, paneId: PaneId, expression: string) => {
+  ipcMain.handle(IPC.e2e.evaluateInPane, async (_event, paneId: PaneId, expression: string) => {
     return paneManager.evaluateInPane(paneId, expression)
   })
 
-  ipcMain.handle('e2e:focus-pane', (_event, paneId: PaneId) => {
+  ipcMain.handle(IPC.e2e.focusPane, (_event, paneId: PaneId) => {
     paneManager.focusPane(paneId)
   })
 
-  ipcMain.handle('e2e:get-mirror-failure-logs', () => {
+  ipcMain.handle(IPC.e2e.getMirrorFailureLogs, () => {
     return paneManager.getMirrorFailureLogs()
   })
 
-  ipcMain.handle('e2e:get-sync-trace-logs', () => {
+  ipcMain.handle(IPC.e2e.getSyncTraceLogs, () => {
     return paneManager.getSyncTraceLogs()
   })
 
-  ipcMain.handle('projects:list', () => {
+  ipcMain.handle(IPC.projects.list, () => {
     return projectStore.list()
   })
 
-  ipcMain.handle('projects:toggle', (_event, input: NewProjectInput & { pageTitle: string }) => {
+  ipcMain.handle(IPC.projects.toggle, (_event, input: NewProjectInput & { pageTitle: string }) => {
     const { pageTitle, ...projectInput } = input
     return projectStore.toggle(projectInput, pageTitle)
   })
